@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/biome-check.sh",
+            "timeout": 60,
+            "statusMessage": "Biome で整形・Lint 中..."
+          }
+        ]
+      }
+    ]
+  }
+}

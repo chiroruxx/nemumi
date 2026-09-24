@@ -43,7 +43,7 @@ Articles・Talks は個々のコンテンツ（記事・スライド）へのリ
 ### Step 1: 環境構築とプロジェクトの初期化
 
 - **やること**:
-    - Node.js 環境の確認と、バージョンの固定（`.nvmrc`、`package.json` の `engines`）
+    - Node.js 環境の確認と、バージョンの固定（mise の `mise.toml`、`package.json` の `engines`）
     - パッケージマネージャの決定（npm / pnpm など）
     - 決定したパッケージマネージャで `create astro` を実行し、プロジェクトを作成（TypeScript を有効化）
     - Formatter / Linter の導入（Prettier + ESLint、または Biome）

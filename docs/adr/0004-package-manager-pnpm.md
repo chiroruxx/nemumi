@@ -12,7 +12,8 @@ Node.js 25 以降は corepack が同梱されないため、npm
 ## 決定
 
 パッケージマネージャには pnpm を採用する。
-バージョンは `mise.toml` でメジャーバージョン（`12`）を固定する。
+バージョンは `mise.toml` でメジャーバージョン（`12`）を固定する。Cloudflare Workers Builds では環境変数 `PNPM_VERSION`
+で同じバージョンを指定する。
 
 ## 検討した選択肢
 

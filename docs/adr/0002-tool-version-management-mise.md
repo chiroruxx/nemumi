@@ -13,8 +13,18 @@
 ## 決定
 
 ツールのバージョン管理には mise を採用する。
-プロジェクトで使うツールのバージョンは、リポジトリ直下の `mise.toml` で固定する。
+プロジェクトで使うツールのバージョンは、以下のファイルで固定する。
+
+- Node.js: リポジトリ直下の `.node-version`。mise には `mise.toml` の `idiomatic_version_file_enable_tools` で読ませる。
+- Node.js 以外（pnpm など）: リポジトリ直下の `mise.toml`。
+
 あわせて、`package.json` の `engines` にも Node.js のバージョン要件を記載する。
+
+### 変更履歴
+
+- 2026-09-24: 当初は Node.js も `mise.toml` で固定していたが、Cloudflare Workers Builds が `mise.toml` を読まず
+  `.node-version` / `.nvmrc` / 環境変数 `NODE_VERSION` のみを読むことが分かったため、Node.js の指定を `.node-version`
+  に移した。
 
 ## 検討した選択肢
 
@@ -29,21 +39,21 @@
 
 ### バージョンを固定するファイル
 
-| 選択肢          | 評価                                                                |
-|-----------------|---------------------------------------------------------------------|
-| **mise.toml**   | mise がそのまま読める。Node.js と pnpm を同じファイルで固定できる   |
-| `.node-version` | 多くのツールが読む共通形式だが、mise に読ませるには設定の変更が必要 |
-| `.nvmrc`        | `.node-version` と同様                                              |
+| 選択肢                                         | 評価                                                                                        |
+|------------------------------------------------|---------------------------------------------------------------------------------------------|
+| mise.toml のみ                                 | mise がそのまま読めるが、Cloudflare Workers Builds が読まず、ビルド環境で別途指定が必要     |
+| **Node.js は `.node-version`、他は mise.toml** | Node.js の指定をローカルとビルド環境で 1 か所にまとめられる。mise に読ませる設定が 1 行必要 |
+| `.nvmrc`                                       | `.node-version` と同様                                                                      |
 
 ## 結果
 
 - **良い点**
-    - Node.js と pnpm のバージョンを 1 つのファイルで管理できる。
+    - Node.js のバージョンを、ローカルと Cloudflare Workers Builds で同じファイルから指定できる。
     - 将来、Node.js 以外のツールが必要になっても同じ仕組みで管理できる。
 - **注意点**
     - 開発者ごとに mise のインストールと有効化が必要になる。
-    - Cloudflare Workers Builds のビルド環境が `mise.toml` を読むかは未確認のため、Step 2
-      で確認する。読まない場合は、ビルド環境向けに別途バージョンを指定する。
+    - Cloudflare Workers Builds は pnpm のバージョンを環境変数 `PNPM_VERSION` でしか指定できないため、`mise.toml` の pnpm
+      のバージョンを変えるときは、ダッシュボードの `PNPM_VERSION` もあわせて変更する。
 
 ## 参考
 

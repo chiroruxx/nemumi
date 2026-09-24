@@ -31,7 +31,7 @@
    mise install
    ```
 
-   Node.js と pnpm は `mise.toml` に記載したバージョンが mise によってインストールされるため、個別のインストールは不要。
+   Node.js（`.node-version`）と pnpm（`mise.toml`）は、記載したバージョンが mise によってインストールされるため、個別のインストールは不要。
 
 3. 依存パッケージをインストールする。
 
@@ -57,6 +57,26 @@ pnpm dev
 | `pnpm lint`    | Biome で整形と Lint をチェックする           |
 | `pnpm format`  | Biome で整形し、自動修正できる問題を修正する |
 | `pnpm check`   | `astro check` で型チェックする               |
+
+## デプロイ
+
+`main` ブランチへのプッシュで、Cloudflare Workers Builds が自動でビルド・デプロイする。
+Worker の設定は `wrangler.jsonc` に記載している。
+
+Workers Builds のダッシュボードでは、以下を設定している。
+
+| 項目                                 | 値                              |
+|--------------------------------------|---------------------------------|
+| ビルドコマンド                       | `pnpm build`                    |
+| デプロイコマンド                     | `pnpm wrangler deploy`          |
+| 本番以外のブランチのデプロイコマンド | `pnpm wrangler versions upload` |
+| 環境変数 `PNPM_VERSION`              | `12`（`mise.toml` と合わせる）  |
+
+Node.js のバージョンは `.node-version` から読まれる。
+
+## ライセンス
+
+ライセンスは設定していない。コード・コンテンツともに、すべての権利を保持する（All rights reserved）。
 
 ## ドキュメント
 

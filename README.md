@@ -12,5 +12,5 @@
 
 ## ドキュメント
 
-- [プロジェクト](docs/projects/)
-- [ADR（Architecture Decision Records）](docs/adr/)
+- [プロジェクト](docs/projects)
+- [ADR（Architecture Decision Records）](docs/adr)

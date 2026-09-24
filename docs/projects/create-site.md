@@ -41,18 +41,20 @@ Articles・Talks は個々のコンテンツ（記事・スライド）へのリ
 - ランタイム: Node.js 26（[ADR 0003](../adr/0003-nodejs-26.md)）
 - パッケージマネージャ: pnpm（[ADR 0004](../adr/0004-package-manager-pnpm.md)）
 - Formatter / Linter: Biome（[ADR 0005](../adr/0005-formatter-linter-biome.md)）
+- 型チェック: astro check + TypeScript 6（[ADR 0006](../adr/0006-type-check-astro-check.md)）
 
 ## ロードマップ
 
-### Step 1: 環境構築とプロジェクトの初期化
+### Step 1: 環境構築とプロジェクトの初期化 ✅ 完了
 
-- **やること**:
-    - Node.js 環境の確認と、バージョンの固定（mise の `mise.toml`、`package.json` の `engines`）
-    - パッケージマネージャの決定（npm / pnpm など）
-    - 決定したパッケージマネージャで `create astro` を実行し、プロジェクトを作成（TypeScript を有効化）
-    - Formatter / Linter の導入（Prettier + ESLint、または Biome）
+- **やったこと**:
+    - mise で Node.js 26 と pnpm 12 をインストールし、`mise.toml` と `package.json` の `engines` でバージョンを固定
+    - `pnpm create astro` で minimal テンプレートからプロジェクトを作成（TypeScript は strict）
+    - Biome の導入（`pnpm lint` / `pnpm format`）と、Claude Code の hook による編集時の自動整形
+    - `astro check` の導入（`pnpm check`）
     - `.gitignore` の整備（`.idea/` などの IDE 設定ファイルを含める）
     - ローカルでの動作確認
+    - README へのセットアップ手順・開発手順の記載
 
 ### Step 2: リポジトリ作成 & デプロイ
 

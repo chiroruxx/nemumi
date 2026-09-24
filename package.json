@@ -12,15 +12,15 @@
     "preview": "astro preview",
     "astro": "astro",
     "lint": "biome check .",
-    "format": "biome check --write ."
+    "format": "biome check --write .",
+    "check": "astro check"
   },
   "dependencies": {
     "astro": "^7.3.4"
   },
-  "allowScripts": {
-    "esbuild": true
-  },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14"
+    "@astrojs/check": "^0.9.10",
+    "@biomejs/biome": "2.5.14",
+    "typescript": "^6.0.3"
   }
 }

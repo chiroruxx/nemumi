@@ -11,6 +11,7 @@
 - ランタイム: Node.js 26
 - パッケージマネージャ: pnpm
 - Formatter / Linter: Biome
+- 型チェック: astro check（TypeScript 6）
 
 ## 初回セットアップ
 
@@ -55,6 +56,7 @@ pnpm dev
 | `pnpm preview` | ビルド結果をローカルで確認する               |
 | `pnpm lint`    | Biome で整形と Lint をチェックする           |
 | `pnpm format`  | Biome で整形し、自動修正できる問題を修正する |
+| `pnpm check`   | `astro check` で型チェックする               |
 
 ## ドキュメント
 

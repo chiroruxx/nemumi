@@ -12,6 +12,7 @@
 - パッケージマネージャ: pnpm
 - Formatter / Linter: Biome
 - 型チェック: astro check（TypeScript 6）
+- CI: GitHub Actions
 
 ## 初回セットアップ
 
@@ -57,6 +58,11 @@ pnpm dev
 | `pnpm lint`    | Biome で整形と Lint をチェックする           |
 | `pnpm format`  | Biome で整形し、自動修正できる問題を修正する |
 | `pnpm check`   | `astro check` で型チェックする               |
+
+## CI
+
+PR と `main` へのプッシュで、GitHub Actions（`.github/workflows/ci.yml`）が Lint・型チェック・ビルドを実行する。
+`main` へのマージには、このチェックの成功が必要。
 
 ## デプロイ
 

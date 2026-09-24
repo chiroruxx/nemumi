@@ -43,6 +43,7 @@ Articles・Talks は個々のコンテンツ（記事・スライド）へのリ
 - パッケージマネージャ: pnpm（[ADR 0004](../adr/0004-package-manager-pnpm.md)）
 - Formatter / Linter: Biome（[ADR 0005](../adr/0005-formatter-linter-biome.md)）
 - 型チェック: astro check + TypeScript 6（[ADR 0006](../adr/0006-type-check-astro-check.md)）
+- CI: GitHub Actions（[ADR 0007](../adr/0007-ci-github-actions.md)）
 
 ## ロードマップ
 

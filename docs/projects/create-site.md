@@ -35,7 +35,7 @@ Articles・Talks は個々のコンテンツ（記事・スライド）へのリ
 
 - フレームワーク: Astro（SSG）
 - コンテンツ管理: Astro Content Collections（YAML / Markdown + スキーマ）
-- ホスティング: Cloudflare Workers（Static Assets）（[ADR 0001](adr/0001-hosting-cloudflare-workers.md)）
+- ホスティング: Cloudflare Workers（Static Assets）（[ADR 0001](../adr/0001-hosting-cloudflare-workers.md)）
 - スタイリング: Step 5 で決める（Tailwind CSS / CSS Modules など）
 
 ## ロードマップ

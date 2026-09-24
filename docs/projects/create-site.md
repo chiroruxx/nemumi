@@ -36,6 +36,7 @@ Articles・Talks は個々のコンテンツ（記事・スライド）へのリ
 - フレームワーク: Astro（SSG）
 - コンテンツ管理: Astro Content Collections（YAML / Markdown + スキーマ）
 - ホスティング: Cloudflare Workers（Static Assets）（[ADR 0001](../adr/0001-hosting-cloudflare-workers.md)）
+- ドメイン: nemumi.dev（Cloudflare Registrar）（[ADR 0008](../adr/0008-domain-nemumi-dev.md)）
 - スタイリング: Step 5 で決める（Tailwind CSS / CSS Modules など）
 - ツールのバージョン管理: mise（Node.js は `.node-version`、その他は
   `mise.toml`）（[ADR 0002](../adr/0002-tool-version-management-mise.md)）

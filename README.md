@@ -2,6 +2,8 @@
 
 自身が発信している情報（プロフィール、記事、登壇、コミュニティ活動など）をまとめる個人サイト。
 
+https://nemumi.dev
+
 ## 技術スタック
 
 - フレームワーク: Astro（SSG）
@@ -67,7 +69,7 @@ PR と `main` へのプッシュで、GitHub Actions（`.github/workflows/ci.yml
 ## デプロイ
 
 `main` ブランチへのプッシュで、Cloudflare Workers Builds が自動でビルド・デプロイする。
-Worker の設定は `wrangler.jsonc` に記載している。
+Worker の設定（独自ドメイン `nemumi.dev` の紐付けを含む）は `wrangler.jsonc` に記載している。
 
 Workers Builds のダッシュボードでは、以下を設定している。
 

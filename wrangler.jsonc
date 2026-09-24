@@ -6,6 +6,12 @@
     "directory": "./dist",
     "not_found_handling": "404-page"
   },
+  "routes": [
+    {
+      "pattern": "nemumi.dev",
+      "custom_domain": true
+    }
+  ],
   "workers_dev": true,
   "preview_urls": true
 }

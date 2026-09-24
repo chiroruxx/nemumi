@@ -35,9 +35,7 @@ Articles・Talks は個々のコンテンツ（記事・スライド）へのリ
 
 - フレームワーク: Astro（SSG）
 - コンテンツ管理: Astro Content Collections（YAML / Markdown + スキーマ）
-- ホスティング: Cloudflare Workers（Static Assets）
-    - React / Next.js を使わないため、Vercel を選ぶ利点が薄い。
-    - Pages は保守中心となり、Cloudflare は新規プロジェクトに Workers を推奨している。将来 Cron や API を追加する場合もそのまま拡張できる。
+- ホスティング: Cloudflare Workers（Static Assets）（[ADR 0001](adr/0001-hosting-cloudflare-workers.md)）
 - スタイリング: Step 5 で決める（Tailwind CSS / CSS Modules など）
 
 ## ロードマップ

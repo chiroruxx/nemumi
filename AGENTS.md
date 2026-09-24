@@ -15,15 +15,16 @@
 
 - コードを作成・編集したら、`pnpm format` で整形し、`pnpm lint` でエラーが無いことを確認する。
 
-## Development
+## 開発
 
-When starting the dev server, use background mode:
+- セットアップ手順と主なコマンドは [README.md](README.md) を参照する。
+- エージェントが開発サーバを起動する場合は、`pnpm dev` ではなくバックグラウンドモードを使う。
 
-```
-pnpm astro dev --background
-```
+  ```shell
+  pnpm astro dev --background
+  ```
 
-Manage the background server with `pnpm astro dev stop`, `pnpm astro dev status`, and `pnpm astro dev logs`.
+  停止・状態確認・ログ確認には `pnpm astro dev stop`、`pnpm astro dev status`、`pnpm astro dev logs` を使う。
 
 ## Documentation
 

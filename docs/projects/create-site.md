@@ -37,6 +37,10 @@ Articles・Talks は個々のコンテンツ（記事・スライド）へのリ
 - コンテンツ管理: Astro Content Collections（YAML / Markdown + スキーマ）
 - ホスティング: Cloudflare Workers（Static Assets）（[ADR 0001](../adr/0001-hosting-cloudflare-workers.md)）
 - スタイリング: Step 5 で決める（Tailwind CSS / CSS Modules など）
+- ツールのバージョン管理: mise（`mise.toml`）（[ADR 0002](../adr/0002-tool-version-management-mise.md)）
+- ランタイム: Node.js 26（[ADR 0003](../adr/0003-nodejs-26.md)）
+- パッケージマネージャ: pnpm（[ADR 0004](../adr/0004-package-manager-pnpm.md)）
+- Formatter / Linter: Biome（[ADR 0005](../adr/0005-formatter-linter-biome.md)）
 
 ## ロードマップ
 

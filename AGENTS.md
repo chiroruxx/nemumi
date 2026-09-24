@@ -4,6 +4,13 @@
 
 - Markdown ファイルを作成・編集したら、JetBrains IDE の MCP サーバの `reformat_file` で整形する。
 
+## ADR
+
+- 技術的な決定をしたら、`docs/adr` に ADR（Architecture Decision Record）を追加する。
+    - ファイル名は `NNNN-<内容を表す英語のスラッグ>.md` とし、番号は既存の最大番号の次にする。
+    - フォーマットは既存の ADR に合わせる。
+- ドキュメントには決定内容のみを記載して該当する ADR へリンクし、背景や理由は ADR に記載する。
+
 ## コード
 
 - コードを作成・編集したら、`pnpm format` で整形し、`pnpm lint` でエラーが無いことを確認する。

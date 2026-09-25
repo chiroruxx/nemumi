@@ -1,16 +1,836 @@
 ---
+import RecordList from "../components/RecordList.astro";
+
+const articles = [
+  {
+    date: "2026.05.18",
+    service: "はてなブログ",
+    title: "小さく作って、少しずつ育てる",
+  },
+  { date: "2026.03.02", service: "しずかな", title: "夜に考えごとをする" },
+  { date: "2025.12.14", service: "はてなブログ", title: "好きな場所をつくる" },
+];
+
+const talks = [
+  {
+    date: "2026.06.12",
+    datetime: "2026-06-12",
+    detail: "登壇",
+    title: "小さなサイトを育てる話",
+    url: "#talks",
+  },
+  {
+    date: "2025.11.08",
+    datetime: "2025-11-08",
+    detail: "登壇",
+    title: "つくる人のための小さな工夫",
+    url: "#talks",
+  },
+];
+
+const communities = [
+  {
+    name: "夜ふかし Web 部",
+    url: "#communities",
+    description: "ゆるく集まって、Web のことを話す小さなコミュニティ。",
+    icon: "夜",
+    tone: "violet",
+  },
+  {
+    name: "喫茶まどろみ",
+    url: "#communities",
+    description: "つくる人が、好きなことを持ち寄るオンラインの場所。",
+    icon: "喫",
+    tone: "amber",
+  },
+  {
+    name: "ことばのアトリエ",
+    url: "#communities",
+    description: "書くことや読むことを、ゆっくり楽しむ集まり。",
+    icon: "文",
+    tone: "violet",
+  },
+  {
+    name: "月曜もくもく会",
+    url: "#communities",
+    description: "週のはじまりに、それぞれの作業を進める会。",
+    icon: "月",
+    tone: "amber",
+  },
+  {
+    name: "小さな Web 制作室",
+    url: "#communities",
+    description: "Web をつくる人が、知恵や工夫を持ち寄る場所。",
+    icon: "W",
+    tone: "violet",
+  },
+];
+
+const activities = [
+  {
+    date: "2026.06.12",
+    kind: "登壇",
+    title: "星空フロントエンド 2026",
+    url: "#talks",
+  },
+  { date: "2026.04.18 – 04.19", kind: "運営", title: "春の Web 文化祭" },
+  {
+    date: "2025.11.08",
+    kind: "登壇",
+    title: "Web と暮らしの勉強会",
+    url: "#talks",
+  },
+];
+
+const records = [
+  ...articles.map((article) => ({
+    date: article.date,
+    datetime: article.date.replaceAll(".", "-"),
+    sortDate: article.date,
+    detail: article.service,
+    title: article.title,
+    url: "#records",
+  })),
+  ...activities.map((activity) => ({
+    date: activity.date,
+    datetime: activity.date.slice(0, 10).replaceAll(".", "-"),
+    sortDate: activity.date.slice(0, 10),
+    detail: activity.kind,
+    title: activity.title,
+    url: activity.url,
+  })),
+].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
 ---
 
-<html lang="en">
+<!doctype html>
+<html lang="ja">
   <head>
     <meta charset="utf-8">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width">
     <meta name="generator" content={Astro.generator}>
-    <title>Astro</title>
+    <meta
+      name="description"
+      content="chihiro のプロフィール、記事、登壇、コミュニティ、活動をまとめたサイトです。"
+    >
+    <title>nemumi</title>
   </head>
   <body>
-    <h1>Astro</h1>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="wordmark" href="#top" aria-label="nemumi ホーム">
+          <span class="wordmark-star" aria-hidden="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M20.8 15.7A9.3 9.3 0 0 1 8.3 3.2a9.5 9.5 0 1 0 12.5 12.5Z"
+              />
+            </svg>
+          </span>
+          <span>nemumi</span>
+        </a>
+        <nav aria-label="メインナビゲーション">
+          <a href="#records">記事・活動</a>
+          <a href="#talks">登壇</a>
+          <a href="#communities">コミュニティ</a>
+        </nav>
+        <span class="header-note"
+          ><span></span>
+          DESIGN MOCKUP · CONTENT IS SAMPLE</span
+        >
+      </header>
+
+      <main id="top">
+        <section class="hero" aria-labelledby="profile-title">
+          <div class="hero-copy">
+            <p class="eyebrow">
+              <span class="eyebrow-line"></span>
+              A LITTLE CORNER OF THE INTERNET
+            </p>
+            <h1 id="profile-title">
+              好きなことを、<br><span>ゆっくり集めて。</span>
+            </h1>
+            <p class="hero-intro">
+              こんにちは、<strong>chihiro</strong>
+              です。<br>
+              活動拠点や得意なことを含む、短い自己紹介がここに入ります。
+            </p>
+            <nav class="social-links" aria-label="プロフィールリンク">
+              <a href="#profile-title" aria-label="X（リンク先未設定）">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M18.9 2H22l-6.78 7.75L23.2 22h-6.25l-4.9-7.45L5.53 22H2.4l7.25-8.29L1.8 2h6.4l4.42 6.94L18.9 2Zm-1.1 18h1.73L7.27 3.9H5.42L17.8 20Z"
+                  />
+                </svg>
+                X <span aria-hidden="true">↗</span>
+              </a>
+              <a href="#profile-title" aria-label="mixi2（リンク先未設定）">
+                <span class="mixi2-mark" aria-hidden="true">m</span>
+                mixi2 <span aria-hidden="true">↗</span>
+              </a>
+              <a href="#profile-title" aria-label="GitHub（リンク先未設定）">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M12 2.4a9.7 9.7 0 0 0-3.07 18.9c.49.09.66-.21.66-.47v-1.68c-2.69.59-3.26-1.14-3.26-1.14-.44-1.12-1.08-1.42-1.08-1.42-.88-.6.07-.59.07-.59.97.07 1.48.99 1.48.99.86 1.47 2.26 1.04 2.81.79.09-.62.34-1.04.61-1.28-2.15-.25-4.42-1.08-4.42-4.79 0-1.06.38-1.93.99-2.61-.1-.24-.43-1.24.09-2.58 0 0 .81-.26 2.67.99a9.3 9.3 0 0 1 4.86 0c1.86-1.25 2.67-.99 2.67-.99.53 1.34.2 2.34.1 2.58.62.68.98 1.55.98 2.61 0 3.72-2.27 4.54-4.43 4.78.35.31.66.9.66 1.82v2.71c0 .26.17.56.67.46A9.7 9.7 0 0 0 12 2.4Z"
+                  />
+                </svg>
+                GitHub <span aria-hidden="true">↗</span>
+              </a>
+            </nav>
+          </div>
+          <div
+            class="profile-art"
+            role="img"
+            aria-label="プロフィールアイコン画像の仮置き場"
+          >
+            <div class="avatar-halo"></div>
+            <div class="avatar-disc"><span>ICON</span></div>
+            <span class="art-caption" aria-hidden="true">PROFILE ICON</span>
+          </div>
+        </section>
+
+        <section
+          class="content-section"
+          id="records"
+          aria-labelledby="records-title"
+        >
+          <div class="section-heading">
+            <div>
+              <h2 id="records-title">日々のこと</h2>
+            </div>
+            <p class="section-aside">書いたものと、<br>参加した活動の記録。</p>
+          </div>
+          <RecordList items={records} />
+        </section>
+
+        <section
+          class="content-section talks-section"
+          id="talks"
+          aria-labelledby="talks-title"
+        >
+          <div class="section-heading">
+            <div>
+              <h2 id="talks-title">お話ししたこと</h2>
+            </div>
+            <p class="section-aside">
+              会場で交わした話と、<br>あとから読めるスライド。
+            </p>
+          </div>
+          <RecordList items={talks} />
+        </section>
+
+        <section
+          class="content-section community-section"
+          id="communities"
+          aria-labelledby="communities-title"
+        >
+          <div class="section-heading">
+            <div>
+              <h2 id="communities-title">コミュニティのこと</h2>
+            </div>
+            <p class="section-aside">
+              ひとりでは見つからない、<br>景色に出会える場所。
+            </p>
+          </div>
+          <div class="community-grid">
+            {communities.map((community) => (
+  <a class="community-card" href={community.url}>
+    <div
+      class:list={["community-icon", community.tone]}
+      role="img"
+      aria-label={`${community.name}のアイコン（仮）`}
+    >
+      <span aria-hidden="true">{community.icon}</span>
+    </div>
+    <div class="community-info">
+      <h3>{community.name}</h3>
+      <p>{community.description}</p>
+    </div>
+  </a>
+))}
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <a class="wordmark" href="#top"
+          ><span class="wordmark-star" aria-hidden="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M20.8 15.7A9.3 9.3 0 0 1 8.3 3.2a9.5 9.5 0 1 0 12.5 12.5Z"
+              />
+            </svg>
+          </span
+          >nemumi</a
+        >
+        <small>© 2026 chihiro</small>
+      </footer>
+    </div>
   </body>
 </html>
+
+<style>
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap");
+
+:root {
+  color-scheme: dark;
+  --ink: #f1efff;
+  --paper: #1c1b32;
+  --line: #403e59;
+  --gold: #f7d99a;
+  --motion-duration: 200ms;
+  font-family: "DM Sans", "Noto Sans JP", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+  background: var(--paper);
+}
+body {
+  position: relative;
+  margin: 0;
+  color: var(--ink);
+  background-color: #1c1b32;
+  background-image:
+    radial-gradient(circle at 18px 29px, #e8ddff61 0 1px, transparent 1.5px),
+    radial-gradient(circle at 113px 91px, #cfc5ff61 0 1px, transparent 1.5px),
+    radial-gradient(circle at 238px 172px, #fff1c861 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 73px 247px, #ded7ff61 0 0.8px, transparent 1.5px),
+    radial-gradient(ellipse at 50% 0%, #302d50 0, transparent 43rem);
+  background-size:
+    293px 319px,
+    293px 319px,
+    293px 319px,
+    293px 319px,
+    auto;
+  background-repeat: repeat, repeat, repeat, repeat, no-repeat;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+a:focus-visible {
+  outline: 3px solid #9886dc;
+  outline-offset: 5px;
+  border-radius: 4px;
+}
+.page-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 1600px;
+  margin: 0 auto;
+  overflow: hidden;
+  background: transparent;
+}
+
+.site-header {
+  height: 82px;
+  padding: 0 clamp(24px, 6.2vw, 100px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  background: transparent;
+}
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #f1efff;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+.wordmark-star {
+  display: inline-grid;
+  place-items: center;
+  color: #f1cf72;
+}
+.wordmark-star svg {
+  width: 19px;
+  height: 19px;
+  fill: currentColor;
+}
+nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(18px, 3vw, 42px);
+}
+nav a {
+  color: #c0bdd4;
+  font-size: 12px;
+  transition: color var(--motion-duration) ease;
+}
+nav a:hover {
+  color: #8c77d0;
+}
+.header-note {
+  color: #aaa7c1;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+.header-note span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 7px 1px 0;
+  border-radius: 50%;
+  background: #a99ad9;
+}
+
+.hero {
+  position: relative;
+  min-height: 590px;
+  margin: 0 24px;
+  padding: 80px clamp(28px, 8vw, 130px) 76px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #4b486b;
+  border-radius: 8px;
+  color: #fbf9ff;
+  background: radial-gradient(
+    ellipse at 76% 48%,
+    #484465 0,
+    #373451 48%,
+    #302f4c 100%
+  );
+  box-shadow: 0 22px 70px #0e0d1c66;
+}
+.hero::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: 0.08;
+  background-image: radial-gradient(#fff 0.7px, transparent 0.7px);
+  background-size: 23px 23px;
+  mask-image: linear-gradient(90deg, transparent 20%, #000 100%);
+}
+.hero-copy {
+  position: relative;
+  z-index: 2;
+  width: 55%;
+  padding-bottom: 30px;
+}
+.eyebrow {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: #c9c3e4;
+}
+.eyebrow-line {
+  width: 27px;
+  height: 1px;
+  background: #b6a9e7;
+}
+h1 {
+  margin: 27px 0 21px;
+  font-size: clamp(42px, 5.4vw, 72px);
+  font-weight: 500;
+  line-height: 1.38;
+  letter-spacing: 0.02em;
+}
+.hero-copy h1 span {
+  color: #d6cafa;
+}
+.hero-intro {
+  color: #d4d2e1;
+  font-size: 14px;
+  line-height: 2.1;
+  letter-spacing: 0.025em;
+}
+.hero-intro strong {
+  color: white;
+  font-weight: 600;
+}
+.social-links {
+  display: flex;
+  gap: 11px;
+  margin-top: 27px;
+}
+.social-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid #696782;
+  border-radius: 99px;
+  color: #eeedf5;
+  font-size: 11px;
+  transition:
+    background var(--motion-duration) ease,
+    border var(--motion-duration) ease;
+}
+.social-links a:hover {
+  border-color: #c7b8f2;
+  background: #ffffff12;
+}
+.social-links svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+.social-links a .mixi2-mark {
+  display: grid;
+  width: 14px;
+  height: 14px;
+  margin-left: 0;
+  place-items: center;
+  border-radius: 4px;
+  color: #36324e;
+  background: #ded3ff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.social-links a span {
+  margin-left: 3px;
+  color: #bfb5e7;
+}
+.profile-art {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  right: clamp(50px, 11vw, 180px);
+  width: min(29vw, 340px);
+  aspect-ratio: 1;
+  transform: translateY(-53%);
+}
+.avatar-halo {
+  position: absolute;
+  inset: 0;
+  border: 1px solid #aaa1d04a;
+  border-radius: 50%;
+}
+.avatar-halo::before,
+.avatar-halo::after {
+  position: absolute;
+  content: "";
+  border: 1px solid #aaa1d02e;
+  border-radius: 50%;
+}
+.avatar-halo::before {
+  inset: 13%;
+}
+.avatar-halo::after {
+  inset: -11%;
+  border-style: dashed;
+  opacity: 0.5;
+}
+.avatar-disc {
+  position: absolute;
+  inset: 20%;
+  display: grid;
+  place-items: center;
+  border: 1px solid #c9bafa75;
+  border-radius: 50%;
+  color: #d1c9ed;
+  background: radial-gradient(circle at 35% 28%, #464364, #302f4e 68%, #282741);
+  box-shadow:
+    0 0 70px #b7a8ff24,
+    inset 0 0 34px #c6b5ee1c;
+}
+.profile-art .avatar-disc span {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+.art-caption {
+  position: absolute;
+  right: 0;
+  bottom: 8%;
+  color: #cbc6e1;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+.content-section {
+  padding: 112px clamp(28px, 12vw, 190px) 0;
+}
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 34px;
+}
+h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  color: #f0edff;
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+h2::before {
+  color: var(--gold);
+  content: "☆";
+  font-size: 0.52em;
+}
+.section-aside {
+  margin: 0 0 3px;
+  color: #b5b1c9;
+  font-size: 11px;
+  line-height: 1.9;
+  text-align: right;
+}
+
+.talks-section {
+  padding-top: 117px;
+}
+.community-section {
+  padding-top: 116px;
+  padding-bottom: 118px;
+}
+.community-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.community-card {
+  position: relative;
+  min-height: 200px;
+  padding: 22px 24px;
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  align-items: center;
+  gap: 22px;
+  border-radius: 5px;
+  background: #2a2945;
+  transition:
+    padding var(--motion-duration) ease,
+    background var(--motion-duration) ease,
+    box-shadow var(--motion-duration) ease,
+    transform var(--motion-duration) ease;
+}
+.community-card:nth-child(2) {
+  background: #302b43;
+}
+.community-card:hover {
+  background: #393653;
+  box-shadow: 0 12px 30px #0e0d1c66;
+  transform: scale(0.98);
+}
+.community-icon {
+  position: relative;
+  display: grid;
+  width: 112px;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #70638f;
+  border-radius: 32px;
+  background: radial-gradient(circle at 36% 28%, #5a5079, #393653 74%);
+  box-shadow: inset 0 0 26px #c5b4f21c;
+}
+.community-icon::before {
+  position: absolute;
+  inset: 8px;
+  border: 1px solid #c9baf344;
+  border-radius: 25px;
+  content: "";
+}
+.community-card .community-icon > span {
+  color: var(--community-icon-color, #eee8ff);
+  font-size: 34px;
+  font-weight: 500;
+  text-shadow: 0 0 20px var(--community-icon-glow, #e7d4ff6b);
+}
+.community-icon.amber {
+  --community-icon-color: #ffe6c1;
+  --community-icon-glow: #ffdb9a6b;
+  border-color: #826e5d;
+  background: radial-gradient(circle at 36% 28%, #75604f, #443b3a 74%);
+  box-shadow: inset 0 0 26px #f4d7ad1c;
+}
+.community-icon.amber::before {
+  border-color: #f2d9ba3d;
+}
+.community-info {
+  min-width: 0;
+}
+.community-card h3 {
+  margin: 0 0 8px;
+  color: #f0edff;
+  font-size: 16px;
+  font-weight: 500;
+}
+.community-card p {
+  max-width: 350px;
+  margin: 0;
+  color: #c0bdd1;
+  font-size: 11px;
+  line-height: 1.9;
+}
+.site-footer {
+  min-height: 100px;
+  padding: 24px clamp(28px, 6.2vw, 100px);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 15px;
+  border-top: 1px solid var(--line);
+}
+.site-footer small {
+  grid-column: 2;
+  color: #87839f;
+  font-size: 9px;
+  text-align: right;
+}
+
+@media (min-width: 1200px) {
+  .hero {
+    margin-right: 40px;
+    margin-left: 40px;
+  }
+}
+@media (max-width: 900px) {
+  .hero {
+    min-height: auto;
+    padding-bottom: 84px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hero-copy {
+    width: 100%;
+    max-width: 580px;
+  }
+  .profile-art {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    width: clamp(180px, 28vw, 230px);
+    margin: 10px auto 0;
+    transform: none;
+  }
+}
+@media (max-width: 760px) {
+  .site-header {
+    height: 70px;
+    padding: 0 23px;
+  }
+  nav {
+    gap: 15px;
+  }
+  nav a {
+    font-size: 10px;
+  }
+  .header-note {
+    display: none;
+  }
+  .hero {
+    margin: 0 12px;
+    padding: 50px 26px 66px;
+    align-items: start;
+  }
+  .hero-copy {
+    width: 100%;
+    padding-top: 15px;
+  }
+  h1 {
+    margin-top: 21px;
+    font-size: clamp(40px, 10vw, 60px);
+  }
+  .hero-intro {
+    font-size: 12px;
+  }
+  .profile-art {
+    width: min(47vw, 245px);
+    margin-top: 16px;
+  }
+  .art-caption {
+    right: -35px;
+    bottom: 3%;
+  }
+  .content-section {
+    padding: 82px 27px 0;
+  }
+  .section-heading {
+    margin-bottom: 24px;
+  }
+  .section-aside {
+    font-size: 10px;
+  }
+  .community-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .community-card {
+    min-height: 200px;
+    grid-template-columns: 90px 1fr;
+    gap: 16px;
+    padding: 18px;
+  }
+  .community-icon {
+    width: 90px;
+    border-radius: 26px;
+  }
+  .community-icon::before {
+    inset: 6px;
+    border-radius: 20px;
+  }
+  .community-card .community-icon > span {
+    font-size: 28px;
+  }
+  .site-footer {
+    padding: 25px 24px;
+  }
+}
+@media (max-width: 480px) {
+  .site-header {
+    padding: 0 17px;
+  }
+  .wordmark {
+    font-size: 17px;
+  }
+  nav {
+    gap: 10px;
+  }
+  nav a {
+    font-size: 9px;
+  }
+  .hero {
+    min-height: 665px;
+    padding-right: 22px;
+    padding-left: 22px;
+  }
+  .eyebrow {
+    font-size: 8px;
+  }
+  .hero-intro {
+    max-width: 290px;
+  }
+  .profile-art {
+    width: 190px;
+  }
+  .section-heading {
+    align-items: start;
+  }
+  .section-aside {
+    padding-top: 4px;
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration: 0.01ms;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+</style>

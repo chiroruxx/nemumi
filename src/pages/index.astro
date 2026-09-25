@@ -297,22 +297,20 @@ body {
   position: relative;
   margin: 0;
   color: var(--ink);
-  background:
-    radial-gradient(ellipse at 50% 0%, #302d50 0, transparent 43rem), #1c1b32;
-}
-body::before {
-  position: fixed;
-  z-index: 0;
-  inset: 0;
-  content: "";
-  pointer-events: none;
-  opacity: 0.38;
+  background-color: #1c1b32;
   background-image:
-    radial-gradient(circle at 18px 29px, #e8ddff 0 1px, transparent 1.5px),
-    radial-gradient(circle at 113px 91px, #cfc5ff 0 1px, transparent 1.5px),
-    radial-gradient(circle at 238px 172px, #fff1c8 0 1.2px, transparent 1.8px),
-    radial-gradient(circle at 73px 247px, #ded7ff 0 0.8px, transparent 1.5px);
-  background-size: 293px 319px;
+    radial-gradient(circle at 18px 29px, #e8ddff61 0 1px, transparent 1.5px),
+    radial-gradient(circle at 113px 91px, #cfc5ff61 0 1px, transparent 1.5px),
+    radial-gradient(circle at 238px 172px, #fff1c861 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 73px 247px, #ded7ff61 0 0.8px, transparent 1.5px),
+    radial-gradient(ellipse at 50% 0%, #302d50 0, transparent 43rem);
+  background-size:
+    293px 319px,
+    293px 319px,
+    293px 319px,
+    293px 319px,
+    auto;
+  background-repeat: repeat, repeat, repeat, repeat, no-repeat;
 }
 a {
   color: inherit;

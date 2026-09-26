@@ -3,82 +3,227 @@ import RecordList from "../components/RecordList.astro";
 
 const articles = [
   {
-    date: "2026.05.18",
+    date: "2026.09.21",
     service: "はてなブログ",
-    title: "小さく作って、少しずつ育てる",
+    title:
+      "Go Conference 2026 で登壇しました & ワークショップで大切にしていること",
+    url: "https://toyo.hatenablog.jp/entry/2026/09/21/120025",
   },
-  { date: "2026.03.02", service: "しずかな", title: "夜に考えごとをする" },
-  { date: "2025.12.14", service: "はてなブログ", title: "好きな場所をつくる" },
+  {
+    date: "2026.02.23",
+    service: "はてなブログ",
+    title: "Go Conference mini in Sendai 2026 に参加しました",
+    url: "https://toyo.hatenablog.jp/entry/2026/02/23/231530",
+  },
+  {
+    date: "2026.01.01",
+    service: "はてなブログ",
+    title: "2025年のコミュニティ活動まとめ",
+    url: "https://toyo.hatenablog.jp/entry/2026/01/01/152215",
+  },
+  {
+    date: "2025.12.14",
+    service: "はてなブログ",
+    title: "ホスピタリティを捨てろ",
+    url: "https://toyo.hatenablog.jp/entry/2025/12/14/175158",
+  },
+  {
+    date: "2025.03.25",
+    service: "はてなブログ",
+    title: "duck typing がわからんので調べてまとめる",
+    url: "https://toyo.hatenablog.jp/entry/2025/03/25/202716",
+  },
+  {
+    date: "2024.10.29",
+    service: "はてなブログ",
+    title: "GoConnect#3 レポート",
+    url: "https://toyo.hatenablog.jp/entry/2024/10/29/195530",
+  },
+  {
+    date: "2024.10.20",
+    service: "はてなブログ",
+    title: "Goの勉強 低レベルプログラミング",
+    url: "https://toyo.hatenablog.jp/entry/2024/10/20/120733",
+  },
+  {
+    date: "2024.10.03",
+    service: "はてなブログ",
+    title: "GoConnect#2.1 レポート",
+    url: "https://toyo.hatenablog.jp/entry/2024/10/03/215345",
+  },
+  {
+    date: "2024.09.16",
+    service: "はてなブログ",
+    title: "Goの勉強 リフレクション",
+    url: "https://toyo.hatenablog.jp/entry/2024/09/16/035555",
+  },
+  {
+    date: "2024.09.07",
+    service: "はてなブログ",
+    title: "GoConnect#2 レポート",
+    url: "https://toyo.hatenablog.jp/entry/2024/09/07/121528",
+  },
+  {
+    date: "2026.09.19",
+    service: "しずかな",
+    title: "キッチンラックを組み立てた",
+    url: "https://sizu.me/chihiroxx/posts/3nh5fnbxrfo3",
+  },
+  {
+    date: "2026.09.18",
+    service: "しずかな",
+    title: "権堂を観光したよ",
+    url: "https://sizu.me/chihiroxx/posts/i3vve1e7s4u2",
+  },
+  {
+    date: "2026.09.17",
+    service: "しずかな",
+    title: "ハロワに行った",
+    url: "https://sizu.me/chihiroxx/posts/02tanvr0nnhk",
+  },
+  {
+    date: "2026.09.16",
+    service: "しずかな",
+    title: "ニトリ・ツルヤ・イオンモール",
+    url: "https://sizu.me/chihiroxx/posts/b3faad397hun",
+  },
+  {
+    date: "2026.09.15",
+    service: "しずかな",
+    title: "長野に引っ越した",
+    url: "https://sizu.me/chihiroxx/posts/k2uoc49k7afk",
+  },
+  {
+    date: "2026.01.09",
+    service: "しずかな",
+    title: "「新卒n年目」と言う若者の考察",
+    url: "https://sizu.me/chihiroxx/posts/v3icbw7046od",
+  },
+  {
+    date: "2026.01.01",
+    service: "しずかな",
+    title: "YDS-150を買った",
+    url: "https://sizu.me/chihiroxx/posts/bkdaceff58s5",
+  },
+  {
+    date: "2025.02.10",
+    service: "しずかな",
+    title: "カンファレンスを主催したら理想の世界があった",
+    url: "https://sizu.me/chihiroxx/posts/aos4amaokmsd",
+  },
+  {
+    date: "2024.09.22",
+    service: "しずかな",
+    title: "PyCon APAC 2023 の件の整理",
+    url: "https://sizu.me/chihiroxx/posts/99kzk1c4oikt",
+  },
+  {
+    date: "2024.08.31",
+    service: "しずかな",
+    title: "タダ飯おじさん対策について",
+    url: "https://sizu.me/chihiroxx/posts/kf617rhtibw1",
+  },
 ];
 
 const talks = [
   {
-    date: "2026.06.12",
-    datetime: "2026-06-12",
-    detail: "登壇",
-    title: "小さなサイトを育てる話",
-    url: "#talks",
+    date: "2026.06.17",
+    title: "Contextとはなにか",
+    url: "https://speakerdeck.com/chiroruxx/contexttohananika",
   },
   {
-    date: "2025.11.08",
-    datetime: "2025-11-08",
-    detail: "登壇",
-    title: "つくる人のための小さな工夫",
-    url: "#talks",
+    date: "2026.01.30",
+    title: "初心者エンジニアから中級者エンジニアになるためにオススメの1冊",
+    url: "https://speakerdeck.com/chiroruxx/chu-xin-zhe-enziniakarazhong-ji-zhe-enzinianinarutameniosusumeno1ce",
+  },
+  {
+    date: "2026.01.28",
+    title: "Laravelのパッケージ全部紹介する",
+    url: "https://speakerdeck.com/chiroruxx/laravelnopatukeziquan-bu-shao-jie-suru",
+  },
+  {
+    date: "2025.12.12",
+    title: "Gopher のための「自由な話し合い」ワークショップ",
+    url: "https://speakerdeck.com/chiroruxx/gopher-notameno-zi-you-nahua-sihe-i-wakusiyotupu",
+  },
+  {
+    date: "2025.11.19",
+    title: "PHPをGoで動かす",
+    url: "https://speakerdeck.com/chiroruxx/phpwogodedong-kasu",
+  },
+  {
+    date: "2025.09.27",
+    title: "Goを使ってTDDを体験しよう！",
+    url: "https://speakerdeck.com/chiroruxx/gowoshi-tutetddwoti-yan-siyou",
+  },
+  {
+    date: "2025.08.27",
+    title: "今ならできる！PhpStormプラグイン開発",
+    url: "https://speakerdeck.com/chiroruxx/jin-naradekiru-phpstormpuraguinkai-fa",
+  },
+  {
+    date: "2025.06.12",
+    title: "Go Connectへの想い",
+    url: "https://speakerdeck.com/chiroruxx/go-connecthenoxiang-i-074c485a-d3c7-494e-b5e3-caeb953b088e",
+  },
+  {
+    date: "2025.01.29",
+    title: "eBPF with PHPをさわる",
+    url: "https://speakerdeck.com/chiroruxx/ebpf-with-phpwosawaru",
+  },
+  {
+    date: "2024.12.19",
+    title: "sl完全に理解したつもり",
+    url: "https://speakerdeck.com/chiroruxx/slwan-quan-nili-jie-sitatumori",
   },
 ];
 
+const talkRecords = talks
+  .map((talk) => ({
+    ...talk,
+    datetime: talk.date.replaceAll(".", "-"),
+    detail: "登壇",
+  }))
+  .sort((a, b) => b.date.localeCompare(a.date));
+
 const communities = [
   {
-    name: "夜ふかし Web 部",
-    url: "#communities",
-    description: "ゆるく集まって、Web のことを話す小さなコミュニティ。",
-    icon: "夜",
+    name: "GoConnect",
+    url: "https://gotalk.connpass.com/",
+    description: "Go 言語の勉強と交流を楽しむ、gopher のコミュニティ。",
+    icon: "Go",
+    image: "/images/goconnect-icon.png",
+    imageStyle: "wordmark",
     tone: "violet",
   },
   {
-    name: "喫茶まどろみ",
-    url: "#communities",
-    description: "つくる人が、好きなことを持ち寄るオンラインの場所。",
-    icon: "喫",
+    name: "PHP勉強会@東京",
+    url: "https://phpstudy.connpass.com/",
+    description: "2005年から続くPHPの勉強会。初参加でも気軽に参加できます。",
+    icon: "PHP",
+    image: "/images/phpstudy-icon.png",
+    imageStyle: "wordmark",
+    imageBackground: "#9b94cf",
     tone: "amber",
   },
   {
-    name: "ことばのアトリエ",
-    url: "#communities",
-    description: "書くことや読むことを、ゆっくり楽しむ集まり。",
-    icon: "文",
-    tone: "violet",
-  },
-  {
-    name: "月曜もくもく会",
-    url: "#communities",
-    description: "週のはじまりに、それぞれの作業を進める会。",
-    icon: "月",
-    tone: "amber",
-  },
-  {
-    name: "小さな Web 制作室",
-    url: "#communities",
-    description: "Web をつくる人が、知恵や工夫を持ち寄る場所。",
-    icon: "W",
+    name: "PHP Sessionless Conference",
+    url: "https://fortee.jp/sessionless-conference-2024",
+    description:
+      "双方向コミュニケーションをテーマにした、セッションのないカンファレンス。",
+    icon: "PHP",
+    image: "/images/php-sessionless-icon.png",
+    imageStyle: "square",
     tone: "violet",
   },
 ];
 
 const activities = [
   {
-    date: "2026.06.12",
-    kind: "登壇",
-    title: "星空フロントエンド 2026",
-    url: "#talks",
-  },
-  { date: "2026.04.18 – 04.19", kind: "運営", title: "春の Web 文化祭" },
-  {
-    date: "2025.11.08",
-    kind: "登壇",
-    title: "Web と暮らしの勉強会",
-    url: "#talks",
+    date: "2026.09.11",
+    service: ["運営", "登壇"],
+    title: "Go Conference 2026",
+    url: "https://gocon.jp/2026/",
   },
 ];
 
@@ -89,13 +234,13 @@ const records = [
     sortDate: article.date,
     detail: article.service,
     title: article.title,
-    url: "#records",
+    url: article.url,
   })),
   ...activities.map((activity) => ({
     date: activity.date,
-    datetime: activity.date.slice(0, 10).replaceAll(".", "-"),
-    sortDate: activity.date.slice(0, 10),
-    detail: activity.kind,
+    datetime: activity.date.replaceAll(".", "-"),
+    sortDate: activity.date,
+    detail: activity.service,
     title: activity.title,
     url: activity.url,
   })),
@@ -153,10 +298,10 @@ const records = [
             <p class="hero-intro">
               こんにちは、<strong>chihiro</strong>
               です。<br>
-              活動拠点や得意なことを含む、短い自己紹介がここに入ります。
+              長野を拠点に、PHPやGoでWebサイトをつくったり、スクラムやXPを試したり。コミュニティ運営もしています。
             </p>
             <nav class="social-links" aria-label="プロフィールリンク">
-              <a href="#profile-title" aria-label="X（リンク先未設定）">
+              <a href="https://x.com/chiroruxxxx" aria-label="X">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path
                     d="M18.9 2H22l-6.78 7.75L23.2 22h-6.25l-4.9-7.45L5.53 22H2.4l7.25-8.29L1.8 2h6.4l4.42 6.94L18.9 2Zm-1.1 18h1.73L7.27 3.9H5.42L17.8 20Z"
@@ -164,11 +309,11 @@ const records = [
                 </svg>
                 X <span aria-hidden="true">↗</span>
               </a>
-              <a href="#profile-title" aria-label="mixi2（リンク先未設定）">
+              <a href="https://mixi.social/@chihiroxx" aria-label="mixi2">
                 <span class="mixi2-mark" aria-hidden="true">m</span>
                 mixi2 <span aria-hidden="true">↗</span>
               </a>
-              <a href="#profile-title" aria-label="GitHub（リンク先未設定）">
+              <a href="https://github.com/chiroruxx" aria-label="GitHub">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path
                     d="M12 2.4a9.7 9.7 0 0 0-3.07 18.9c.49.09.66-.21.66-.47v-1.68c-2.69.59-3.26-1.14-3.26-1.14-.44-1.12-1.08-1.42-1.08-1.42-.88-.6.07-.59.07-.59.97.07 1.48.99 1.48.99.86 1.47 2.26 1.04 2.81.79.09-.62.34-1.04.61-1.28-2.15-.25-4.42-1.08-4.42-4.79 0-1.06.38-1.93.99-2.61-.1-.24-.43-1.24.09-2.58 0 0 .81-.26 2.67.99a9.3 9.3 0 0 1 4.86 0c1.86-1.25 2.67-.99 2.67-.99.53 1.34.2 2.34.1 2.58.62.68.98 1.55.98 2.61 0 3.72-2.27 4.54-4.43 4.78.35.31.66.9.66 1.82v2.71c0 .26.17.56.67.46A9.7 9.7 0 0 0 12 2.4Z"
@@ -178,13 +323,16 @@ const records = [
               </a>
             </nav>
           </div>
-          <div
-            class="profile-art"
-            role="img"
-            aria-label="プロフィールアイコン画像の仮置き場"
-          >
+          <div class="profile-art">
             <div class="avatar-halo"></div>
-            <div class="avatar-disc"><span>ICON</span></div>
+            <img
+              class="avatar-disc"
+              src="/images/profile-icon.jpg"
+              alt="chihiro のプロフィールアイコン"
+              width="400"
+              height="400"
+              fetchpriority="high"
+            >
             <span class="art-caption" aria-hidden="true">PROFILE ICON</span>
           </div>
         </section>
@@ -216,7 +364,7 @@ const records = [
               会場で交わした話と、<br>あとから読めるスライド。
             </p>
           </div>
-          <RecordList items={talks} />
+          <RecordList items={talkRecords} />
         </section>
 
         <section
@@ -236,11 +384,26 @@ const records = [
             {communities.map((community) => (
   <a class="community-card" href={community.url}>
     <div
-      class:list={["community-icon", community.tone]}
+      class:list={["community-icon", community.tone, community.imageStyle]}
+      style={
+        community.imageBackground &&
+        `--community-image-background: ${community.imageBackground}`
+      }
       role="img"
-      aria-label={`${community.name}のアイコン（仮）`}
+      aria-label={`${community.name}のアイコン`}
     >
-      <span aria-hidden="true">{community.icon}</span>
+      {community.image ? (
+        <img
+          class:list={["community-icon-image", community.imageStyle]}
+          src={community.image}
+          alt=""
+          width={community.imageStyle === "wordmark" ? 162 : 110}
+          height="110"
+          loading="lazy"
+        />
+      ) : (
+        <span aria-hidden="true">{community.icon}</span>
+      )}
     </div>
     <div class="community-info">
       <h3>{community.name}</h3>
@@ -505,7 +668,7 @@ h1 {
   z-index: 1;
   top: 50%;
   right: clamp(50px, 11vw, 180px);
-  width: min(29vw, 340px);
+  width: min(26vw, 300px);
   aspect-ratio: 1;
   transform: translateY(-53%);
 }
@@ -532,20 +695,18 @@ h1 {
 }
 .avatar-disc {
   position: absolute;
-  inset: 20%;
-  display: grid;
-  place-items: center;
+  top: 20%;
+  left: 20%;
+  width: 60%;
+  height: 60%;
   border: 1px solid #c9bafa75;
   border-radius: 50%;
-  color: #d1c9ed;
-  background: radial-gradient(circle at 35% 28%, #464364, #302f4e 68%, #282741);
+  clip-path: circle(47% at 50% 50%);
+  object-fit: cover;
+  background: #302f4e;
   box-shadow:
     0 0 70px #b7a8ff24,
     inset 0 0 34px #c6b5ee1c;
-}
-.profile-art .avatar-disc span {
-  font-size: 10px;
-  letter-spacing: 0.18em;
 }
 .art-caption {
   position: absolute;
@@ -625,6 +786,8 @@ h2::before {
   transform: scale(0.98);
 }
 .community-icon {
+  --community-image-background: #fff;
+
   position: relative;
   display: grid;
   width: 112px;
@@ -649,6 +812,18 @@ h2::before {
   font-weight: 500;
   text-shadow: 0 0 20px var(--community-icon-glow, #e7d4ff6b);
 }
+.community-icon-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.community-icon-image.wordmark {
+  padding: 10px;
+  background: var(--community-image-background);
+}
+.community-icon-image.square {
+  object-fit: cover;
+}
 .community-icon.amber {
   --community-icon-color: #ffe6c1;
   --community-icon-glow: #ffdb9a6b;
@@ -658,6 +833,11 @@ h2::before {
 }
 .community-icon.amber::before {
   border-color: #f2d9ba3d;
+}
+.community-icon.wordmark,
+.community-icon.square {
+  background: var(--community-image-background);
+  box-shadow: none;
 }
 .community-info {
   min-width: 0;
@@ -713,7 +893,7 @@ h2::before {
     top: auto;
     right: auto;
     bottom: auto;
-    width: clamp(180px, 28vw, 230px);
+    width: clamp(170px, 25vw, 205px);
     margin: 10px auto 0;
     transform: none;
   }
@@ -749,7 +929,7 @@ h2::before {
     font-size: 12px;
   }
   .profile-art {
-    width: min(47vw, 245px);
+    width: min(42vw, 210px);
     margin-top: 16px;
   }
   .art-caption {
@@ -815,7 +995,7 @@ h2::before {
     max-width: 290px;
   }
   .profile-art {
-    width: 190px;
+    width: 170px;
   }
   .section-heading {
     align-items: start;

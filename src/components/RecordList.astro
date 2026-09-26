@@ -2,7 +2,7 @@
 interface Item {
   date: string;
   datetime: string;
-  detail: string;
+  detail: string | string[];
   title: string;
   url?: string;
 }
@@ -12,6 +12,8 @@ interface Props {
 }
 
 const { items } = Astro.props;
+const detailsFor = (detail: Item["detail"]) =>
+  Array.isArray(detail) ? detail : [detail];
 ---
 
 <ol class="record-list">
@@ -20,7 +22,11 @@ const { items } = Astro.props;
     {item.url ? (
       <a class="record-row record-row-link" href={item.url}>
         <time datetime={item.datetime}>{item.date}</time>
-        <span class="record-detail">{item.detail}</span>
+        <span class="record-details">
+          {detailsFor(item.detail).map((detail) => (
+            <span class="record-detail">{detail}</span>
+          ))}
+        </span>
         <span class="record-title">{item.title}</span>
         <span class="row-arrow" aria-hidden="true">
           ↗
@@ -29,7 +35,11 @@ const { items } = Astro.props;
     ) : (
       <div class="record-row">
         <time datetime={item.datetime}>{item.date}</time>
-        <span class="record-detail">{item.detail}</span>
+        <span class="record-details">
+          {detailsFor(item.detail).map((detail) => (
+            <span class="record-detail">{detail}</span>
+          ))}
+        </span>
         <span class="record-title">{item.title}</span>
       </div>
     )}
@@ -74,8 +84,13 @@ const { items } = Astro.props;
   font-size: 10px;
   letter-spacing: 0.05em;
 }
-.record-detail {
+.record-details {
+  display: flex;
   justify-self: start;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.record-detail {
   padding: 4px 8px;
   border-radius: 99px;
   color: #d0c5ef;
@@ -122,7 +137,7 @@ const { items } = Astro.props;
     grid-row: 1 / 3;
     font-size: 8px;
   }
-  .record-detail,
+  .record-details,
   .record-title {
     grid-column: 2;
   }

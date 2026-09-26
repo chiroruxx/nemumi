@@ -18,8 +18,8 @@
 ### 各コンテンツのデータ
 
 - Articles は公開日と掲載サービス名を持つ。掲載サービス名は固定リストにせず、追加の仕組みは必要になった時点で検討する。
-- Talks / Slides は開催日を持つ。
-- Activities は開始日と終了日を持つ。終了日は任意とし、複数日開催の場合に設定する。
+- Talks / Slides は公開日を持つ。Speaker Deck は RSS の公開日を使う。
+- Activities は開始日と終了日、活動種別を持つ。終了日は任意とし、複数日開催の場合に設定する。活動種別は複数設定できる。
 - Communities は各項目にアイコン画像を持たせる。
 - Communities は数値の `order` を持ち、値の昇順で扱う。
 - Communities と Activities の説明文は任意とする。

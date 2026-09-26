@@ -19,11 +19,11 @@ done < <(
 
 # Codex hooks は非対話シェルで動くため、mise の場所を PATH に足す。
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-if command -v mise >/dev/null 2>&1; then
-  biome() { mise exec -- pnpm exec biome "$@"; }
-else
-  biome() { pnpm exec biome "$@"; }
+if ! command -v mise >/dev/null 2>&1; then
+  echo "mise が見つかりません。mise をインストールしてから再実行してください。" >&2
+  exit 2
 fi
+biome() { mise exec -- pnpm exec biome "$@"; }
 
 existing_files=()
 for file in "${files[@]}"; do

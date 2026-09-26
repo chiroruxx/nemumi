@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14">
+  <rect width="14" height="14" rx="4" fill="#ded3ff" />
+  <text
+    x="7"
+    y="11"
+    fill="#36324e"
+    font-family="Arial, sans-serif"
+    font-size="10"
+    font-weight="700"
+    text-anchor="middle"
+  >
+    m
+  </text>
+</svg>

@@ -4,3 +4,31 @@ pnpm = "12"
 [settings]
 # Node.js は Cloudflare Workers Builds と共通の .node-version で指定する
 idiomatic_version_file_enable_tools = ["node"]
+
+[tasks.install]
+description = "依存パッケージをインストールする"
+run = "pnpm install"
+
+[tasks.dev]
+description = "開発サーバを起動する"
+run = "pnpm dev"
+
+[tasks.build]
+description = "本番用にビルドする"
+run = "pnpm build"
+
+[tasks.preview]
+description = "ビルド結果をローカルで確認する"
+run = "pnpm preview"
+
+[tasks.lint]
+description = "Biome でコードをチェックする"
+run = "pnpm lint"
+
+[tasks.format]
+description = "Biome でコードを整形する"
+run = "pnpm format"
+
+[tasks.check]
+description = "Astro で型チェックする"
+run = "pnpm check"

@@ -1,0 +1,6 @@
+name: "GoConnect"
+url: "https://gotalk.connpass.com/"
+description: "Go 言語の勉強と交流を楽しむ、gopher のコミュニティ。"
+image: "../../assets/goconnect-icon.png"
+imageStyle: "wordmark"
+order: 1

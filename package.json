@@ -12,16 +12,22 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "lint": "biome check .",
+    "lint": "biome check . && stylelint 'src/**/*.astro'",
     "format": "biome check --write .",
     "check": "astro check"
   },
   "dependencies": {
-    "astro": "^7.3.4"
+    "astro": "^7.3.4",
+    "sharp": "0.35.4"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@biomejs/biome": "2.5.14",
+    "postcss-html": "^1.8.1",
+    "stylelint": "^17.15.0",
+    "stylelint-config-astro": "^2.0.0",
+    "stylelint-config-standard": "^40.0.0",
+    "stylelint-use-nesting": "^6.0.2",
     "typescript": "^6.0.3",
     "wrangler": "^4.136.3"
   }

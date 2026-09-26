@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!!**/dist"]
+    "includes": ["**", "!!.codex/hooks.json", "!!**/dist"]
   },
   "formatter": {
     "enabled": true,
@@ -21,7 +21,7 @@
   },
   "javascript": {
     "formatter": {
-      "quoteStyle": "double"
+      "quoteStyle": "single"
     }
   },
   "assist": {
@@ -39,6 +39,15 @@
     }
   },
   "overrides": [
+    // Astro 内の CSS Lint は Stylelint に集約するため、Biome では無効にする。
+    {
+      "includes": ["src/**/*.astro"],
+      "css": {
+        "linter": {
+          "enabled": false
+        }
+      }
+    },
     {
       "includes": ["public/**/*.svg"],
       "linter": {

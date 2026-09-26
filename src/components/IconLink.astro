@@ -1,0 +1,47 @@
+---
+interface Props {
+  href: string;
+  label: string;
+  icon: string;
+}
+
+const { href, label, icon } = Astro.props;
+---
+
+<a class="icon-link" href={href} aria-label={label}>
+  <img class="icon-link-icon" src={icon} alt="" width="14" height="14">
+  <span class="icon-link-label">{label}</span>
+  <span class="icon-link-arrow" aria-hidden="true">↗</span>
+</a>
+
+<style>
+.icon-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 99px;
+  color: var(--color-on-surface-strong);
+  font-size: 11px;
+  transition:
+    background var(--motion-duration) ease,
+    border var(--motion-duration) ease;
+
+  &:hover {
+    border-color: var(--color-outline-variant);
+    background: var(--decoration-focus-wash);
+    color: var(--color-primary);
+  }
+
+  .icon-link-icon {
+    display: block;
+    flex: 0 0 14px;
+  }
+
+  .icon-link-arrow {
+    margin-left: 3px;
+    color: var(--color-on-surface);
+  }
+}
+</style>

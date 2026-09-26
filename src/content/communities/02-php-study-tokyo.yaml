@@ -1,0 +1,7 @@
+name: "PHP勉強会@東京"
+url: "https://phpstudy.connpass.com/"
+description: "2005年から続くPHPの勉強会。初参加でも気軽に参加できます。"
+image: "../../assets/phpstudy-icon.png"
+imageStyle: "wordmark"
+imageBackground: "#9b94cf"
+order: 2

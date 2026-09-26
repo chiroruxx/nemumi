@@ -1,4 +1,5 @@
 date: "2024-09-22"
-service: "しずかな"
+types:
+  - "日常記事"
 title: "PyCon APAC 2023 の件の整理"
 url: "https://sizu.me/chihiroxx/posts/99kzk1c4oikt"

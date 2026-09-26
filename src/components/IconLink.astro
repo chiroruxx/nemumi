@@ -8,7 +8,13 @@ interface Props {
 const { href, label, icon } = Astro.props;
 ---
 
-<a class="icon-link" href={href} aria-label={label}>
+<a
+  class="icon-link"
+  href={href}
+  aria-label={label}
+  target="_blank"
+  rel="noopener noreferrer"
+>
   <img class="icon-link-icon" src={icon} alt="" width="14" height="14">
   <span class="icon-link-label">{label}</span>
   <span class="icon-link-arrow" aria-hidden="true">↗</span>
@@ -30,8 +36,12 @@ const { href, label, icon } = Astro.props;
 
   &:hover {
     border-color: var(--color-outline-variant);
-    background: var(--decoration-focus-wash);
+    background: var(--color-surface-hover);
     color: var(--color-primary);
+  }
+
+  &:focus-visible {
+    background: var(--color-surface-focus);
   }
 
   .icon-link-icon {

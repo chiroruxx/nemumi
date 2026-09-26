@@ -1,3 +1,5 @@
 date: "2025-01-29"
+types:
+  - "登壇資料"
 title: "eBPF with PHPをさわる"
 url: "https://speakerdeck.com/chiroruxx/ebpf-with-phpwosawaru"

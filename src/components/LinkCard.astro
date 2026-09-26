@@ -18,7 +18,7 @@ const imageHeight = Math.round((imageSize * image.height) / image.width);
 ---
 
 <article>
-  <a class="link-card" href={url}>
+  <a class="link-card" href={url} target="_blank" rel="noopener noreferrer">
     <div
       class:list={['link-card-image', imageStyle]}
       style={imageBackground && `--link-card-image-background: ${imageBackground}`}
@@ -67,6 +67,10 @@ const imageHeight = Math.round((imageSize * image.height) / image.width);
     box-shadow: 0 12px 30px var(--decoration-shadow);
     transform: scale(0.98);
   }
+  &:focus-visible {
+    background: var(--color-surface-focus);
+  }
+
   h3 {
     margin: 0 0 8px;
     color: var(--color-on-surface-strong);

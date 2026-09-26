@@ -17,7 +17,7 @@ const [articleEntries, talkEntries, communityEntries, activityEntries] =
 
 const articles = articleEntries.map(({ data }) => ({
   startDate: data.date,
-  tags: [data.service],
+  tags: data.types,
   title: data.title,
   url: data.url,
 }));
@@ -25,11 +25,12 @@ const articles = articleEntries.map(({ data }) => ({
 const talkRecords = talkEntries
   .map(({ data }) => ({
     startDate: data.date,
-    tags: ['登壇'],
+    tags: data.types,
     title: data.title,
     url: data.url,
   }))
-  .sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+  .sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
+  .slice(0, 5);
 
 const communities = communityEntries
   .sort((a, b) => a.data.order - b.data.order)
@@ -44,7 +45,9 @@ const records = [
     title: data.title,
     url: data.url,
   })),
-].sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+]
+  .sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
+  .slice(0, 10);
 
 const profileSocialLinks = [
   {
@@ -80,15 +83,20 @@ const profileSocialLinks = [
 
   <main id="top">
     <Hero
-      eyebrow="A LITTLE CORNER OF THE INTERNET"
-      headline={{ firstLine: '好きなことを、', highlightedLine: 'ゆっくり集めて。' }}
-      name="chihiro"
-      introduction="長野を拠点に、PHPやGoでWebサイトをつくったり、スクラムやXPを試したり。コミュニティ運営もしています。"
+      eyebrow="SOMEWHERE UNDER THE STARS"
       links={profileSocialLinks}
       linksLabel="プロフィールリンク"
       artwork={profileIcon}
       artworkAlt="chihiro のプロフィールアイコン"
-    />
+    >
+      <Fragment slot="title">
+        <span class="hero-title-highlight">ひとやすみ</span>したら<br>なにしよう
+      </Fragment>
+      <Fragment slot="intro">
+        こんにちは、<strong class="profile-name">chihiro</strong>です。<br>
+        長野を拠点に、PHPやGoでWebサイトをつくったり、スクラムやXPを試したり。<br>コミュニティ運営もしています。
+      </Fragment>
+    </Hero>
 
     <section
       class="content-section"
@@ -97,7 +105,7 @@ const profileSocialLinks = [
     >
       <div class="section-heading">
         <h2 id="records-title">日々のこと</h2>
-        <p class="section-aside">書いたものと、<br>参加した活動の記録。</p>
+        <p class="section-aside">書いたものと<br>参加した活動の記録</p>
       </div>
       <RecordList items={records} />
     </section>
@@ -110,7 +118,7 @@ const profileSocialLinks = [
       <div class="section-heading">
         <h2 id="talks-title">お話ししたこと</h2>
         <p class="section-aside">
-          会場で交わした話と、<br>あとから読めるスライド。
+          会場で交わした話と<br>あとから読めるスライド
         </p>
       </div>
       <RecordList items={talkRecords} />
@@ -124,7 +132,7 @@ const profileSocialLinks = [
       <div class="section-heading">
         <h2 id="communities-title">コミュニティのこと</h2>
         <p class="section-aside">
-          ひとりでは見つからない、<br>景色に出会える場所。
+          ひとりでは見つからない<br>景色に出会える場所
         </p>
       </div>
       <div class="community-grid">
@@ -149,6 +157,13 @@ const profileSocialLinks = [
 </BaseLayout>
 
 <style>
+.hero-title-highlight {
+  color: var(--color-primary);
+}
+.profile-name {
+  color: var(--color-on-surface-strong);
+  font-weight: 600;
+}
 .site-header {
   height: 82px;
   padding: 0 clamp(24px, 6.2vw, 100px);

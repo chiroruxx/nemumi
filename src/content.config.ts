@@ -6,7 +6,7 @@ const articles = defineCollection({
   loader: glob({ base: './src/content/articles', pattern: '**/*.yaml' }),
   schema: z.object({
     date: z.coerce.date(),
-    service: z.string(),
+    types: z.array(z.string()).min(1),
     title: z.string(),
     url: z.url().optional(),
   }),
@@ -16,6 +16,7 @@ const talks = defineCollection({
   loader: glob({ base: './src/content/talks', pattern: '**/*.yaml' }),
   schema: z.object({
     date: z.coerce.date(),
+    types: z.array(z.string()).min(1),
     title: z.string(),
     url: z.url().optional(),
   }),

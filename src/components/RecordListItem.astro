@@ -10,7 +10,12 @@ const { startDate, endDate, tags, title, url } = Astro.props;
 ---
 
 {url ? (
-  <a class="record-row record-row-link" href={url}>
+  <a
+    class="record-row record-row-link"
+    href={url}
+    target="_blank"
+    rel="noopener noreferrer"
+  >
     <RecordListItemContent
       startDate={startDate}
       endDate={endDate}
@@ -55,6 +60,7 @@ const { startDate, endDate, tags, title, url } = Astro.props;
     }
 
     &:focus-visible {
+      background: var(--color-surface-focus);
       outline: 3px solid var(--color-focus);
       outline-offset: 3px;
       border-radius: 4px;

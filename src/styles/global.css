@@ -26,19 +26,26 @@
   --color-outline: #403e59;
   --color-outline-variant: #696782;
   --color-focus: #9886dc;
-  --color-surface-tag: #36334f;
-  --color-surface-hover: #393653;
+  --color-surface-hover: color-mix(
+    in srgb,
+    var(--color-surface),
+    var(--color-on-surface-strong) 8%
+  );
+  --color-surface-focus: color-mix(
+    in srgb,
+    var(--color-surface),
+    var(--color-on-surface-strong) 12%
+  );
 
   /* Decorative colors */
   --decoration-mask-black: #000;
   --decoration-white: #fff;
   --decoration-page-glow: #302d50;
   --decoration-shadow: #0e0d1c66;
-  --decoration-star-lavender: #e8ddff61;
-  --decoration-star-violet: #cfc5ff61;
-  --decoration-star-pale: #ded7ff61;
-  --decoration-star-gold: #fff1c861;
-  --decoration-focus-wash: #ffffff12;
+  --decoration-background-star-lavender: #e8ddff61;
+  --decoration-background-star-violet: #cfc5ff61;
+  --decoration-background-star-pale: #ded7ff61;
+  --decoration-background-star-gold: #fff1c861;
   --motion-duration: 200ms;
   font-family: "DM Sans", "Noto Sans JP", sans-serif;
   font-synthesis: none;
@@ -75,22 +82,22 @@ body {
   background-image:
     radial-gradient(
       circle at 18px 29px,
-      var(--decoration-star-lavender) 0 1px,
+      var(--decoration-background-star-lavender) 0 1px,
       transparent 1.5px
     ),
     radial-gradient(
       circle at 113px 91px,
-      var(--decoration-star-violet) 0 1px,
+      var(--decoration-background-star-violet) 0 1px,
       transparent 1.5px
     ),
     radial-gradient(
       circle at 238px 172px,
-      var(--decoration-star-gold) 0 1.2px,
+      var(--decoration-background-star-gold) 0 1.2px,
       transparent 1.8px
     ),
     radial-gradient(
       circle at 73px 247px,
-      var(--decoration-star-pale) 0 0.8px,
+      var(--decoration-background-star-pale) 0 0.8px,
       transparent 1.5px
     ),
     radial-gradient(

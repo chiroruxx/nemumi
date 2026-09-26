@@ -8,28 +8,13 @@ type IconLinkItem = ComponentProps<typeof IconLink>;
 
 interface Props {
   eyebrow: string;
-  headline: {
-    firstLine: string;
-    highlightedLine: string;
-  };
-  name: string;
-  introduction: string;
   links: IconLinkItem[];
   linksLabel: string;
   artwork: ImageMetadata;
   artworkAlt: string;
 }
 
-const {
-  eyebrow,
-  headline,
-  name,
-  introduction,
-  links,
-  linksLabel,
-  artwork,
-  artworkAlt,
-} = Astro.props;
+const { eyebrow, links, linksLabel, artwork, artworkAlt } = Astro.props;
 ---
 
 <section class="hero" aria-labelledby="hero-title">
@@ -38,13 +23,12 @@ const {
       <span class="eyebrow-line"></span>
       {eyebrow}
     </p>
+    <!-- biome-ignore lint/a11y/useHeadingContent: 見出しの内容は呼び出し側の title slot から提供されるため。 -->
     <h1 id="hero-title">
-      {headline.firstLine}<br><span>{headline.highlightedLine}</span>
+      <slot name="title" />
     </h1>
     <p class="hero-intro">
-      こんにちは、<strong>{name}</strong>
-      です。<br>
-      {introduction}
+      <slot name="intro" />
     </p>
     <nav class="icon-links" aria-label={linksLabel}>
       {links.map((link) => (
@@ -126,23 +110,16 @@ const {
     }
     h1 {
       margin: 27px 0 21px;
-      font-size: clamp(42px, 5.4vw, 72px);
+      font-size: clamp(24px, 3.8vw, 72px);
       font-weight: 500;
       line-height: 1.38;
       letter-spacing: 0.02em;
-      span {
-        color: var(--color-primary);
-      }
     }
     .hero-intro {
       color: var(--color-on-surface);
       font-size: 14px;
       line-height: 2.1;
       letter-spacing: 0.025em;
-      strong {
-        color: var(--color-on-surface-strong);
-        font-weight: 600;
-      }
     }
     .icon-links {
       display: flex;
@@ -229,7 +206,7 @@ const {
       padding-top: 15px;
       h1 {
         margin-top: 21px;
-        font-size: clamp(40px, 10vw, 60px);
+        font-size: min(60px, calc((100vw - 80px) / 9.5));
       }
       .hero-intro {
         font-size: 12px;

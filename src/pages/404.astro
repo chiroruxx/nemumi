@@ -9,8 +9,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 >
   <main class="not-found" aria-labelledby="not-found-title">
     <Wordmark href="/" label="nemumi トップページへ" />
-    <p class="error-code"><span aria-hidden="true">✦</span> 404</p>
-    <h1 id="not-found-title">あれ？ページが見つからないみたい。</h1>
+    <h1 id="not-found-title">あれ？<br>ページが見つからないみたい</h1>
     <p class="message">
       お探しのページは移動したか、URLが少し違うようです。<br>
       トップページから、もう一度探してみてください。
@@ -33,22 +32,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
   h1 {
     max-width: 620px;
-    margin: 0;
+    margin: 96px 0 0;
     color: var(--color-on-background-strong);
     font-size: clamp(25px, 5vw, 38px);
     font-weight: 500;
     line-height: 1.6;
     letter-spacing: 0.04em;
-  }
-}
-.error-code {
-  margin: 72px 0 16px;
-  color: var(--color-on-background);
-  font-size: 12px;
-  letter-spacing: 0.16em;
-
-  span {
-    color: var(--color-secondary);
   }
 }
 .message {
@@ -72,10 +61,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
   &:hover {
     border-color: var(--color-outline-variant);
-    background: var(--decoration-focus-wash);
+    background: var(--color-surface-hover);
   }
 
   &:focus-visible {
+    background: var(--color-surface-focus);
     outline: 3px solid var(--color-focus);
     outline-offset: 5px;
   }

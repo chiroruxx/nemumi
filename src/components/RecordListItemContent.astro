@@ -19,10 +19,10 @@ const formattedEndDate = endDate ? formatDate(endDate) : undefined;
 <span class="record-date">
   <time datetime={formattedStartDate}>{formattedStartDate}</time>
   {formattedEndDate && (
-  <>
-    – <time datetime={formattedEndDate}>{formattedEndDate}</time>
-  </>
-)}
+    <>
+      – <time datetime={formattedEndDate}>{formattedEndDate}</time>
+    </>
+  )}
 </span>
 <span class="record-tags">
   {tags.map((tag) => <span class="record-tag">{tag}</span>)}

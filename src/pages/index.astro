@@ -165,15 +165,15 @@ const personStructuredData = {
       </div>
       <div class="community-grid">
         {communities.map((community) => (
-  <LinkCard
-    title={community.name}
-    url={community.url}
-    description={community.description}
-    image={community.image}
-    imageStyle={community.imageStyle}
-    imageBackground={community.imageBackground}
-  />
-))}
+          <LinkCard
+            title={community.name}
+            url={community.url}
+            description={community.description}
+            image={community.image}
+            imageStyle={community.imageStyle}
+            imageBackground={community.imageBackground}
+          />
+        ))}
       </div>
     </section>
   </main>

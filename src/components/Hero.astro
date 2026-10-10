@@ -32,8 +32,8 @@ const { eyebrow, links, linksLabel, artwork, artworkAlt } = Astro.props;
     </p>
     <nav class="icon-links" aria-label={linksLabel}>
       {links.map((link) => (
-  <IconLink href={link.href} label={link.label} icon={link.icon} />
-))}
+        <IconLink href={link.href} label={link.label} icon={link.icon} />
+      ))}
     </nav>
   </div>
   <div class="hero-art">

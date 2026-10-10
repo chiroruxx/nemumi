@@ -205,6 +205,7 @@ const { eyebrow, links, linksLabel, artwork, artworkAlt } = Astro.props;
     align-items: start;
     .hero-copy {
       width: 100%;
+      min-height: 390px;
       padding-top: 15px;
       h1 {
         margin-top: 21px;
@@ -213,10 +214,13 @@ const { eyebrow, links, linksLabel, artwork, artworkAlt } = Astro.props;
       .hero-intro {
         font-size: 12px;
       }
+      .icon-links {
+        flex-wrap: wrap;
+      }
     }
     .hero-art {
-      width: min(42vw, 210px);
-      margin-top: 16px;
+      width: clamp(170px, 25vw, 205px);
+      margin: 16px auto 0;
     }
   }
   @media (width <= 480px) {
@@ -224,6 +228,7 @@ const { eyebrow, links, linksLabel, artwork, artworkAlt } = Astro.props;
     padding-right: 22px;
     padding-left: 22px;
     .hero-copy {
+      min-height: 430px;
       .eyebrow {
         font-size: 8px;
       }

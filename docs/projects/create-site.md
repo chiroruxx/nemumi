@@ -141,7 +141,8 @@
 
 - **やること**:
     - タイトル、メタディスクリプション、canonical の設定 ✅
-    - SNS シェア時の OGP（画像・説明文）の設定 ✅ 固定 PNG（1200 × 630、[ADR 0020](../adr/0020-static-ogp-image.md)）
+    - SNS シェア時の OGP（画像・説明文）の設定 ✅ Open Graph 用の正方形画像と Twitter Card
+      用の横長画像（[ADR 0020](../adr/0020-static-ogp-image.md)）
     - favicon の設定 ✅ 完了
     - サイトマップ（`@astrojs/sitemap`）と `robots.txt` の生成 ✅
       ([ADR 0021](../adr/0021-generate-sitemap-and-robots-txt.md))
@@ -150,11 +151,10 @@
 ### Step 7: 品質チェック & リリース
 
 - **やること**:
-    - Lighthouse でパフォーマンス・アクセシビリティ・SEO を確認
-    - 主要ブラウザとスマートフォンでの表示確認
-    - [ ] デプロイ後に OGP プレビューを確認し、画像・タイトル・説明文の表示を確認する
-    - [ ] Google Search Console に登録し、サイトマップを送信する（[SEO 運用](./seo-operations.md)）
-    - アクセス解析の導入を検討（Cloudflare Web Analytics など）
+    - Lighthouse でパフォーマンス・アクセシビリティ・SEO を確認 ✅ ローカル Lighthouse CI 通過
+    - 主要ブラウザとスマートフォンでの表示確認 ✅ Chrome の主要ビューポートと Android 実機で確認（Safari は未確認）
+    - [ ] デプロイ後に OGP プレビューを確認し、画像・タイトル・説明文の表示を確認する（X は問題なし。Slack は正方形画像への変更後に再確認）
+    - Cloudflare Web Analytics を使う ✅ ([ADR 0024](../adr/0024-use-cloudflare-web-analytics.md))
     - SNS のプロフィール欄などにサイト URL を掲載する
 
 ### Step 8: 運用

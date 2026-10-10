@@ -22,9 +22,8 @@
 
 - Articles は公開日と記事種別 `types` を持つ。
 - Talks / Slides は公開日と登壇種別 `types` を持つ。Speaker Deck は RSS の公開日を使う。
-- Articles、Talks / Slides、Activities の `types`
-  は文字列の配列とし、表示時にタグとして使う。タグがない場合は空配列を指定する。Talks / Slides
-  の「登壇資料」タグもデータに定義する。
+- Articles、Talks / Slides、Activities の `types` によるタグの指定方法は[ADR 0018](0018-optional-content-types.md)に従う。
+- Talks / Slides の「登壇資料」タグもデータに定義する。
 - Activities は開始日と終了日、活動種別を持つ。終了日は任意とし、複数日開催の場合に設定する。活動種別は複数設定できる。
 - Communities は各項目にアイコン画像を持たせる。
 - Communities は各項目にリンク先 URL を必須で設定する。

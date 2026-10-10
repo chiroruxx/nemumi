@@ -15,9 +15,23 @@ const [articleEntries, talkEntries, communityEntries, activityEntries] =
     getCollection('activities'),
   ]);
 
+const communityOrders = new Map<number, string>();
+for (const {
+  id,
+  data: { order },
+} of communityEntries) {
+  const existingCommunityId = communityOrders.get(order);
+  if (existingCommunityId) {
+    throw new Error(
+      `Community order ${order} is used by both "${existingCommunityId}" and "${id}".`,
+    );
+  }
+  communityOrders.set(order, id);
+}
+
 const articles = articleEntries.map(({ data }) => ({
   startDate: data.date,
-  tags: data.types,
+  tags: data.types ?? [],
   title: data.title,
   url: data.url,
 }));
@@ -25,7 +39,7 @@ const articles = articleEntries.map(({ data }) => ({
 const talkRecords = talkEntries
   .map(({ data }) => ({
     startDate: data.date,
-    tags: data.types,
+    tags: data.types ?? [],
     title: data.title,
     url: data.url,
   }))
@@ -41,7 +55,7 @@ const records = [
   ...activityEntries.map(({ data }) => ({
     startDate: data.startDate,
     endDate: data.endDate,
-    tags: data.types,
+    tags: data.types ?? [],
     title: data.title,
     url: data.url,
   })),

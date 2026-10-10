@@ -36,3 +36,7 @@ run = "pnpm check"
 [tasks.test]
 description = "fixture コンテンツで生成ページをテストする"
 run = "pnpm test"
+
+[tasks.lighthouse-ci]
+description = "Lighthouse CI でビルド成果物を検査する"
+run = "pnpm lighthouse:ci"

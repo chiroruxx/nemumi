@@ -154,7 +154,7 @@
     - Lighthouse でパフォーマンス・アクセシビリティ・SEO を確認 ✅ ローカル Lighthouse CI 通過
     - 主要ブラウザとスマートフォンでの表示確認 ✅ Chrome の主要ビューポートと Android 実機で確認（Safari は未確認）
     - [ ] デプロイ後に OGP プレビューを確認し、画像・タイトル・説明文の表示を確認する（X は問題なし。Slack は正方形画像への変更後に再確認）
-    - アクセス解析の導入を検討（Cloudflare Web Analytics など）
+    - Cloudflare Web Analytics を使う ✅ ([ADR 0024](../adr/0024-use-cloudflare-web-analytics.md))
     - SNS のプロフィール欄などにサイト URL を掲載する
 
 ### Step 8: 運用

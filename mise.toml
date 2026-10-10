@@ -22,7 +22,7 @@ description = "ビルド結果をローカルで確認する"
 run = "pnpm preview"
 
 [tasks.lint]
-description = "Biome でコードをチェックする"
+description = "Biome と Stylelint でコードをチェックする"
 run = "pnpm lint"
 
 [tasks.format]

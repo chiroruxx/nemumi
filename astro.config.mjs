@@ -6,6 +6,10 @@ import { defineConfig, fontProviders } from 'astro/config';
 // https://astro.build/config
 export default defineConfig({
   site: 'https://nemumi.dev',
+  build: {
+    // Inline the small shared stylesheet to remove its render-blocking request.
+    inlineStylesheets: 'always',
+  },
   fonts: [
     {
       provider: fontProviders.google(),

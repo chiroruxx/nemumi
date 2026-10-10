@@ -65,6 +65,43 @@ mise run dev
 | `mise run test`          | 固定 fixture で生成ページをテストする  |
 | `mise run lighthouse-ci` | Lighthouse CI でビルド成果物を検査する |
 
+## コンテンツの追加
+
+登壇と活動は、`src/content/talks/` または `src/content/activities/` に YAML ファイルを1件ずつ追加する。日付は `YYYY-MM-DD`
+形式で記載し、同じディレクトリ内で重複しないファイル名を付ける。項目名と必須・任意項目は [コンテンツ定義](src/content.config.ts)
+で確認できる。
+
+### 登壇を追加する
+
+`src/content/talks/` に YAML ファイルを作成する。`date` と `title` は必須。`types` と `url` は任意で、スライドなどのリンクがある場合は
+`url` に設定する。
+
+```yaml
+date: "2026-06-17"
+types:
+  - "登壇資料"
+title: "発表タイトル"
+url: "https://example.com/slides"
+```
+
+### 活動を追加する
+
+`src/content/activities/` に YAML ファイルを作成する。`startDate` と `title` は必須。複数日開催の場合は `endDate` を追加する。
+`types`、`url`、`description` は任意。終了日は開始日以降の日付にする。
+
+```yaml
+startDate: "2026-09-11"
+endDate: "2026-09-12"
+types:
+  - "運営"
+  - "登壇"
+title: "活動タイトル"
+url: "https://example.com/event"
+description: "活動の説明"
+```
+
+追加後は `mise run check` でコンテンツの型を確認し、`mise run dev` で表示を確認する。
+
 ## CI
 
 PR と `main` へのプッシュで、GitHub Actions（`.github/workflows/ci.yml`）が通常の Lint・型チェック・テスト・ビルドと

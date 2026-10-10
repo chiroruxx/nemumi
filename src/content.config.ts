@@ -2,12 +2,18 @@ import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 
+// テスト用ビルドでは固定 fixture を読み、実コンテンツの変更からテストを独立させる。
+const contentBase =
+  import.meta.env.MODE === 'test'
+    ? './tests/fixtures/content'
+    : './src/content';
+
 const nonBlankString = z.string().refine((value) => value.trim().length > 0, {
   message: '空の文字列は指定できません',
 });
 
 const articles = defineCollection({
-  loader: glob({ base: './src/content/articles', pattern: '**/*.yaml' }),
+  loader: glob({ base: `${contentBase}/articles`, pattern: '**/*.yaml' }),
   schema: z.object({
     date: z.coerce.date(),
     types: z.array(nonBlankString).min(1).optional(),
@@ -17,7 +23,7 @@ const articles = defineCollection({
 });
 
 const talks = defineCollection({
-  loader: glob({ base: './src/content/talks', pattern: '**/*.yaml' }),
+  loader: glob({ base: `${contentBase}/talks`, pattern: '**/*.yaml' }),
   schema: z.object({
     date: z.coerce.date(),
     types: z.array(nonBlankString).min(1).optional(),
@@ -27,7 +33,7 @@ const talks = defineCollection({
 });
 
 const communities = defineCollection({
-  loader: glob({ base: './src/content/communities', pattern: '**/*.yaml' }),
+  loader: glob({ base: `${contentBase}/communities`, pattern: '**/*.yaml' }),
   schema: ({ image }) =>
     z.object({
       name: nonBlankString,
@@ -44,7 +50,7 @@ const communities = defineCollection({
 });
 
 const activities = defineCollection({
-  loader: glob({ base: './src/content/activities', pattern: '**/*.yaml' }),
+  loader: glob({ base: `${contentBase}/activities`, pattern: '**/*.yaml' }),
   schema: z
     .object({
       startDate: z.coerce.date(),

@@ -12,6 +12,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
+    "test": "astro build --mode test --outDir dist-test && node --test tests/*.test.mjs",
     "lint": "biome check . && stylelint 'src/**/*.astro'",
     "format": "biome check --write .",
     "check": "astro check"

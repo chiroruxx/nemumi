@@ -62,6 +62,7 @@ mise run dev
 | `mise run lint`    | Biome と Stylelint で Lint を実行する  |
 | `mise run format`  | Biome でファイルを整形する             |
 | `mise run check`   | `astro check` で型チェックする         |
+| `mise run test`    | 固定 fixture で生成ページをテストする  |
 
 ## CI
 

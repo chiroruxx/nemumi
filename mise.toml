@@ -32,3 +32,7 @@ run = "pnpm format"
 [tasks.check]
 description = "Astro で型チェックする"
 run = "pnpm check"
+
+[tasks.test]
+description = "fixture コンテンツで生成ページをテストする"
+run = "pnpm test"

@@ -143,7 +143,8 @@
     - タイトル、メタディスクリプション、canonical の設定
     - SNS シェア時の OGP（画像・説明文）の設定 ✅ 固定 PNG（1200 × 630、[ADR 0020](../adr/0020-static-ogp-image.md)）
     - favicon の設定 ✅ 完了
-    - サイトマップ（`@astrojs/sitemap`）と `robots.txt` の生成
+    - サイトマップ（`@astrojs/sitemap`）と `robots.txt` の生成 ✅
+      ([ADR 0021](../adr/0021-generate-sitemap-and-robots-txt.md))
     - 構造化データ（JSON-LD の `Person`）の追加
 
 ### Step 7: 品質チェック & リリース
@@ -151,6 +152,7 @@
 - **やること**:
     - Lighthouse でパフォーマンス・アクセシビリティ・SEO を確認
     - 主要ブラウザとスマートフォンでの表示確認
+    - [ ] デプロイ後に OGP プレビューを確認し、画像・タイトル・説明文の表示を確認する
     - アクセス解析の導入を検討（Cloudflare Web Analytics など）
     - SNS のプロフィール欄などにサイト URL を掲載する
 

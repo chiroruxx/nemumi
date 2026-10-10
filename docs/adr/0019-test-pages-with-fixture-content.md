@@ -11,8 +11,9 @@ Astro ページを使いながら、テスト入力を固定する。
 ## 決定
 
 - テスト専用コンテンツを `tests/fixtures/content` に置く。
-- `NEMUMI_TEST_CONTENT=1` が設定されたビルドでは Content Collections の読み込み元を fixture に切り替える。
-- テストは fixture を使ってトップページをビルドし、生成された HTML の一覧順と件数を検証する。
+- `--mode test` で実行するビルドでは Content Collections の読み込み元を fixture に切り替える。
+- テストは fixture を使ってトップページをビルドし、生成された HTML の一覧順と件数、ページの基本構造を検証する。
+- 生成された HTML ページは出力ディレクトリから自動検出し、すべてに共通のメタデータと外部リンクの安全属性を検証する。
 - テスト出力は `dist-test/` に生成し、通常の本番ビルド出力と分ける。
 - CI で fixture を使うテストを実行する。
 

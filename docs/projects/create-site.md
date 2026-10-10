@@ -151,10 +151,9 @@
 ### Step 7: 品質チェック & リリース
 
 - **やること**:
-    - Lighthouse でパフォーマンス・アクセシビリティ・SEO を確認
-    - 主要ブラウザとスマートフォンでの表示確認
+    - Lighthouse でパフォーマンス・アクセシビリティ・SEO を確認 ✅ ローカル Lighthouse CI 通過
+    - 主要ブラウザとスマートフォンでの表示確認 ✅ Chrome の主要ビューポートと Android 実機で確認（Safari は未確認）
     - [ ] デプロイ後に OGP プレビューを確認し、画像・タイトル・説明文の表示を確認する（X は問題なし。Slack は正方形画像への変更後に再確認）
-    - [ ] Google Search Console に登録し、サイトマップを送信する（[SEO 運用](./seo-operations.md)）
     - アクセス解析の導入を検討（Cloudflare Web Analytics など）
     - SNS のプロフィール欄などにサイト URL を掲載する
 

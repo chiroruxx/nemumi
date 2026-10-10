@@ -1,3 +1,6 @@
 allowBuilds:
   esbuild: true
   workerd: true
+# tmp is pinned to a patched release because Lighthouse CI's transitive versions are vulnerable to path traversal.
+overrides:
+  tmp: 0.2.7

@@ -54,20 +54,23 @@ mise run dev
 
 ### 主なコマンド
 
-| コマンド           | 内容                                   |
-|--------------------|----------------------------------------|
-| `mise run dev`     | 開発サーバを起動する                   |
-| `mise run build`   | 本番用にビルドする（出力先は `dist/`） |
-| `mise run preview` | ビルド結果をローカルで確認する         |
-| `mise run lint`    | Biome と Stylelint で Lint を実行する  |
-| `mise run format`  | Biome でファイルを整形する             |
-| `mise run check`   | `astro check` で型チェックする         |
-| `mise run test`    | 固定 fixture で生成ページをテストする  |
+| コマンド                 | 内容                                   |
+|--------------------------|----------------------------------------|
+| `mise run dev`           | 開発サーバを起動する                   |
+| `mise run build`         | 本番用にビルドする（出力先は `dist/`） |
+| `mise run preview`       | ビルド結果をローカルで確認する         |
+| `mise run lint`          | Biome と Stylelint で Lint を実行する  |
+| `mise run format`        | Biome でファイルを整形する             |
+| `mise run check`         | `astro check` で型チェックする         |
+| `mise run test`          | 固定 fixture で生成ページをテストする  |
+| `mise run lighthouse-ci` | Lighthouse CI でビルド成果物を検査する |
 
 ## CI
 
-PR と `main` へのプッシュで、GitHub Actions（`.github/workflows/ci.yml`）が Lint・型チェック・ビルドを実行する。
-`main` へのマージには、このチェックの成功が必要。
+PR と `main` へのプッシュで、GitHub Actions（`.github/workflows/ci.yml`）が通常の Lint・型チェック・テスト・ビルドと
+Lighthouse CI を並列で実行する。Lighthouse CI はビルド成果物をモバイル条件で計測し、基準を満たさない場合は失敗する。レポートは
+CI の Artifact から14日間取得できる（[ADR 0023](docs/adr/0023-monitor-quality-with-lighthouse-ci.md)）。
+`main` へのマージには、リポジトリのルールセットで必須に設定されたチェックの成功が必要。
 
 ## デプロイ
 

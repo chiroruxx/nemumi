@@ -1,6 +1,7 @@
 # build output
 dist/
 dist-test/
+.lighthouseci/
 # generated types
 .astro/
 

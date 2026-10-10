@@ -80,11 +80,25 @@ const profileSocialLinks = [
     icon: '/icons/social-github.svg',
   },
 ];
+
+const personStructuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  '@id': new URL('#person', Astro.site).href,
+  name: 'chihiro',
+  url: Astro.site?.href,
+  image: new URL(profileIcon.src, Astro.site).href,
+  description:
+    '長野を拠点に、PHPやGoでWebサイトをつくり、スクラムやXPを試しながらコミュニティ運営をしています。',
+  sameAs: profileSocialLinks.map(({ href }) => href),
+  knowsAbout: ['PHP', 'Go', 'スクラム', 'XP'],
+};
 ---
 
 <BaseLayout
   title="nemumi"
-  description="chihiro のプロフィール、記事、登壇、コミュニティ、活動をまとめたサイトです。"
+  description="長野を拠点に活動するエンジニア chihiro のプロフィール。記事、登壇、コミュニティ運営や活動の記録をまとめています。"
+  structuredData={personStructuredData}
 >
   <header class="site-header">
     <Wordmark href="#top" label="nemumi ホーム" />

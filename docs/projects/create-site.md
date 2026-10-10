@@ -140,17 +140,20 @@
 ### Step 6: SEO・メタ情報・OGP の最適化
 
 - **やること**:
-    - タイトル、メタディスクリプション、canonical の設定
-    - SNS シェア時の OGP（画像・説明文）の設定。OGP 画像は固定画像か自動生成かを決める
+    - タイトル、メタディスクリプション、canonical の設定 ✅
+    - SNS シェア時の OGP（画像・説明文）の設定 ✅ 固定 PNG（1200 × 630、[ADR 0020](../adr/0020-static-ogp-image.md)）
     - favicon の設定 ✅ 完了
-    - サイトマップ（`@astrojs/sitemap`）と `robots.txt` の生成
-    - 構造化データ（JSON-LD の `Person`）の追加
+    - サイトマップ（`@astrojs/sitemap`）と `robots.txt` の生成 ✅
+      ([ADR 0021](../adr/0021-generate-sitemap-and-robots-txt.md))
+    - 構造化データ（JSON-LD の `Person`）の追加 ✅ ([ADR 0022](../adr/0022-use-json-ld-for-structured-data.md))
 
 ### Step 7: 品質チェック & リリース
 
 - **やること**:
     - Lighthouse でパフォーマンス・アクセシビリティ・SEO を確認
     - 主要ブラウザとスマートフォンでの表示確認
+    - [ ] デプロイ後に OGP プレビューを確認し、画像・タイトル・説明文の表示を確認する
+    - [ ] Google Search Console に登録し、サイトマップを送信する（[SEO 運用](./seo-operations.md)）
     - アクセス解析の導入を検討（Cloudflare Web Analytics など）
     - SNS のプロフィール欄などにサイト URL を掲載する
 

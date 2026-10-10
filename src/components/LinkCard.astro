@@ -59,9 +59,6 @@ const imageHeight = Math.round((imageSize * image.height) / image.width);
     box-shadow var(--motion-duration) ease,
     transform var(--motion-duration) ease;
 
-  &:nth-child(2) {
-    background: var(--color-surface);
-  }
   &:hover {
     background: var(--color-surface-hover);
     box-shadow: 0 12px 30px var(--decoration-shadow);
@@ -117,10 +114,6 @@ const imageHeight = Math.round((imageSize * image.height) / image.width);
     .link-card-image {
       width: 90px;
       border-radius: 26px;
-      &::before {
-        inset: 6px;
-        border-radius: 20px;
-      }
     }
   }
 }

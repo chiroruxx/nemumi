@@ -141,7 +141,7 @@
 
 - **やること**:
     - タイトル、メタディスクリプション、canonical の設定
-    - SNS シェア時の OGP（画像・説明文）の設定。OGP 画像は固定画像か自動生成かを決める
+    - SNS シェア時の OGP（画像・説明文）の設定 ✅ 固定 PNG（1200 × 630、[ADR 0020](../adr/0020-static-ogp-image.md)）
     - favicon の設定 ✅ 完了
     - サイトマップ（`@astrojs/sitemap`）と `robots.txt` の生成
     - 構造化データ（JSON-LD の `Person`）の追加

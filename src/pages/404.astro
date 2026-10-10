@@ -1,0 +1,80 @@
+---
+import Wordmark from '../components/Wordmark.astro';
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="ページが見つかりません | nemumi"
+  description="お探しのページは見つかりませんでした。nemumi のトップページへお戻りください。"
+>
+  <main class="not-found" aria-labelledby="not-found-title">
+    <Wordmark href="/" label="nemumi トップページへ" />
+    <h1 id="not-found-title">あれ？<br>ページが見つからないみたい</h1>
+    <p class="message">
+      お探しのページは移動したか、URLが少し違うようです。<br>
+      トップページから、もう一度探してみてください。
+    </p>
+    <a class="home-link" href="/"
+      >トップページへ戻る <span aria-hidden="true">↗</span></a
+    >
+  </main>
+</BaseLayout>
+
+<style>
+.not-found {
+  min-height: 100vh;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
+  h1 {
+    max-width: 620px;
+    margin: 96px 0 0;
+    color: var(--color-on-background-strong);
+    font-size: clamp(25px, 5vw, 38px);
+    font-weight: 500;
+    line-height: 1.6;
+    letter-spacing: 0.04em;
+  }
+}
+.message {
+  margin: 20px 0 30px;
+  color: var(--color-on-background);
+  font-size: 13px;
+  line-height: 2;
+}
+.home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 99px;
+  color: var(--color-on-background-strong);
+  font-size: 12px;
+  transition:
+    background var(--motion-duration) ease,
+    border var(--motion-duration) ease;
+
+  &:hover {
+    border-color: var(--color-outline-variant);
+    background: var(--color-surface-hover);
+  }
+
+  &:focus-visible {
+    background: var(--color-surface-focus);
+    outline: 3px solid var(--color-focus);
+    outline-offset: 5px;
+  }
+
+  span {
+    color: var(--color-on-background);
+  }
+  @media (width <= 480px) {
+    font-size: 11px;
+  }
+}
+</style>

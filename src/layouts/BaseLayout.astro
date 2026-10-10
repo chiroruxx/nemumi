@@ -1,0 +1,40 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" href="/favicon.ico">
+    <meta name="viewport" content="width=device-width">
+    <meta name="generator" content={Astro.generator}>
+    <meta name="description" content={description}>
+    <title>{title}</title>
+  </head>
+  <body>
+    <div class="page-shell">
+      <slot />
+    </div>
+  </body>
+</html>
+
+<style>
+.page-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 1600px;
+  min-height: 100vh;
+  margin: 0 auto;
+  overflow: hidden;
+  background: transparent;
+}
+</style>

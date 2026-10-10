@@ -13,11 +13,13 @@ Biome の Astro 対応は実験的機能の扱いで、`.astro` のテンプレ�
 
 ## 決定
 
-Formatter / Linter には Biome を採用し、設定は `biome.json` に記載する。
+Biome を Formatter と CSS 以外の Linter に採用し、設定は `biome.jsonc` に記載する。Astro 内の CSS の Lint には Stylelint
+を使う（[ADR 0013](0013-native-css-nesting.md)）。
 
-- `html.experimentalFullSupportEnabled` を有効にし、`.astro` のテンプレート部分も整形・Lint の対象とする。
+- `html.experimentalFullSupportEnabled` を有効にし、`.astro` のテンプレート部分も整形・Lint の対象とする。CSS の Lint は
+  Biome で無効にする。
 - インデントはスペース 2 つとする。
-- 実行には `pnpm lint`（チェック）と `pnpm format`（整形）を使う。
+- 実行には `mise run lint`（チェック）と `mise run format`（整形）を使う。
 
 Markdown ファイルは Biome の対象外とし、JetBrains IDE の整形を使う。
 
@@ -48,9 +50,9 @@ Markdown ファイルは Biome の対象外とし、JetBrains IDE の整形を�
 ## 結果
 
 - **良い点**
-    - 整形と Lint を 1 つのツール・1 つの設定ファイルで管理できる。
+    - JavaScript / TypeScript と Astro のテンプレートを、Biome で整形・Lint できる。
 - **注意点**
-    - Astro 対応は実験的なため、誤検知や整形の崩れが起きる可能性がある。発生した場合は `biome.json` の `overrides`
+    - Astro 対応は実験的なため、誤検知や整形の崩れが起きる可能性がある。発生した場合は `biome.jsonc` の `overrides`
       などで調整する。
     - `public/` の SVG は favicon などの画像として使うため、`a11y/noSvgWithoutTitle` を無効にしている。
 

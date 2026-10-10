@@ -13,7 +13,8 @@
 
 ## コード
 
-- コードを作成・編集したら、`pnpm format` で整形し、`pnpm lint` と `pnpm check` でエラーが無いことを確認する。
+- コードを作成・編集したら、`mise run format` で整形し、`mise run lint` と `mise run check` でエラーが無いことを確認する。
+- 設定ファイルでルールを無効化したり、既定値を上書きしたり、例外を追加したりするときは、理由を該当設定の近くにコメントで記載する。コメントに対応しない形式の場合は、その設定に対応するドキュメントに理由を記載する。
 
 ## 開発
 
@@ -21,10 +22,11 @@
 - エージェントが開発サーバを起動する場合は、`pnpm dev` ではなくバックグラウンドモードを使う。
 
   ```shell
-  pnpm astro dev --background
+  mise exec -- pnpm astro dev --background
   ```
 
-  停止・状態確認・ログ確認には `pnpm astro dev stop`、`pnpm astro dev status`、`pnpm astro dev logs` を使う。
+  停止・状態確認・ログ確認には `mise exec -- pnpm astro dev stop`、`mise exec -- pnpm astro dev status`、
+  `mise exec -- pnpm astro dev logs` を使う。
 
 ## Documentation
 

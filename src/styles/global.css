@@ -1,0 +1,126 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap");
+
+:root {
+  color-scheme: dark;
+
+  /* Theme roles */
+  --color-background: #1c1b32;
+  --color-surface: #302b43;
+  --color-primary: #b6a9e7;
+  --color-secondary: #f7d99a;
+
+  --color-on-background-strong: rgb(241 239 255 / 100%);
+  --color-on-background: rgb(241 239 255 / 86%);
+  --color-on-background-weak: rgb(241 239 255 / 66%);
+  --color-on-surface-strong: rgb(241 239 255 / 100%);
+  --color-on-surface: rgb(241 239 255 / 86%);
+  --color-on-surface-weak: rgb(241 239 255 / 66%);
+  --color-on-primary-strong: rgb(28 27 50 / 100%);
+  --color-on-primary: rgb(28 27 50 / 86%);
+  --color-on-primary-weak: rgb(28 27 50 / 66%);
+  --color-on-secondary-strong: rgb(28 27 50 / 100%);
+  --color-on-secondary: rgb(28 27 50 / 86%);
+  --color-on-secondary-weak: rgb(28 27 50 / 66%);
+
+  /* Supporting roles */
+  --color-outline: #403e59;
+  --color-outline-variant: #696782;
+  --color-focus: #9886dc;
+  --color-surface-hover: color-mix(
+    in srgb,
+    var(--color-surface),
+    var(--color-on-surface-strong) 8%
+  );
+  --color-surface-focus: color-mix(
+    in srgb,
+    var(--color-surface),
+    var(--color-on-surface-strong) 12%
+  );
+
+  /* Decorative colors */
+  --decoration-mask-black: #000;
+  --decoration-white: #fff;
+  --decoration-page-glow: #302d50;
+  --decoration-shadow: #0e0d1c66;
+  --decoration-background-star-lavender: #e8ddff61;
+  --decoration-background-star-violet: #cfc5ff61;
+  --decoration-background-star-pale: #ded7ff61;
+  --decoration-background-star-gold: #fff1c861;
+  --motion-duration: 200ms;
+  font-family: "DM Sans", "Noto Sans JP", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizelegibility;
+
+  @media (prefers-reduced-motion: reduce) {
+    --motion-duration: 0.01ms;
+  }
+}
+
+* {
+  box-sizing: border-box;
+
+  &::before,
+  &::after {
+    box-sizing: border-box;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--color-background);
+
+  @media (prefers-reduced-motion: reduce) {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  position: relative;
+  margin: 0;
+  color: var(--color-on-background-strong);
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(
+      circle at 18px 29px,
+      var(--decoration-background-star-lavender) 0 1px,
+      transparent 1.5px
+    ),
+    radial-gradient(
+      circle at 113px 91px,
+      var(--decoration-background-star-violet) 0 1px,
+      transparent 1.5px
+    ),
+    radial-gradient(
+      circle at 238px 172px,
+      var(--decoration-background-star-gold) 0 1.2px,
+      transparent 1.8px
+    ),
+    radial-gradient(
+      circle at 73px 247px,
+      var(--decoration-background-star-pale) 0 0.8px,
+      transparent 1.5px
+    ),
+    radial-gradient(
+      ellipse at 50% 0%,
+      var(--decoration-page-glow) 0,
+      transparent 43rem
+    );
+  background-size:
+    293px 319px,
+    293px 319px,
+    293px 319px,
+    293px 319px,
+    auto;
+  background-repeat: repeat, repeat, repeat, repeat, no-repeat;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 5px;
+    border-radius: 4px;
+  }
+}

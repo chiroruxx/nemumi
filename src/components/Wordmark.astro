@@ -1,0 +1,43 @@
+---
+interface Props {
+  href: string;
+  label: string;
+}
+
+const { href, label } = Astro.props;
+---
+
+<a class="wordmark" href={href} aria-label={label}>
+  <span class="wordmark-star" aria-hidden="true">
+    <img src="/favicon.svg" alt="" width="19" height="19">
+  </span>
+  <span>nemumi</span>
+</a>
+
+<style>
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--color-on-background-strong);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+
+  .wordmark-star {
+    display: inline-grid;
+    place-items: center;
+    color: var(--color-secondary);
+
+    img {
+      display: block;
+      width: 19px;
+      height: 19px;
+    }
+  }
+
+  @media (width <= 480px) {
+    font-size: 17px;
+  }
+}
+</style>

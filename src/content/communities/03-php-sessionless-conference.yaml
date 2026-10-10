@@ -1,0 +1,6 @@
+name: "PHP Sessionless Conference"
+url: "https://fortee.jp/sessionless-conference-2024"
+description: "双方向コミュニケーションをテーマにした、セッションのないカンファレンス。"
+image: "../../assets/php-sessionless-icon.png"
+imageStyle: "square"
+order: 3

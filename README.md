@@ -12,7 +12,8 @@ https://nemumi.dev
 - ツールのバージョン管理: mise
 - ランタイム: Node.js 26
 - パッケージマネージャ: pnpm
-- Formatter / Linter: Biome
+- 整形: Biome
+- Lint: Biome（Astro 内の CSS 以外）と Stylelint（Astro 内の CSS 全般）
 - 型チェック: astro check（TypeScript 6）
 - CI: GitHub Actions
 
@@ -36,10 +37,11 @@ https://nemumi.dev
 
    Node.js（`.node-version`）と pnpm（`mise.toml`）は、記載したバージョンが mise によってインストールされるため、個別のインストールは不要。
 
-3. 依存パッケージをインストールする。
+3. 依存パッケージをインストールする。`mise run` はシェルの mise 連携が有効でなくても、プロジェクトで指定した Node.js と
+   pnpm を使う。
 
    ```shell
-   pnpm install
+   mise run install
    ```
 
 ## 開発
@@ -47,19 +49,20 @@ https://nemumi.dev
 開発サーバを起動し、http://localhost:4321 を開く。
 
 ```shell
-pnpm dev
+mise run dev
 ```
 
 ### 主なコマンド
 
-| コマンド       | 内容                                         |
-|----------------|----------------------------------------------|
-| `pnpm dev`     | 開発サーバを起動する                         |
-| `pnpm build`   | 本番用にビルドする（出力先は `dist/`）       |
-| `pnpm preview` | ビルド結果をローカルで確認する               |
-| `pnpm lint`    | Biome で整形と Lint をチェックする           |
-| `pnpm format`  | Biome で整形し、自動修正できる問題を修正する |
-| `pnpm check`   | `astro check` で型チェックする               |
+| コマンド           | 内容                                   |
+|--------------------|----------------------------------------|
+| `mise run dev`     | 開発サーバを起動する                   |
+| `mise run build`   | 本番用にビルドする（出力先は `dist/`） |
+| `mise run preview` | ビルド結果をローカルで確認する         |
+| `mise run lint`    | Biome と Stylelint で Lint を実行する  |
+| `mise run format`  | Biome でファイルを整形する             |
+| `mise run check`   | `astro check` で型チェックする         |
+| `mise run test`    | 固定 fixture で生成ページをテストする  |
 
 ## CI
 

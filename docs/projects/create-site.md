@@ -38,12 +38,15 @@
 - コンテンツ管理: Astro Content Collections（YAML / Markdown + スキーマ）（[ADR 0009](../adr/0009-content-collections.md)）
 - ホスティング: Cloudflare Workers（Static Assets）（[ADR 0001](../adr/0001-hosting-cloudflare-workers.md)）
 - ドメイン: nemumi.dev（Cloudflare Registrar）（[ADR 0008](../adr/0008-domain-nemumi-dev.md)）
-- スタイリング: Step 5 で決める（Tailwind CSS / CSS Modules など）
+- スタイリング: Astro のスコープ付き CSS（[ADR 0010](../adr/0010-astro-scoped-css.md)）
+- CSS の記述形式: ネイティブ CSS Nesting（[ADR 0013](../adr/0013-native-css-nesting.md)）
+- 画像最適化: `astro:assets` と Sharp（[ADR 0012](../adr/0012-optimize-images-with-astro-assets.md)）
 - ツールのバージョン管理: mise（Node.js は `.node-version`、その他は
   `mise.toml`）（[ADR 0002](../adr/0002-tool-version-management-mise.md)）
 - ランタイム: Node.js 26（[ADR 0003](../adr/0003-nodejs-26.md)）
 - パッケージマネージャ: pnpm（[ADR 0004](../adr/0004-package-manager-pnpm.md)）
-- Formatter / Linter: Biome（[ADR 0005](../adr/0005-formatter-linter-biome.md)）
+- 整形: Biome（[ADR 0005](../adr/0005-formatter-linter-biome.md)）。Lint は Astro 内の CSS 以外を Biome、Astro 内の CSS 全般を
+  Stylelint が担当する。
 - 型チェック: astro check + TypeScript 6（[ADR 0006](../adr/0006-type-check-astro-check.md)）
 - CI: GitHub Actions（[ADR 0007](../adr/0007-ci-github-actions.md)）
 
@@ -54,7 +57,7 @@
 - **やったこと**:
     - mise で Node.js 26 と pnpm 12 をインストールし、`mise.toml`・`.node-version`・`package.json` の `engines` でバージョンを固定
     - `pnpm create astro` で minimal テンプレートからプロジェクトを作成（TypeScript は strict）
-    - Biome の導入（`pnpm lint` / `pnpm format`）と、Claude Code の hook による編集時の自動整形
+    - Biome と Stylelint の導入（`pnpm lint`）および Biome による整形（`pnpm format`）、Claude Code の hook による編集時の自動整形
     - `astro check` の導入（`pnpm check`）
     - `.gitignore` の整備（`.idea/` などの IDE 設定ファイルを含める）
     - ローカルでの動作確認
@@ -107,8 +110,8 @@
     - Talks / Slides は公開日の新しいものを上に表示する。
     - Talks / Slides の一覧に公開日と「登壇」タグを表示し、イベント名は載せない。
     - Talks / Slides の一覧にサムネイルは使わない。
-    - Communities と Activities の説明文は任意項目とする。
-    - 関連リンクは任意項目とし、8〜9割の項目に設定する想定。
+    - Communities の紹介文は必須とし、Activities の説明文は任意項目とする。
+    - Communities の URL は必須とする。Articles、Talks / Slides、Activities の関連リンクは任意項目とし、8〜9割の項目に設定する想定。
 
 ### Step 4: コンテンツの準備 ✅ 完了
 
@@ -122,14 +125,17 @@
       Go Conference 2026 の1件を掲載し、現時点では追加しない。
 - **ポイント**: 実装より時間がかかりがちなので、Step 5 と並行して進めても良い。
 
-### Step 5: コンポーネント実装 & スタイリング
+### Step 5: コンテンツ管理・コンポーネント実装 & スタイリング ✅ 完了
 
 - **やること**:
-    - スタイリング手法の決定（Tailwind CSS / CSS Modules など）
-    - Astro での各セクションのコーディング
-    - スタイリングの適用とレスポンシブ対応
-    - 404 ページの作成
-    - 画像の最適化（`astro:assets`）
+    - Astro Content Collections を実装し、記事・登壇・コミュニティ・活動のデータを1件1ファイルで管理 ✅
+      （[ADR 0009](../adr/0009-content-collections.md)）
+    - スタイリング手法の決定 ✅ Astro のスコープ付き CSS（[ADR 0010](../adr/0010-astro-scoped-css.md)）
+    - UI パーツ単位で Astro コンポーネントに分ける ✅
+      ヒーロー、カード、ロゴ、リストを分離（[ADR 0011](../adr/0011-astro-components-by-ui-part.md)）
+    - スタイリングの適用とレスポンシブ対応 ✅ 各コンポーネントに CSS とブレークポイントを設定
+    - 404 ページの作成 ✅ 夜空のデザインとトップページへのリンクを追加
+    - 画像の最適化 ✅ `astro:assets` で WebP に変換（[ADR 0012](../adr/0012-optimize-images-with-astro-assets.md)）
 
 ### Step 6: SEO・メタ情報・OGP の最適化
 

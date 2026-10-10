@@ -20,7 +20,7 @@ Biome（[ADR 0005](0005-formatter-linter-biome.md)）は整形と Lint のみを
 ## 決定
 
 型チェックには `astro check` を採用し、TypeScript は 6 系を使用する。
-実行には `pnpm check` を使う。
+実行には `mise run check` を使う。
 
 ## 検討した選択肢
 

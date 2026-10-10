@@ -1,0 +1,6 @@
+name: "Third"
+url: "https://example.com/third"
+description: "Third by file name, first by order."
+image: "../../../../src/assets/goconnect-icon.png"
+imageStyle: "wordmark"
+order: 3

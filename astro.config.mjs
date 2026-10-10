@@ -10,6 +10,14 @@ export default defineConfig({
     // Inline the small shared stylesheet to remove its render-blocking request.
     inlineStylesheets: 'always',
   },
+  vite: {
+    server: {
+      watch: {
+        // Lighthouse CI report output should not trigger a dev-server reload.
+        ignored: ['**/.lighthouseci/**'],
+      },
+    },
+  },
   fonts: [
     {
       provider: fontProviders.google(),

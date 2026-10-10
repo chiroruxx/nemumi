@@ -21,7 +21,8 @@ const imageHeight = Math.round((imageSize * image.height) / image.width);
   <a class="link-card" href={url} target="_blank" rel="noopener noreferrer">
     <div
       class:list={['link-card-image', imageStyle]}
-      style={imageBackground && `--link-card-image-background: ${imageBackground}`}
+      style={imageBackground &&
+        `--link-card-image-background: ${imageBackground}`}
       aria-hidden="true"
     >
       <Image

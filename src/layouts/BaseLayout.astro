@@ -5,9 +5,10 @@ interface Props {
   title: string;
   description: string;
   structuredData?: Record<string, unknown>;
+  noindex?: boolean;
 }
 
-const { title, description, structuredData } = Astro.props;
+const { title, description, structuredData, noindex = false } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageURL = new URL('/ogp.png', Astro.site);
 ---
@@ -21,7 +22,11 @@ const ogImageURL = new URL('/ogp.png', Astro.site);
     <meta name="viewport" content="width=device-width">
     <meta name="generator" content={Astro.generator}>
     <meta name="description" content={description}>
-    <link rel="canonical" href={canonicalURL}>
+    {noindex ? (
+  <meta name="robots" content="noindex">
+) : (
+  <link rel="canonical" href={canonicalURL}>
+)}
     <link rel="sitemap" href="/sitemap-index.xml">
     <title>{title}</title>
     <meta property="og:type" content="website">

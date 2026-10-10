@@ -153,6 +153,7 @@
     - Lighthouse でパフォーマンス・アクセシビリティ・SEO を確認
     - 主要ブラウザとスマートフォンでの表示確認
     - [ ] デプロイ後に OGP プレビューを確認し、画像・タイトル・説明文の表示を確認する
+    - [ ] Google Search Console に登録し、サイトマップを送信する（[SEO 運用](./seo-operations.md)）
     - アクセス解析の導入を検討（Cloudflare Web Analytics など）
     - SNS のプロフィール欄などにサイト URL を掲載する
 

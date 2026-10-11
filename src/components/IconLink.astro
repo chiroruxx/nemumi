@@ -15,7 +15,10 @@ const { href, label, icon } = Astro.props;
   target="_blank"
   rel="noopener noreferrer"
 >
-  <img class="icon-link-icon" src={icon} alt="" width="14" height="14">
+  <span class="icon-link-icon-frame">
+    {/* The mixi2 brand guideline sets the symbol's digital minimum height to 16px. */}
+    <img class="icon-link-icon" src={icon} alt="" width="16" height="16">
+  </span>
   <span class="icon-link-label">{label}</span>
   <span class="icon-link-arrow" aria-hidden="true">↗</span>
 </a>
@@ -46,7 +49,21 @@ const { href, label, icon } = Astro.props;
 
   .icon-link-icon {
     display: block;
-    flex: 0 0 14px;
+    width: auto;
+
+    /* The mixi2 brand guideline sets the symbol's digital minimum height to 16px. */
+    height: 16px;
+  }
+
+  .icon-link-icon-frame {
+    display: inline-flex;
+    flex: 0 0 auto;
+
+    /*
+     * The mixi2 brand guideline uses logotype x as clear space: 16px × (49.328 / 310) ≈ 2.55px.
+     * Round up to 3px so spacing does not fall below the minimum.
+     */
+    padding: 3px;
   }
 
   .icon-link-arrow {

@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -130,4 +137,63 @@ test('sync rejects conflicting duplicate feed URLs before verification or file c
     );
   }
   assert.equal(verifications, 0);
+});
+
+test('sync validates saved YAML values with file and field context before loading RSS', async (t) => {
+  const contentDirectory = await createContentDirectory(t);
+  const filename = 'invalid.yaml';
+  const file = path.join(contentDirectory, 'articles', filename);
+  const validFields = {
+    date: '2026-10-03',
+    types: ['日常記事'],
+    title: 'Valid post',
+    url: 'https://sizu.me/chihiroxx/posts/valid',
+  };
+  const cases: { field: string; yaml: string }[] = [
+    { field: 'date', yaml: YAML.stringify({ ...validFields, date: 2026 }) },
+    {
+      field: 'date',
+      yaml: YAML.stringify({ ...validFields, date: 'not-a-date' }),
+    },
+    { field: 'title', yaml: YAML.stringify({ ...validFields, title: null }) },
+    { field: 'title', yaml: YAML.stringify({ ...validFields, title: '  ' }) },
+    { field: 'url', yaml: YAML.stringify({ ...validFields, url: null }) },
+    {
+      field: 'url',
+      yaml: YAML.stringify({ ...validFields, url: 'not a URL' }),
+    },
+    { field: 'types', yaml: YAML.stringify({ ...validFields, types: null }) },
+    { field: 'types', yaml: YAML.stringify({ ...validFields, types: [] }) },
+    { field: 'types', yaml: YAML.stringify({ ...validFields, types: [''] }) },
+    { field: 'types', yaml: YAML.stringify({ ...validFields, types: [1] }) },
+    { field: '<root>', yaml: 'null' },
+    { field: '<root>', yaml: '[]' },
+    { field: 'YAML', yaml: 'date: [unterminated' },
+  ];
+
+  let feedCalls = 0;
+  let linkChecks = 0;
+  for (const invalid of cases) {
+    await writeFile(file, invalid.yaml);
+    await assert.rejects(
+      syncService('sizu', {
+        contentDirectory,
+        feedLoader: async () => {
+          feedCalls += 1;
+          return [];
+        },
+        linkVerifier: async () => {
+          linkChecks += 1;
+          return 'public';
+        },
+      }),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.message.includes(file) &&
+        error.message.includes(invalid.field),
+      `invalid ${invalid.field} should identify ${filename}`,
+    );
+  }
+  assert.equal(feedCalls, 0);
+  assert.equal(linkChecks, 0);
 });

@@ -70,7 +70,6 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
 
   const options = {
     contentDirectory,
-    feedLoader: async () => [],
     linkVerifier: async (url: string) =>
       url.endsWith('/post-02') ? ('deleted' as const) : ('public' as const),
     linkCheckIntervalMs: 0,
@@ -91,4 +90,41 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
   assert.equal(remainingFiles.length, 19);
   assert.ok(remainingFiles.includes(manualFilename));
   assert.ok(remainingFiles.includes('entry-03.yaml'));
+});
+
+test('pruning ranks saved entries without requesting RSS feeds', async (t) => {
+  const contentDirectory = await createContentDirectory(t);
+  const articlesDirectory = path.join(contentDirectory, 'articles');
+  for (let index = 1; index <= 21; index += 1) {
+    const suffix = String(index).padStart(2, '0');
+    await writeFile(
+      path.join(articlesDirectory, `entry-${suffix}.yaml`),
+      YAML.stringify({
+        date: `2020-01-${suffix}`,
+        title: `Saved post ${suffix}`,
+        url: `https://sizu.me/chihiroxx/posts/saved-${suffix}`,
+      }),
+    );
+  }
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error('RSS must not be fetched while pruning');
+  };
+  try {
+    const result = await pruneContent({
+      contentDirectory,
+      linkVerifier: async () => 'public',
+      linkCheckIntervalMs: 0,
+    });
+    assert.equal(fetchCalls, 0);
+    assert.deepEqual(
+      result.removals.map(({ reason, entry }) => [reason, entry.id]),
+      [['limit', 'entry-01.yaml']],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

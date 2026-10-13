@@ -22,8 +22,8 @@ export async function runPruneContent({
   const summary = result.removals.length
     ? result.removals
         .map(
-          ({ reason, entry }) =>
-            `- ${reason === 'limit' ? '上限超過' : 'リンク切れ'}: ${entry.data.date}「${entry.data.title}」 ${entry.data.url}`,
+          ({ reason, date, title, url }) =>
+            `- ${reason === 'limit' ? '上限超過' : 'リンク切れ'}: ${date}「${title}」 ${url}`,
         )
         .join('\n')
     : '削除対象はありません。';
@@ -31,12 +31,12 @@ export async function runPruneContent({
   writeOutput(
     JSON.stringify(
       {
-        removals: result.removals.map(({ reason, entry }) => ({
+        removals: result.removals.map(({ reason, file, date, title, url }) => ({
           reason,
-          file: entry.file,
-          date: entry.data.date,
-          title: entry.data.title,
-          url: entry.data.url,
+          file,
+          date,
+          title,
+          url,
         })),
       },
       null,

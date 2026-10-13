@@ -11,8 +11,8 @@ try {
   const summary = result.changes.length
     ? result.changes
         .map(
-          ({ action, data }) =>
-            `- ${action === 'add' ? '追加' : '更新'}: ${data.date}「${data.title}」 ${data.url}`,
+          ({ action, date, title, url }) =>
+            `- ${action === 'add' ? '追加' : '更新'}: ${date}「${title}」 ${url}`,
         )
         .join('\n')
     : '変更はありません。';
@@ -29,12 +29,12 @@ try {
         source: result.source,
         collection: result.collection,
         feedCount: result.feedCount,
-        changes: result.changes.map(({ action, data, target }) => ({
+        changes: result.changes.map(({ action, file, date, title, url }) => ({
           action,
-          file: target,
-          date: data.date,
-          title: data.title,
-          url: data.url,
+          file,
+          date,
+          title,
+          url,
         })),
       },
       null,

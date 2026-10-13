@@ -142,7 +142,9 @@ function collectTestBindings(
       for (const binding of bindings.elements) {
         if (
           !binding.isTypeOnly &&
-          ['test', 'it'].includes((binding.propertyName ?? binding.name).text)
+          ['test', 'it', 'default'].includes(
+            (binding.propertyName ?? binding.name).text,
+          )
         ) {
           remember(binding.name, functions);
         }
@@ -170,7 +172,7 @@ function isTestCall(
   return Boolean(
     owner &&
       bindings.namespaces.has(owner) &&
-      ['test', 'it'].includes(expression.name.text),
+      ['test', 'it', 'default'].includes(expression.name.text),
   );
 }
 

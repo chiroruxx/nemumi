@@ -78,6 +78,31 @@ test('recognizes namespace imports and only tests', () => {
   assert.deepEqual(findUntestedExports(fixture.program, fixture.files), []);
 });
 
+test('recognizes the default test export through a namespace import', () => {
+  const fixture = createFixture({
+    'source.ts': 'export function action() {}',
+    'source.test.ts': `import * as runner from 'node:test';
+      import { action } from './source.ts';
+      runner.default('default action', () => { action(); });`,
+  });
+  assert.deepEqual(findUntestedExports(fixture.program, fixture.files), []);
+});
+
+test('recognizes default.only and a named default import from node:test', () => {
+  const fixture = createFixture({
+    'source.ts': `export function namespaceAction() {}
+      export function namedAction() {}`,
+    'source.test.ts': `import * as runner from 'node:test';
+      import { default as check } from 'node:test';
+      import { namespaceAction, namedAction } from './source.ts';
+      runner.default.only('focused namespace action', () => {
+        namespaceAction();
+      });
+      check('named default action', () => { namedAction(); });`,
+  });
+  assert.deepEqual(findUntestedExports(fixture.program, fixture.files), []);
+});
+
 test('recognizes default exported functions', () => {
   const fixture = createFixture({
     'source.ts': 'export default function action() {}',

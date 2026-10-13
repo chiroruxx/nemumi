@@ -13,3 +13,4 @@ ADR 0026 は `*.test.tsx` も export 関数の静的検査対象としている�
 - テスト実行 CLI と ADR 0026 の export 関数チェッカーは、同じファイル列挙処理を使用する。
 - `*.test.tsx` はこの runner で実行できないため対象にしない。将来 TSX を使う場合は、実行可能な runner と両方の対象列挙を合わせてから追加する。
 - `mise run check-exported-function-tests` で export 関数の静的検査を単独実行できる。`mise run lint` からも同じ検査を実行する。
+- 静的検査は `node:test` の `test`・`it`・`default` を named import または namespace import で参照するテスト登録を認識し、`only` を含む登録も同じテスト境界として扱う。これは検査対象モジュールの default export とは別の構文である。

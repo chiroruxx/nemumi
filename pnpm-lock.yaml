@@ -40,7 +40,7 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0(postcss@8.5.29)
       stylelint:
-        specifier: ^17.15.0
+        specifier: ^17.16.0
         version: 17.16.0(supports-color@10.2.2)(typescript@6.0.3)
       stylelint-config-astro:
         specifier: ^2.0.0

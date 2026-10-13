@@ -49,3 +49,67 @@ test('the Node runner executes nested TypeScript tests and ignores TSX', async (
   assert.match(output, /nested executable test/);
   assert.doesNotMatch(output, /TSX should not be executed/);
 });
+
+test('the Node runner streams test output larger than the default child buffer', async (t) => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'nemumi-test-runner-output-'),
+  );
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, 'tests'), { recursive: true });
+  await writeFile(
+    path.join(root, 'tests', 'large-output.test.ts'),
+    `import test from 'node:test';
+      test('large output test', () => {
+        process.stdout.write('x'.repeat(1_100_000));
+      });`,
+  );
+
+  const result = await promisify(execFile)(
+    process.execPath,
+    [path.resolve('scripts/cli/run-tests.ts')],
+    {
+      cwd: root,
+      env: { ...process.env, NODE_TEST_CONTEXT: undefined },
+      maxBuffer: 2 * 1024 * 1024,
+    },
+  );
+
+  assert.match(result.stdout, /large output test/);
+  assert.ok(Buffer.byteLength(result.stdout) > 1024 * 1024);
+});
+
+test('the Node runner propagates a child test failure and its diagnostic', async (t) => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'nemumi-test-runner-failure-'),
+  );
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, 'tests'), { recursive: true });
+  await writeFile(
+    path.join(root, 'tests', 'failure.test.ts'),
+    `import test from 'node:test';
+      test('deliberately fails', () => {
+        throw new Error('intentional child failure');
+      });`,
+  );
+
+  await assert.rejects(
+    promisify(execFile)(
+      process.execPath,
+      [path.resolve('scripts/cli/run-tests.ts')],
+      { cwd: root, env: { ...process.env, NODE_TEST_CONTEXT: undefined } },
+    ),
+    (error: unknown) => {
+      assert.ok(
+        error instanceof Error &&
+          'code' in error &&
+          'stdout' in error &&
+          'stderr' in error,
+      );
+      assert.equal(error.code, 1);
+      const output = `${error.stdout}${error.stderr}`;
+      assert.match(output, /deliberately fails/);
+      assert.match(output, /intentional child failure/);
+      return true;
+    },
+  );
+});

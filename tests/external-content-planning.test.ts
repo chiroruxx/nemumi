@@ -192,6 +192,34 @@ test('createSyncPlan is deterministic, keeps existing types, and reports links t
   );
 });
 
+test('sync ranks one source against saved entries from another source under the shared collection cap', () => {
+  const hatenaEntries = Array.from({ length: limits.articles }, (_, index) => {
+    const day = String(index + 1).padStart(2, '0');
+    return storedEntry(
+      `hatena-${day}.yaml`,
+      `2026-10-${day}`,
+      `Hatena ${day}`,
+      `https://toyo.hatenablog.jp/entry/hatena-${day}`,
+    );
+  });
+  const index = buildCollectionIndex('articles', hatenaEntries);
+
+  const plan = createSyncPlan({
+    source: 'sizu',
+    index,
+    feed: [
+      feedItem(
+        '2026-09-30',
+        'Older Sizu post',
+        'https://sizu.me/chihiroxx/posts/older',
+      ),
+    ],
+    contentDirectory: '/repo/src/content',
+  });
+
+  assert.deepEqual(plan, { changes: [], linkChecks: [] });
+});
+
 test('createPrunePlan ranks saved entries by date and URL, preserves manual slots, and holds uncertain links', () => {
   const saved = Array.from({ length: limits.articles + 1 }, (_, index) => {
     const day = index + 1;

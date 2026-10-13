@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
@@ -170,6 +170,38 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
   assert.equal(remainingFiles.length, 19);
   assert.ok(remainingFiles.includes(manualFilename));
   assert.ok(remainingFiles.includes('entry-03.yaml'));
+});
+
+test('pruning stops without changing files when manual entries exceed the collection cap', async (t) => {
+  const contentDirectory = await createContentDirectory(t);
+  const articlesDirectory = path.join(contentDirectory, 'articles');
+  for (let index = 1; index <= 21; index += 1) {
+    const suffix = String(index).padStart(2, '0');
+    await writeFile(
+      path.join(articlesDirectory, `manual-${suffix}.yaml`),
+      YAML.stringify({
+        date: `2026-10-${suffix}`,
+        title: `Manual ${suffix}`,
+        url: `https://example.com/manual-${suffix}`,
+      }),
+    );
+  }
+  let linkChecks = 0;
+
+  await assert.rejects(
+    pruneContent({
+      contentDirectory,
+      linkVerifier: async () => {
+        linkChecks += 1;
+        return 'public';
+      },
+      linkCheckIntervalMs: 0,
+    }),
+    /articles manual entries exceed its 20 item limit/,
+  );
+
+  assert.equal(linkChecks, 0);
+  assert.equal((await readdir(articlesDirectory)).length, 21);
 });
 
 test('pruning ranks saved entries without requesting RSS feeds', async (t) => {

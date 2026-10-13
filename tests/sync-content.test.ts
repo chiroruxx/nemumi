@@ -38,6 +38,104 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
   assert.deepEqual(repeated.changes, []);
 });
 
+test('sync updates the existing filename, keeps types, and round-trips quoted multiline titles', async (t) => {
+  const contentDirectory = await createContentDirectory(t);
+  const articlesDirectory = path.join(contentDirectory, 'articles');
+  const file = path.join(articlesDirectory, 'legacy-name.yaml');
+  const url = 'https://sizu.me/chihiroxx/posts/existing';
+  await writeFile(
+    file,
+    YAML.stringify({
+      date: '2026-10-01',
+      types: ['手動分類', '追加カテゴリ'],
+      title: 'Previous title',
+      url,
+    }),
+  );
+  let linkChecks = 0;
+  const title = 'Updated "quoted" title\nsecond line';
+  const result = await syncService('sizu', {
+    contentDirectory,
+    feedLoader: async () => [{ date: '2026-10-02', title, url }],
+    linkVerifier: async () => {
+      linkChecks += 1;
+      return 'public';
+    },
+    linkCheckIntervalMs: 0,
+  });
+
+  assert.deepEqual(result.changes, [
+    {
+      action: 'update',
+      file,
+      date: '2026-10-02',
+      title,
+      url,
+      types: ['手動分類', '追加カテゴリ'],
+    },
+  ]);
+  assert.equal(linkChecks, 0);
+  assert.deepEqual(await readdir(articlesDirectory), ['legacy-name.yaml']);
+  assert.deepEqual(YAML.parse(await readFile(file, 'utf8')), {
+    date: '2026-10-02',
+    types: ['手動分類', '追加カテゴリ'],
+    title,
+    url,
+  });
+});
+
+test('sync rejects duplicate saved URLs before feed loading and leaves both files unchanged', async (t) => {
+  const contentDirectory = await createContentDirectory(t);
+  const articlesDirectory = path.join(contentDirectory, 'articles');
+  const entries = [
+    ['first.yaml', 'https://sizu.me/chihiroxx/posts/duplicate#first'],
+    ['second.yaml', 'https://sizu.me/chihiroxx/posts/duplicate#second'],
+  ] as const;
+  for (const [name, url] of entries) {
+    await writeFile(
+      path.join(articlesDirectory, name),
+      YAML.stringify({ date: '2026-10-01', title: name, url }),
+    );
+  }
+  const originalFiles = await Promise.all(
+    entries.map(([name]) =>
+      readFile(path.join(articlesDirectory, name), 'utf8'),
+    ),
+  );
+  let feedCalls = 0;
+  let linkChecks = 0;
+
+  await assert.rejects(
+    syncService('sizu', {
+      contentDirectory,
+      feedLoader: async () => {
+        feedCalls += 1;
+        return [];
+      },
+      linkVerifier: async () => {
+        linkChecks += 1;
+        return 'public';
+      },
+    }),
+    /articles URL is duplicated/,
+  );
+
+  assert.equal(feedCalls, 0);
+  assert.equal(linkChecks, 0);
+  assert.deepEqual(await readdir(articlesDirectory), [
+    'first.yaml',
+    'second.yaml',
+  ]);
+  assert.deepEqual(
+    await Promise.all(
+      entries.map(([name]) =>
+        readFile(path.join(articlesDirectory, name), 'utf8'),
+      ),
+    ),
+    originalFiles,
+  );
+});
+
 test('sync deduplicates identical feed content after fragment normalization regardless of input order', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const item = {

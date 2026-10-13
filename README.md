@@ -65,7 +65,7 @@ mise run dev
 | `mise run prune-content -- --dry-run`     | 削除差分を表示する（書き込みなし）     |
 | `mise run build`                          | 本番用にビルドする（出力先は `dist/`） |
 | `mise run preview`                        | ビルド結果をローカルで確認する         |
-| `mise run lint`                           | Biome と Stylelint で Lint を実行する  |
+| `mise run lint`                           | Biome、Stylelint と export 関数のテスト確認を実行する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)） |
 | `mise run format`                         | Biome でファイルを整形する             |
 | `mise run check`                          | `astro check` で型チェックする         |
 | `mise run test`                           | 固定 fixture で生成ページをテストする  |

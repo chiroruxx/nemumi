@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const html = await readFile('dist-test/index.html', 'utf8');
 
-function getSection(id) {
+function getSection(id: string): string {
   const idIndex = html.indexOf(`id="${id}"`);
   assert.notEqual(idIndex, -1, `Expected section #${id} in generated HTML`);
 
@@ -16,7 +16,7 @@ function getSection(id) {
   return html.slice(sectionStart, sectionEnd);
 }
 
-function getRecordTitles(sectionId) {
+function getRecordTitles(sectionId: string): string[] {
   const section = getSection(sectionId);
   return [
     ...section.matchAll(/<span class="record-title"[^>]*>([^<]*)<\/span>/g),

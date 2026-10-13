@@ -1,0 +1,97 @@
+name: Update content
+
+on:
+  schedule:
+    - cron: '17 21 * * *'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Service to sync
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - sizu
+          - hatena
+          - speakerdeck
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-automation-main
+  cancel-in-progress: false
+
+jobs:
+  select-services:
+    runs-on: ubuntu-26.04
+    outputs:
+      services: ${{ steps.set-matrix.outputs.services }}
+    steps:
+      - id: set-matrix
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SELECTED_SERVICE: ${{ inputs.service }}
+        run: |
+          if [ "$EVENT_NAME" = "schedule" ] || [ "$SELECTED_SERVICE" = "all" ]; then
+            echo 'services=["sizu","hatena","speakerdeck"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "services=[\"$SELECTED_SERVICE\"]" >> "$GITHUB_OUTPUT"
+          fi
+
+  sync:
+    needs: select-services
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.select-services.outputs.services) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Sync service feed
+        id: sync
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: mise run sync-content -- "$SERVICE"
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Create or update service pull request
+        id: pull-request
+        uses: peter-evans/create-pull-request@98357b18bf14b5342f975ff684046ec3b2a07725 # v8.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: automation/update-${{ matrix.service }}
+          delete-branch: false
+          commit-message: 'chore(content): sync ${{ matrix.service }} feed'
+          title: 'コンテンツを同期: ${{ matrix.service }}'
+          body: |
+            RSS の内容を同期します。
+
+            ${{ steps.sync.outputs.summary }}
+
+            必須 CI 成功後に自動マージします。
+          add-paths: |
+            src/content/articles/*.yaml
+            src/content/talks/*.yaml
+
+      - name: Enable auto-merge
+        if: vars.CONTENT_AUTO_MERGE == 'true' && steps.pull-request.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.pull-request.outputs.pull-request-number }}
+        run: gh pr merge "$PR_NUMBER" --auto --squash

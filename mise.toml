@@ -21,6 +21,14 @@ run = "pnpm build"
 description = "ビルド結果をローカルで確認する"
 run = "pnpm preview"
 
+[tasks.sync-content]
+description = "指定したサービスの RSS からコンテンツを同期する"
+run = "pnpm sync-content"
+
+[tasks.prune-content]
+description = "保持件数を適用し、無効リンクを除去する"
+run = "pnpm prune-content"
+
 [tasks.lint]
 description = "Biome と Stylelint でコードをチェックする"
 run = "pnpm lint"

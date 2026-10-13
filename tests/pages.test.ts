@@ -5,7 +5,7 @@ import test from 'node:test';
 
 const outputDirectory = 'dist-test';
 
-async function findHtmlFiles(directory) {
+async function findHtmlFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const nestedFiles = await Promise.all(
     entries.map(async (entry) => {
@@ -23,12 +23,14 @@ async function findHtmlFiles(directory) {
 }
 
 const pageFiles = await findHtmlFiles(outputDirectory);
-const pages = new Map(
+const pages = new Map<string, string>(
   await Promise.all(
-    pageFiles.map(async (filePath) => [
-      path.relative(outputDirectory, filePath).split(path.sep).join('/'),
-      await readFile(filePath, 'utf8'),
-    ]),
+    pageFiles.map(
+      async (filePath): Promise<[string, string]> => [
+        path.relative(outputDirectory, filePath).split(path.sep).join('/'),
+        await readFile(filePath, 'utf8'),
+      ],
+    ),
   ),
 );
 const homePage = pages.get('index.html');

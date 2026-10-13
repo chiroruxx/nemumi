@@ -54,16 +54,37 @@ mise run dev
 
 ### 主なコマンド
 
-| コマンド                 | 内容                                   |
-|--------------------------|----------------------------------------|
-| `mise run dev`           | 開発サーバを起動する                   |
-| `mise run build`         | 本番用にビルドする（出力先は `dist/`） |
-| `mise run preview`       | ビルド結果をローカルで確認する         |
-| `mise run lint`          | Biome と Stylelint で Lint を実行する  |
-| `mise run format`        | Biome でファイルを整形する             |
-| `mise run check`         | `astro check` で型チェックする         |
-| `mise run test`          | 固定 fixture で生成ページをテストする  |
-| `mise run lighthouse-ci` | Lighthouse CI でビルド成果物を検査する |
+| コマンド                                  | 内容                                   |
+|-------------------------------------------|----------------------------------------|
+| `mise run dev`                            | 開発サーバを起動する                   |
+| `mise run sync-content -- sizu`           | しずかなインターネットの記事を同期する |
+| `mise run sync-content -- hatena`         | はてなブログの記事を同期する           |
+| `mise run sync-content -- speakerdeck`    | Speaker Deck の登壇資料を同期する      |
+| `mise run prune-content`                  | 保持件数を適用し、無効リンクを除去する |
+| `mise run sync-content -- sizu --dry-run` | 同期差分を表示する（書き込みなし）     |
+| `mise run prune-content -- --dry-run`     | 削除差分を表示する（書き込みなし）     |
+| `mise run build`                          | 本番用にビルドする（出力先は `dist/`） |
+| `mise run preview`                        | ビルド結果をローカルで確認する         |
+| `mise run lint`                           | Biome と Stylelint で Lint を実行する  |
+| `mise run format`                         | Biome でファイルを整形する             |
+| `mise run check`                          | `astro check` で型チェックする         |
+| `mise run test`                           | 固定 fixture で生成ページをテストする  |
+| `mise run lighthouse-ci`                  | Lighthouse CI でビルド成果物を検査する |
+
+## 外部コンテンツの自動更新
+
+GitHub Actions が毎日 JST 06:17 に3サービスを並列で同期し、サービスごとに PR を作成します。JST 07:17 には最新の `main`
+を対象に、記事20件・登壇資料10件の上限を適用し、リンク切れを確認する共通の削除 PR を作成します。差分がない場合は PR
+を作成・維持しません。必須 CI 成功後は自動マージします。未マージの同期 PR があっても削除処理を実行し、同期 PR
+の変更は次回の削除処理で確認します。
+
+自動 PR には GitHub App のトークンを使います。リポジトリに `APP_CLIENT_ID` Actions Variable と `APP_PRIVATE_KEY` Actions
+Secret を登録してください。App は対象リポジトリにインストールし、Repository permissions の Contents と Pull requests を
+Read and write にします。ブランチ保護では既存 CI の必須チェックを設定し、リポジトリ設定で Auto-merge を有効にしてください。初回の同期
+PR と削除 PR は内容を確認して手動マージし、以後の自動マージを有効にします。
+
+ワークフローは Actions の「Update content」からサービスを選んで手動実行できます。「Prune content」は削除処理の手動実行です。ローカルでは上の
+dry-run コマンドで差分を確認できます。フィード取得やリンク確認に失敗した処理は失敗として記録され、確認できないリンクは削除されません。
 
 ## コンテンツの追加
 

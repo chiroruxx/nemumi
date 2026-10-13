@@ -14,9 +14,10 @@
     "astro": "astro",
     "sync-content": "node scripts/cli/sync-content.ts",
     "prune-content": "node scripts/cli/prune-content.ts",
-    "test": "astro build --mode test --outDir dist-test && node --test tests/*.test.ts",
+    "test": "astro build --mode test --outDir dist-test && node scripts/cli/run-tests.ts",
     "lighthouse:ci": "lhci autorun",
-    "lint": "biome check . && stylelint 'src/**/*.astro' && node scripts/cli/check-exported-function-tests.ts",
+    "check:exported-function-tests": "node scripts/cli/check-exported-function-tests.ts",
+    "lint": "biome check . && stylelint 'src/**/*.astro' && pnpm check:exported-function-tests",
     "format": "biome check --write .",
     "check": "astro check"
   },

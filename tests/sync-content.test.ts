@@ -1,30 +1,10 @@
 import assert from 'node:assert/strict';
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
-import os from 'node:os';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import test, { type TestContext } from 'node:test';
+import test from 'node:test';
 import YAML from 'yaml';
 import { syncService } from '../scripts/lib/external-content.ts';
-
-async function createContentDirectory(t: TestContext): Promise<string> {
-  const contentDirectory = await mkdtemp(
-    path.join(os.tmpdir(), 'nemumi-content-'),
-  );
-  await Promise.all(
-    ['articles', 'talks'].map((collection) =>
-      mkdir(path.join(contentDirectory, collection)),
-    ),
-  );
-  t.after(() => rm(contentDirectory, { recursive: true, force: true }));
-  return contentDirectory;
-}
+import { createContentDirectory } from './helpers/content-fixture.ts';
 
 test('sync dry-run does not write files, and a repeated sync is idempotent', async (t) => {
   const contentDirectory = await createContentDirectory(t);

@@ -1,24 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
+import { readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import test, { type TestContext } from 'node:test';
+import test from 'node:test';
 import YAML from 'yaml';
 import { runPruneContent } from '../scripts/cli/prune-content.ts';
 import { pruneContent } from '../scripts/lib/external-content.ts';
-
-async function createContentDirectory(t: TestContext): Promise<string> {
-  const contentDirectory = await mkdtemp(
-    path.join(os.tmpdir(), 'nemumi-content-'),
-  );
-  await Promise.all(
-    ['articles', 'talks'].map((collection) =>
-      mkdir(path.join(contentDirectory, collection)),
-    ),
-  );
-  t.after(() => rm(contentDirectory, { recursive: true, force: true }));
-  return contentDirectory;
-}
+import { createContentDirectory } from './helpers/content-fixture.ts';
 
 test('prune CLI passes dry-run through and emits an empty result summary', async () => {
   const output: string[] = [];

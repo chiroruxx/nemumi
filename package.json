@@ -32,7 +32,7 @@
     "@biomejs/biome": "2.5.15",
     "@lhci/cli": "0.15.1",
     "postcss-html": "^2.0.0",
-    "stylelint": "^17.15.0",
+    "stylelint": "^17.16.0",
     "stylelint-config-astro": "^2.0.0",
     "stylelint-config-standard": "^40.0.0",
     "stylelint-use-nesting": "^6.0.2",

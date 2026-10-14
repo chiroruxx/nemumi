@@ -19,7 +19,6 @@ import {
 import {
   buildCollectionIndex,
   type Collection,
-  canonicalUrl,
   createPrunePlan,
   createSyncPlan,
   type FeedItem,
@@ -164,45 +163,30 @@ export async function syncService(
     const review = preliminaryPlan.linkChecks.filter(
       ({ url }) => checked.statuses.get(url) === 'review',
     );
+    const result: SyncResult = {
+      deferred,
+      review,
+      unchecked: checked.unchecked,
+    };
     if (deferred.length || review.length) {
-      const report: SyncResult = {
-        deferred,
-        review,
-        unchecked: checked.unchecked,
-      };
       throw Object.assign(
         new Error(
           `Could not verify new items: ${[...deferred, ...review]
             .map(({ url }) => url)
             .join(', ')}`,
         ),
-        { report },
+        { report: result },
       );
     }
-    if (checked.unchecked.length) {
-      return {
-        deferred,
-        review,
-        unchecked: checked.unchecked,
-      };
-    }
-    const uncheckedUrls = new Set(checked.unchecked.map(({ url }) => url));
-    const safeFeed = currentFeed.filter(
-      (item) => !uncheckedUrls.has(canonicalUrl(item.url)),
-    );
+    if (checked.unchecked.length) return result;
     const plan = createSyncPlan({
       ...planInput,
-      feed: safeFeed,
       linkStatuses: checked.statuses,
     });
     const operations = syncOperations(plan.changes);
     await validateFileTargets(operations, contentDirectory);
     if (!dryRun) await applyFileChanges(operations, contentDirectory);
-    return {
-      deferred,
-      review,
-      unchecked: checked.unchecked,
-    };
+    return result;
   } finally {
     if (!executionContext) context.dispose();
   }

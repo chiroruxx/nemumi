@@ -17,47 +17,19 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout trusted main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main
           persist-credentials: false
 
-      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Apply directory limits and remove unavailable links
-        id: prune
-        run: mise run prune-content
-
-      - name: Create GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      - name: Run content automation
+        uses: ./.github/actions/content-automation
         with:
+          mode: prune
+          branch: automation/prune-content
+          commit-message: 'chore(content): prune content'
+          title: コンテンツを整理
+          description: ディレクトリごとの保持件数を適用し、無効リンクを除去します。
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
-      - name: Create or update prune pull request
-        id: pull-request
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          branch: automation/prune-content
-          delete-branch: false
-          commit-message: 'chore(content): prune content'
-          title: 'コンテンツを整理'
-          body: |
-            ディレクトリごとの保持件数を適用し、無効リンクを除去します。
-
-            ${{ steps.prune.outputs.summary }}
-
-            必須 CI 成功後に自動マージします。
-          add-paths: |
-            src/content/articles/*.yaml
-            src/content/talks/*.yaml
-
-      - name: Enable auto-merge
-        if: vars.CONTENT_AUTO_MERGE == 'true' && steps.pull-request.outputs.pull-request-number != ''
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          PR_NUMBER: ${{ steps.pull-request.outputs.pull-request-number }}
-        run: gh pr merge "$PR_NUMBER" --auto --squash

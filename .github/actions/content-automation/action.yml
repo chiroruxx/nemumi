@@ -1,0 +1,117 @@
+name: Automate content pull requests
+description: Sync or prune content, guard the automation branch, and maintain its pull request.
+inputs:
+  mode:
+    description: Content operation to run (sync or prune).
+    required: true
+  service:
+    description: Source service for sync mode.
+    required: false
+  branch:
+    description: Persistent automation branch name.
+    required: true
+  commit-message:
+    description: Commit message for generated changes.
+    required: true
+  title:
+    description: Pull request title.
+    required: true
+  description:
+    description: Introductory pull request body text.
+    required: true
+  client-id:
+    description: GitHub App client ID.
+    required: true
+  private-key:
+    description: GitHub App private key.
+    required: true
+  add-paths:
+    description: Content YAML paths that the pull request may stage.
+    required: false
+    default: |
+      src/content/articles/*.yaml
+      src/content/talks/*.yaml
+outputs:
+  summary:
+    description: Content report written by the sync or prune command.
+    value: ${{ steps.sync.outputs.summary || steps.prune.outputs.summary }}
+runs:
+  using: composite
+  steps:
+    - name: Set up mise
+      uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Validate automation mode
+      shell: bash
+      env:
+        CONTENT_MODE: ${{ inputs.mode }}
+      run: |
+        case "$CONTENT_MODE" in
+          sync|prune) ;;
+          *) echo "Unsupported content automation mode" >&2; exit 1 ;;
+        esac
+
+    - name: Sync service content
+      id: sync
+      if: inputs.mode == 'sync'
+      shell: bash
+      env:
+        SERVICE: ${{ inputs.service }}
+      run: mise run sync-content -- "$SERVICE"
+
+    - name: Prune saved content
+      id: prune
+      if: inputs.mode == 'prune'
+      shell: bash
+      run: mise run prune-content
+
+    - name: Create GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        client-id: ${{ inputs.client-id }}
+        private-key: ${{ inputs.private-key }}
+
+    - name: Guard automation pull request lifecycle
+      id: guard
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        CONTENT_BRANCH: ${{ inputs.branch }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: mise exec -- node scripts/cli/prepare-content-pr.ts
+
+    - name: Create or update content pull request
+      id: pull-request
+      if: steps.guard.outputs.proceed == 'true'
+      uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+      with:
+        token: ${{ steps.app-token.outputs.token }}
+        branch: ${{ inputs.branch }}
+        base: main
+        delete-branch: false
+        commit-message: ${{ inputs.commit-message }}
+        # The author can be the dispatching human; the guard trusts the bot committer identity only.
+        author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
+        committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+        title: ${{ inputs.title }}
+        body: |
+          ${{ inputs.description }}
+
+          ${{ steps.sync.outputs.summary || steps.prune.outputs.summary }}
+
+          ${{ vars.CONTENT_AUTO_MERGE == 'true' && '必須 CI 成功後に自動マージします。' || 'この実行では自動マージを要求しません。設定済みの場合は解除し、内容を確認して手動でマージしてください。' }}
+        add-paths: ${{ inputs.add-paths }}
+
+    - name: Enable auto-merge
+      if: vars.CONTENT_AUTO_MERGE == 'true' && steps.guard.outputs.proceed == 'true' && steps.pull-request.outputs.pull-request-number != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        PR_NUMBER: ${{ steps.pull-request.outputs.pull-request-number }}
+      run: gh pr merge "$PR_NUMBER" --auto --squash

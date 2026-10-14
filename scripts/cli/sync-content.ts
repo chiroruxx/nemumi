@@ -1,68 +1,76 @@
-import { randomUUID } from 'node:crypto';
-import { appendFile } from 'node:fs/promises';
-import { isSource, syncService } from '../lib/external-content.ts';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import {
+  formatSyncSummary,
+  parseSyncArguments,
+  serializeContentResult,
+  writeGitHubSummary,
+} from '../lib/content-cli.ts';
+import type { Source, SyncResult } from '../lib/external-content.ts';
+import { syncService } from '../lib/external-content.ts';
 
-const [source, ...options] = process.argv.slice(2);
-const dryRun = options.includes('--dry-run');
+type RunSyncOptions = {
+  source: Source;
+  dryRun?: boolean;
+  sync?: typeof syncService;
+  writeOutput?: (value: string) => void;
+  writeSummary?: (value: string) => Promise<void>;
+  repositoryRoot?: string;
+};
 
-try {
-  if (!isSource(source)) throw new Error(`Unknown service: ${source ?? ''}`);
-  const result = await syncService(source, { dryRun });
-  const changeSummary = result.changes.length
-    ? result.changes
-        .map(
-          ({ action, date, title, url }) =>
-            `- ${action === 'add' ? '追加' : '更新'}: ${date}「${title}」 ${url}`,
-        )
-        .join('\n')
-    : '変更はありません。';
-  const reportSummary = [
-    result.unchecked.length
-      ? `未確認のため保持: ${result.unchecked.length} 件`
-      : '',
-    result.deferred.length
-      ? `確認保留のため保持: ${result.deferred.length} 件`
-      : '',
-    result.review.length ? `要確認のため保持: ${result.review.length} 件` : '',
-  ].filter(Boolean);
-  const summary = [changeSummary, ...reportSummary].join('\n');
-  if (process.env.GITHUB_OUTPUT) {
-    const delimiter = `SYNC_SUMMARY_${randomUUID()}`;
-    await appendFile(
-      process.env.GITHUB_OUTPUT,
-      `summary<<${delimiter}\n${summary}\n${delimiter}\n`,
-    );
-  }
-  console.log(
-    JSON.stringify(
-      {
-        source: result.source,
-        collection: result.collection,
-        feedCount: result.feedCount,
-        changes: result.changes.map(({ action, file, date, title, url }) => ({
-          action,
-          file,
-          date,
-          title,
-          url,
-        })),
-        kept: result.kept,
-        skipped: result.skipped,
-        deferred: result.deferred,
-        review: result.review,
-        unchecked: result.unchecked,
-        remainingByCollection: result.remainingByCollection,
-      },
-      null,
-      2,
-    ),
+function hasSyncReport(
+  error: unknown,
+): error is Error & { report: SyncResult } {
+  return (
+    error instanceof Error &&
+    typeof error === 'object' &&
+    'report' in error &&
+    Boolean(error.report) &&
+    typeof error.report === 'object' &&
+    error.report !== null &&
+    'source' in error.report
   );
-} catch (error) {
-  const report =
-    typeof error === 'object' && error !== null && 'report' in error
-      ? (error as { report: unknown }).report
-      : undefined;
-  if (report) console.log(JSON.stringify(report, null, 2));
-  console.error(error);
-  process.exitCode = 1;
+}
+
+export async function runSyncContent({
+  source,
+  dryRun = false,
+  sync = syncService,
+  writeOutput = (value) => console.log(value),
+  writeSummary = writeGitHubSummary,
+  repositoryRoot = process.cwd(),
+}: RunSyncOptions): Promise<SyncResult> {
+  const writeReport = async (result: SyncResult) => {
+    await writeSummary(formatSyncSummary(result, repositoryRoot));
+    writeOutput(
+      JSON.stringify(serializeContentResult(result, repositoryRoot), null, 2),
+    );
+  };
+
+  let result: SyncResult;
+  try {
+    result = await sync(source, { dryRun });
+  } catch (error) {
+    if (hasSyncReport(error)) await writeReport(error.report);
+    throw error;
+  }
+  await writeReport(result);
+  return result;
+}
+
+async function main(): Promise<void> {
+  const { source, dryRun } = parseSyncArguments(process.argv.slice(2));
+  await runSyncContent({ source, dryRun });
+}
+
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(error);
+    process.exitCode = 1;
+  }
 }

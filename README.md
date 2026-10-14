@@ -73,18 +73,17 @@ mise run dev
 
 ## 外部コンテンツの自動更新
 
-GitHub Actions が毎日 JST 06:17 に3サービスを並列で同期し、サービスごとに PR を作成します。JST 07:17 には最新の `main`
-を対象に、記事20件・登壇資料10件の上限を適用し、リンク切れを確認する共通の削除 PR を作成します。差分がない場合は PR
-を作成・維持しません。必須 CI 成功後は自動マージします。未マージの同期 PR があっても削除処理を実行し、同期 PR
-の変更は次回の削除処理で確認します。
+GitHub Actions は毎日 JST 06:17 に3サービスを並列で同期し、JST 07:17 に `main` の保存済みデータを対象に prune します。同期はサービス別 PR、prune は共通 PR を作成・更新します。同期が失敗したサービスは差分を適用せず、他サービスの同期は継続します。prune は同期 PR のマージを待たず、実行時点の最新 `main` を対象にします。
 
-自動 PR には GitHub App のトークンを使います。リポジトリに `APP_CLIENT_ID` Actions Variable と `APP_PRIVATE_KEY` Actions
-Secret を登録してください。App は対象リポジトリにインストールし、Repository permissions の Contents と Pull requests を
-Read and write にします。ブランチ保護では既存 CI の必須チェックを設定し、リポジトリ設定で Auto-merge を有効にしてください。初回の同期
-PR と削除 PR は内容を確認して手動マージし、以後の自動マージを有効にします。
+PR 作成には、この repository にインストールした GitHub App を使います。`APP_CLIENT_ID` を `Settings > Secrets and variables > Actions > Variables` に、`APP_PRIVATE_KEY` を同じ画面の `Secrets` に登録してください。App をこの repository にインストールし、`Contents: Read and write` と `Pull requests: Read and write` を付与します。branch protection の bypass 権限は不要です。workflow の `GITHUB_TOKEN` は read-only のままです。
 
-ワークフローは Actions の「Update content」からサービスを選んで手動実行できます。「Prune content」は削除処理の手動実行です。ローカルでは上の
-dry-run コマンドで差分を確認できます。フィード取得やリンク確認に失敗した処理は失敗として記録され、確認できないリンクは削除されません。
+`CONTENT_AUTO_MERGE` が文字列 `true` のとき、必須 CI 成功後に auto-merge を要求します。それ以外（未設定を含む）は新たな自動マージを要求せず、PR の確認・マージは手動です。自動マージを使う場合は repository 設定で Auto-merge と必須チェックも有効にしてください。初回は自動マージを無効にして差分と CI を確認し、手動マージします。
+
+「Update content」はサービスを選択して手動実行できます。「Prune content」も手動実行できます。ローカルでは [dry-run コマンド](#主なコマンド)で同期・削除予定を確認できます。GitHub Actions はどちらも10分で終了します。
+
+差分がなくなった bot PR は no-diff marker を付けて閉じます。後に差分が戻れば bot が閉じた PR を再利用します。人が閉じた PR は自動再開されません。再開時は対象 PR を手動で再 open してください。automation branch へ人が直接 commit すると guard が停止します。変更を通常の PR で `main` に反映するか、内容を退避して automation branch を `main` から作り直してください。
+
+`CONTENT_AUTO_MERGE=false` または未設定では、以後の実行で自動マージを要求しません。すでにPRで有効な auto-merge は残るため、必要なら各PR画面の `Disable auto-merge`（または `gh pr merge <番号> --disable-auto`）で個別に解除してください。両workflowを無効化しても、すでにPRへ設定した auto-merge は解除されません。自動処理全体を止める場合は「Update content」と「Prune content」の両 workflow を無効にし、既存PRの auto-merge も必要に応じて解除してください。通信期限、保持方針、PR の復旧手順は [ADR 0025](docs/adr/0025-sync-external-content-from-rss.md)、[ADR 0027](docs/adr/0027-prune-stored-content-without-rss.md)、[ADR 0029](docs/adr/0029-bound-content-network-execution.md)、[ADR 0030](docs/adr/0030-guard-content-automation-lifecycle.md) を参照してください。
 
 ## コンテンツの追加
 

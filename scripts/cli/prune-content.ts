@@ -1,9 +1,8 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  formatPruneSummary,
+  formatUnverifiedLinks,
   parsePruneArguments,
-  serializeContentResult,
   writeGitHubSummary,
 } from '../lib/content-cli.ts';
 import type { PruneResult } from '../lib/external-content.ts';
@@ -14,7 +13,6 @@ type RunPruneContentOptions = {
   prune?: typeof pruneContent;
   writeOutput?: (value: string) => void;
   writeSummary?: (value: string) => Promise<void>;
-  repositoryRoot?: string;
 };
 
 export async function runPruneContent({
@@ -22,13 +20,11 @@ export async function runPruneContent({
   prune = pruneContent,
   writeOutput = (value) => console.log(value),
   writeSummary = writeGitHubSummary,
-  repositoryRoot = process.cwd(),
 }: RunPruneContentOptions = {}): Promise<PruneResult> {
   const result = await prune({ dryRun });
-  await writeSummary(formatPruneSummary(result, repositoryRoot));
-  writeOutput(
-    JSON.stringify(serializeContentResult(result, repositoryRoot), null, 2),
-  );
+  const summary = formatUnverifiedLinks(result);
+  writeOutput(summary);
+  await writeSummary(summary);
   return result;
 }
 

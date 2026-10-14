@@ -11,25 +11,9 @@ import { runSyncContent } from '../scripts/cli/sync-content.ts';
 const runFile = promisify(execFile);
 
 const syncReport = {
-  source: 'sizu' as const,
-  collection: 'articles' as const,
-  feedCount: 2,
-  changes: [
-    {
-      action: 'add' as const,
-      file: '/repo/src/content/articles/new.yaml',
-      date: new Date('2026-10-13'),
-      title: 'New post',
-      url: 'https://sizu.me/chihiroxx/posts/new?ref=rss',
-      types: ['日常記事'],
-    },
-  ],
-  kept: 1,
-  skipped: [],
   deferred: [],
   review: [],
   unchecked: [],
-  remainingByCollection: { articles: 2 },
 };
 
 test('sync CLI can be imported without parsing argv or executing an operation', async () => {
@@ -52,9 +36,9 @@ test('sync CLI can be imported without parsing argv or executing an operation', 
   }
 });
 
-test('runSyncContent injects sync, writes formatted summary and relative-path JSON, and returns the original report', async () => {
-  const output: string[] = [];
+test('runSyncContent reports only unverified URLs and returns the original result', async () => {
   const summaries: string[] = [];
+  const output: string[] = [];
   let received: { source: string; dryRun: boolean } | undefined;
   const result = await runSyncContent({
     source: 'sizu',
@@ -63,34 +47,24 @@ test('runSyncContent injects sync, writes formatted summary and relative-path JS
       received = { source, dryRun: options?.dryRun ?? false };
       return syncReport;
     },
-    writeOutput: (value) => output.push(value),
     writeSummary: async (value) => {
       summaries.push(value);
     },
-    repositoryRoot: '/repo',
+    writeOutput: (value) => output.push(value),
   });
 
   assert.deepEqual(received, { source: 'sizu', dryRun: true });
   assert.equal(result, syncReport);
-  assert.equal(
-    syncReport.changes[0].file,
-    '/repo/src/content/articles/new.yaml',
-  );
-  assert.equal(
-    JSON.parse(output[0] ?? '{}').changes[0].file,
-    'src/content/articles/new.yaml',
-  );
-  assert.match(summaries[0] ?? '', /RSS取得: 2件/);
-  assert.match(summaries[0] ?? '', /src\/content\/articles\/new.yaml/);
+  assert.equal(summaries[0], '公開状態を確認できなかった URL はありません。');
+  assert.deepEqual(output, summaries);
 });
 
 test('runSyncContent writes a structured failure report before rethrowing the sync error', async () => {
-  const output: string[] = [];
   const summaries: string[] = [];
+  const output: string[] = [];
   const failure = Object.assign(new Error('verification failed'), {
     report: {
       ...syncReport,
-      changes: [],
       review: [{ source: 'sizu' as const, url: 'https://sizu.me/unavailable' }],
     },
   });
@@ -100,16 +74,18 @@ test('runSyncContent writes a structured failure report before rethrowing the sy
       sync: async () => {
         throw failure;
       },
-      writeOutput: (value) => output.push(value),
       writeSummary: async (value) => {
         summaries.push(value);
       },
-      repositoryRoot: '/repo',
+      writeOutput: (value) => output.push(value),
     }),
     /verification failed/,
   );
-  assert.equal(JSON.parse(output[0] ?? '{}').review.length, 1);
-  assert.match(summaries[0] ?? '', /要確認: 1件/);
+  assert.equal(
+    summaries[0],
+    '公開状態を確認できなかった URL:\n- https://sizu.me/unavailable',
+  );
+  assert.deepEqual(output, summaries);
 });
 
 test('sync and prune invalid CLI arguments exit nonzero before changing content fixtures', async (t) => {

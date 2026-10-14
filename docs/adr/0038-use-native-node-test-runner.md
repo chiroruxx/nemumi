@@ -15,7 +15,7 @@ Node.js 26 はコマンドラインから glob pattern を使ってテストを�
 - export 関数チェッカーは同じ glob pattern を `node:fs/promises` の `glob` で列挙し、絶対パスに変換してソートする。
 - `.test.ts` を対象に含め、`.test.tsx` は含めない。Node.js の glob runner は一致するテストが0件でも終了コード0を返す。この簡素化では旧
   wrapper の0件失敗を維持しない。
-- 共有 helper を使う決定は [ADR 0031](0031-align-test-runner-and-static-check.md) により置き換える。
+- この決定は [ADR 0031](0031-align-test-runner-and-static-check.md) のファイル列挙処理を共有する決定を置き換える。
 
 ## 結果
 

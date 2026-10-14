@@ -297,7 +297,22 @@ export async function syncService(
   // Service syncs remain independent. Other services' current content reserves
   // its place; the later prune run applies the complete cross-service ranking.
   const currentFeed = await feedLoader(service);
-  const feeds = new Map<Source, FeedItem[]>([[source, currentFeed]]);
+  const uniqueFeed = new Map<string, FeedItem>();
+  for (const item of currentFeed) {
+    const url = canonicalUrl(item.url);
+    const normalized = { ...item, url };
+    const previous = uniqueFeed.get(url);
+    if (
+      previous &&
+      (previous.date !== normalized.date || previous.title !== normalized.title)
+    ) {
+      throw new Error(`Conflicting RSS items for URL: ${url}`);
+    }
+    uniqueFeed.set(url, normalized);
+  }
+  const feeds = new Map<Source, FeedItem[]>([
+    [source, [...uniqueFeed.values()]],
+  ]);
   const keep = selectKeepSet(collection, existing, feeds);
   const byUrl = new Map<string, StoredEntry>();
   for (const entry of existing) {
@@ -311,7 +326,7 @@ export async function syncService(
     target: string;
   }[] = [];
 
-  for (const item of currentFeed) {
+  for (const item of uniqueFeed.values()) {
     if (!keep.has(item.url)) continue;
     const previous = byUrl.get(item.url);
     if (!previous) {
@@ -353,6 +368,7 @@ export async function verifyLink(
   service: Service,
 ): Promise<LinkStatus> {
   let target = value;
+  const visited = new Set<string>();
   for (let redirects = 0; redirects <= 5; redirects += 1) {
     let url: URL;
     try {
@@ -360,11 +376,21 @@ export async function verifyLink(
     } catch {
       return 'review';
     }
-    if (url.protocol !== 'https:' || url.hostname !== service.host)
+    if (
+      url.protocol !== 'https:' ||
+      url.hostname !== service.host ||
+      !url.pathname.startsWith(service.pathPrefix) ||
+      url.username ||
+      url.password
+    ) {
       return 'review';
+    }
+    url.hash = '';
+    if (visited.has(url.href)) return 'review';
+    visited.add(url.href);
     let response: Response;
     try {
-      response = await fetch(target, {
+      response = await fetch(url.href, {
         method: 'GET',
         redirect: 'manual',
         signal: AbortSignal.timeout(30_000),
@@ -377,7 +403,7 @@ export async function verifyLink(
       const location = response.headers.get('location');
       if (!location) return 'review';
       try {
-        target = new URL(location, target).href;
+        target = new URL(location, url).href;
       } catch {
         return 'review';
       }

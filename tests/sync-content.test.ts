@@ -61,7 +61,7 @@ test('sync updates the existing filename, keeps types, and round-trips quoted mu
       linkChecks += 1;
       return 'public';
     },
-    linkCheckIntervalMs: 0,
+    linkCheckBatchIntervalMs: 0,
   });
 
   assert.deepEqual(result.changes, [
@@ -319,7 +319,7 @@ test('sync deadline keeps existing files unchanged and does not partially apply 
       remainingMs: () => remaining,
       dispose: () => {},
     },
-    linkCheckIntervalMs: 0,
+    linkCheckBatchIntervalMs: 0,
     linkVerifier: async () => {
       checks += 1;
       if (checks === 2) {
@@ -363,7 +363,7 @@ test('sync deadline preserves confirmed deleted additions alongside unchecked ad
       remainingMs: () => remaining,
       dispose: () => {},
     },
-    linkCheckIntervalMs: 0,
+    linkCheckBatchIntervalMs: 0,
     linkVerifier: async (url) => {
       calls += 1;
       if (url.endsWith('/deleted')) return 'deleted';
@@ -406,7 +406,7 @@ test('sync reports counts only for the collection it read', async (t) => {
   const result = await syncService('sizu', {
     contentDirectory,
     feedLoader: async () => [],
-    linkCheckIntervalMs: 0,
+    linkCheckBatchIntervalMs: 0,
   });
   assert.deepEqual(result.remainingByCollection, { articles: 0 });
 });
@@ -428,7 +428,7 @@ test('sync still fails before applying any file when new link checks return defe
           },
         ],
         linkVerifier: async () => status,
-        linkCheckIntervalMs: 0,
+        linkCheckBatchIntervalMs: 0,
       });
       throw new Error('sync unexpectedly succeeded');
     } catch (error) {

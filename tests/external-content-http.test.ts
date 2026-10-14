@@ -12,7 +12,6 @@ import type {
   LinkCheck,
   LinkStatus,
   Service,
-  Source,
 } from '../scripts/lib/external-content-planning.ts';
 import { services } from '../scripts/lib/external-content-planning.ts';
 
@@ -208,60 +207,68 @@ test('verifyLink passes the execution signal to fetch and releases response bodi
   assert.equal(canceled, 1);
 });
 
-test('runLinkChecks enforces two concurrent checks and a per-service start interval', async () => {
-  let clock = 0;
-  const starts: { source: Source; at: number }[] = [];
+test('runLinkChecks completes batches of five before waiting one second, without a final wait', async (t) => {
+  const controller = new AbortController();
+  t.after(() => controller.abort());
+  const checks: LinkCheck[] = Array.from({ length: 11 }, (_, index) => ({
+    source: 'sizu',
+    url: `https://sizu.me/chihiroxx/posts/${index}`,
+  }));
+  const started: string[] = [];
   const pending: (() => void)[] = [];
-  let active = 0;
-  let maximum = 0;
-  const checks: LinkCheck[] = [
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/one' },
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/two' },
-    { source: 'hatena', url: 'https://toyo.hatenablog.jp/entry/three' },
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/four' },
-  ];
+  const waits: number[] = [];
+  let resumeWait!: () => void;
+  const tick = () => new Promise<void>((resolve) => setImmediate(resolve));
   const work = runLinkChecks(
     checks,
-    async (_url, service) => {
-      const source = Object.entries(services).find(
-        ([, value]) => value === service,
-      )?.[0];
-      assert.ok(source);
-      starts.push({ source: source as Source, at: clock });
-      active += 1;
-      maximum = Math.max(maximum, active);
+    async (url) => {
+      started.push(url);
       await new Promise<void>((resolve) => pending.push(resolve));
-      active -= 1;
       return 'public';
     },
     {
       services,
-      context: createTestContext(() => 60_000),
-      intervalMs: 1000,
-      now: () => clock,
+      context: createTestContext(() => 60_000, controller.signal),
       sleep: async (milliseconds) => {
-        clock += milliseconds;
+        waits.push(milliseconds);
+        await new Promise<void>((resolve) => {
+          resumeWait = resolve;
+        });
       },
     },
   );
-  while (pending.length || starts.length < checks.length) {
-    if (pending.length) pending.shift()?.();
-    await Promise.resolve();
-  }
-  const result = await work;
-  assert.equal(maximum, 2);
-  const sizuStarts = starts
-    .filter(({ source }) => source === 'sizu')
-    .map(({ at }) => at);
-  assert.ok(
-    sizuStarts.slice(1).every((at, index) => {
-      const previous = sizuStarts[index];
-      return previous !== undefined && at - previous >= 1000;
-    }),
-    JSON.stringify(starts),
+  await tick();
+  assert.deepEqual(
+    started,
+    checks.slice(0, 5).map(({ url }) => url),
   );
-  assert.equal(result.statuses.size, 4);
+  pending.splice(0, 4).forEach((resolve) => {
+    resolve();
+  });
+  await tick();
+  assert.deepEqual(waits, []);
+  assert.equal(started.length, 5);
+  pending.shift()?.();
+  await tick();
+  assert.deepEqual(waits, [1000]);
+  assert.equal(started.length, 5);
+  resumeWait();
+  await tick();
+  assert.equal(started.length, 10);
+  pending.splice(0).forEach((resolve) => {
+    resolve();
+  });
+  await tick();
+  assert.deepEqual(waits, [1000, 1000]);
+  assert.equal(started.length, 10);
+  resumeWait();
+  await tick();
+  assert.equal(started.length, 11);
+  pending.shift()?.();
+  const result = await work;
+  assert.equal(result.statuses.size, 11);
   assert.deepEqual(result.unchecked, []);
+  assert.deepEqual(waits, [1000, 1000]);
 });
 
 test('runLinkChecks leaves never-started and interrupted checks unchecked after the global deadline', async () => {
@@ -281,8 +288,6 @@ test('runLinkChecks leaves never-started and interrupted checks unchecked after 
     {
       services,
       context: createTestContext(() => remaining, controller.signal),
-      intervalMs: 1000,
-      now: () => 0,
       sleep: async () => {},
     },
   );
@@ -355,71 +360,53 @@ test('deadline abort reaches the signal passed to the active fetch', async () =>
   assert.equal(requestSignal?.aborted, true);
 });
 
-test('same-service redirect requests stay spaced when run through the shared scheduler', async () => {
-  let clock = 0;
-  const starts: number[] = [];
-  const context = createExecutionContext({
-    budgetMs: 30_000,
-    now: () => clock,
-    intervalMs: 1000,
-    sleep: async (milliseconds) => {
-      clock += milliseconds;
-    },
-    setTimer: () => 1 as unknown as ReturnType<typeof setTimeout>,
-    clearTimer: () => {},
-  });
+test('link batches include redirects without per-request spacing', async (t) => {
+  const context = createExecutionContext();
+  t.after(() => context.dispose());
+  const requests: string[] = [];
+  const waits: number[] = [];
+  const checks: LinkCheck[] = [
+    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/one' },
+    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/two' },
+  ];
   const result = await runLinkChecks(
-    [
-      { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/one' },
-      { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/two' },
-    ],
-    async (url, service, execution) => {
-      let redirected = false;
-      return verifyLink(url, service, {
+    checks,
+    (url, service, execution) =>
+      verifyLink(url, service, {
         context: execution,
-        fetch: async (_input, init) => {
-          assert.ok(init?.signal);
-          assert.equal(init.signal.aborted, false);
-          starts.push(clock);
-          if (url.endsWith('/one') && !redirected) {
-            redirected = true;
-            return new Response(null, {
-              status: 302,
-              headers: { location: '/chihiroxx/posts/redirected' },
-            });
-          }
-          return new Response(null, { status: 200 });
+        fetch: async (input) => {
+          const target = String(input);
+          requests.push(target);
+          return target.endsWith('/one')
+            ? new Response(null, {
+                status: 302,
+                headers: { location: '/chihiroxx/posts/redirected' },
+              })
+            : new Response(null, { status: 200 });
         },
-      });
-    },
+      }),
     {
       services,
       context,
-      intervalMs: 1000,
-      now: () => clock,
       sleep: async (milliseconds) => {
-        clock += milliseconds;
+        waits.push(milliseconds);
       },
     },
   );
+  assert.equal(requests.length, 3);
+  assert.ok(requests.includes('https://sizu.me/chihiroxx/posts/redirected'));
   assert.deepEqual([...result.statuses.values()], ['public', 'public']);
-  assert.ok(
-    starts.slice(1).every((at, index) => {
-      const previous = starts[index];
-      return previous !== undefined && at - previous >= 1000;
-    }),
-    JSON.stringify(starts),
-  );
-  context.dispose();
+  assert.deepEqual(waits, []);
 });
 
-test('runLinkChecks wakes on the global deadline when an in-flight verifier never settles', async () => {
+test('runLinkChecks returns at the deadline and ignores a verifier that settles later', async () => {
   const controller = new AbortController();
   let remaining = 10_000;
   const check = {
     source: 'sizu' as const,
     url: 'https://sizu.me/chihiroxx/posts/stuck',
   };
+  let finish!: (status: LinkStatus) => void;
   let started!: () => void;
   const startedPromise = new Promise<void>((resolve) => {
     started = resolve;
@@ -429,7 +416,9 @@ test('runLinkChecks wakes on the global deadline when an in-flight verifier neve
     [check],
     async () => {
       started();
-      return new Promise<LinkStatus>(() => {});
+      return new Promise<LinkStatus>((resolve) => {
+        finish = resolve;
+      });
     },
     { services, context },
   );
@@ -443,69 +432,86 @@ test('runLinkChecks wakes on the global deadline when an in-flight verifier neve
   assert.notEqual(result, 'stuck');
   if (result === 'stuck') throw new Error('scheduler did not observe deadline');
   assert.deepEqual(result.unchecked, [check]);
+  finish('deleted');
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(result.statuses.size, 0);
+  assert.deepEqual(result.unchecked, [check]);
 });
 
-test('runLinkChecks waits for the deadline signal when a pending start exceeds budget but work is active', async () => {
+test('runLinkChecks preserves completed results and leaves later batches unchecked when a wait aborts', async () => {
   const controller = new AbortController();
-  let remaining = 500;
-  let abortedAtReturn = false;
-  const checks = [
-    { source: 'sizu' as const, url: 'https://sizu.me/chihiroxx/posts/active' },
-    { source: 'sizu' as const, url: 'https://sizu.me/chihiroxx/posts/pending' },
-  ];
-  const context = createTestContext(() => remaining, controller.signal);
-  const run = runLinkChecks(
+  const checks: LinkCheck[] = Array.from({ length: 6 }, (_, index) => ({
+    source: 'sizu',
+    url: `https://sizu.me/chihiroxx/posts/${index}`,
+  }));
+  let calls = 0;
+  const result = await runLinkChecks(
     checks,
-    async () => new Promise<LinkStatus>(() => {}),
-    {
-      services,
-      context,
-      intervalMs: 1000,
-      now: () => 0,
-      sleep: async () => {},
+    async () => {
+      calls += 1;
+      return 'public';
     },
-  ).finally(() => {
-    abortedAtReturn = controller.signal.aborted;
-  });
-  setTimeout(() => {
-    remaining = 0;
-    controller.abort(new Error('global deadline'));
-  }, 20);
-  const result = await run;
-  assert.equal(abortedAtReturn, true);
-  assert.deepEqual(result.unchecked, checks);
-});
-
-test('runLinkChecks converts an aborting wait into unchecked items without throwing', async () => {
-  const controller = new AbortController();
-  let remaining = 1000;
-  const checks = [
-    { source: 'sizu' as const, url: 'https://sizu.me/chihiroxx/posts/one' },
-    { source: 'sizu' as const, url: 'https://sizu.me/chihiroxx/posts/two' },
-  ];
-  const context = createTestContext(() => remaining, controller.signal);
-  const resultPromise = runLinkChecks(
-    checks,
-    async () => new Promise<LinkStatus>(() => {}),
     {
       services,
-      context,
-      intervalMs: 1000,
-      now: () => 0,
-      sleep: async (_milliseconds, signal) =>
-        new Promise<void>((_resolve, reject) => {
-          signal?.addEventListener('abort', () => reject(signal.reason), {
-            once: true,
-          });
-        }),
+      context: createTestContext(() => 60_000, controller.signal),
+      sleep: async (_milliseconds, signal) => {
+        controller.abort(new Error('deadline'));
+        throw signal?.reason;
+      },
     },
   );
-  setTimeout(() => {
-    remaining = 0;
-    controller.abort(new Error('global deadline'));
-  }, 20);
-  const result = await resultPromise;
-  assert.deepEqual(result.unchecked, checks);
+  assert.equal(calls, 5);
+  assert.equal(result.statuses.size, 5);
+  assert.deepEqual(result.unchecked, checks.slice(5));
+});
+
+test('runLinkChecks converts thrown and rejected checks to defer without stopping the batch', async () => {
+  const checks: LinkCheck[] = Array.from({ length: 3 }, (_, index) => ({
+    source: 'sizu',
+    url: `https://sizu.me/chihiroxx/posts/${index}`,
+  }));
+  const result = await runLinkChecks(
+    checks,
+    (url) => {
+      if (url.endsWith('/0')) throw new Error('synchronous failure');
+      if (url.endsWith('/1')) return Promise.reject(new Error('async failure'));
+      return Promise.resolve('public');
+    },
+    { services, context: createTestContext(() => 60_000) },
+  );
+  assert.deepEqual(
+    checks.map(({ url }) => result.statuses.get(url)),
+    ['defer', 'defer', 'public'],
+  );
+  assert.deepEqual(result.unchecked, []);
+});
+
+test('runLinkChecks skips expired work and does not wait when the next batch cannot fit', async () => {
+  const checks: LinkCheck[] = Array.from({ length: 6 }, (_, index) => ({
+    source: 'sizu',
+    url: `https://sizu.me/chihiroxx/posts/${index}`,
+  }));
+  for (const remaining of [0, 500]) {
+    let calls = 0;
+    const result = await runLinkChecks(
+      checks,
+      async () => {
+        calls += 1;
+        return 'public';
+      },
+      {
+        services,
+        context: createTestContext(() => remaining),
+        sleep: async () => {
+          assert.fail('insufficient time for a batch interval');
+        },
+      },
+    );
+    const completed = remaining === 0 ? 0 : 5;
+    assert.equal(calls, completed);
+    assert.equal(result.statuses.size, completed);
+    assert.deepEqual(result.unchecked, checks.slice(completed));
+  }
 });
 
 test('verifyLink reports an expired global deadline as defer and malformed targets as review', async () => {
@@ -528,16 +534,12 @@ test('verifyLink reports an expired global deadline as defer and malformed targe
   );
 });
 
-test('fetchFeed keeps every retry request inside the service interval after Retry-After', async () => {
+test('fetchFeed retries using Retry-After without adding a service interval', async () => {
   let clock = 0;
   const starts: number[] = [];
   const context = createExecutionContext({
     budgetMs: 10_000,
     now: () => clock,
-    intervalMs: 1000,
-    sleep: async (milliseconds) => {
-      clock += milliseconds;
-    },
     setTimer: () => 1 as unknown as ReturnType<typeof setTimeout>,
     clearTimer: () => {},
   });
@@ -560,7 +562,7 @@ test('fetchFeed keeps every retry request inside the service interval after Retr
     },
   });
   context.dispose();
-  assert.deepEqual(starts, [0, 1000]);
+  assert.deepEqual(starts, [0, 500]);
 });
 
 test('verifyLink cancels bodies for redirects and each terminal HTTP status', async () => {

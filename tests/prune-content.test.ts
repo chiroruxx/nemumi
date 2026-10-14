@@ -148,7 +148,7 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
     contentDirectory,
     linkVerifier: async (url: string) =>
       url.endsWith('/post-02') ? ('deleted' as const) : ('public' as const),
-    linkCheckIntervalMs: 0,
+    linkCheckBatchIntervalMs: 0,
   };
   const dryRun = await pruneContent({ ...options, dryRun: true });
   assert.deepEqual(
@@ -201,7 +201,7 @@ test('pruning stops without changing files when manual entries exceed the collec
         linkChecks += 1;
         return 'public';
       },
-      linkCheckIntervalMs: 0,
+      linkCheckBatchIntervalMs: 0,
     }),
     /articles manual entries exceed its 20 item limit/,
   );
@@ -235,7 +235,7 @@ test('pruning ranks saved entries without requesting RSS feeds', async (t) => {
     const result = await pruneContent({
       contentDirectory,
       linkVerifier: async () => 'public',
-      linkCheckIntervalMs: 0,
+      linkCheckBatchIntervalMs: 0,
     });
     assert.equal(fetchCalls, 0);
     assert.deepEqual(
@@ -276,7 +276,7 @@ test('pruning reports collection counts from indexed ownership under an articles
   const result = await pruneContent({
     contentDirectory,
     linkVerifier: async () => 'public',
-    linkCheckIntervalMs: 0,
+    linkCheckBatchIntervalMs: 0,
   });
   assert.deepEqual(result.remainingByCollection, { articles: 1, talks: 10 });
   assert.equal(result.kept.length, 10);
@@ -310,7 +310,6 @@ test('pruning applies confirmed limit and link removals while retaining unchecke
   }
   const controller = new AbortController();
   let remaining = 1000;
-  let clock = 0;
   let checks = 0;
   const result = await pruneContent({
     contentDirectory,
@@ -319,14 +318,11 @@ test('pruning applies confirmed limit and link removals while retaining unchecke
       remainingMs: () => remaining,
       dispose: () => {},
     },
-    linkCheckIntervalMs: 1000,
-    now: () => clock,
-    sleep: async (milliseconds) => {
-      clock += milliseconds;
-    },
+    linkCheckBatchIntervalMs: 1000,
     linkVerifier: async () => {
       checks += 1;
       if (checks === 1) return 'deleted';
+      await new Promise<void>((resolve) => setImmediate(resolve));
       remaining = 0;
       controller.abort(new Error('deadline'));
       return 'deleted';

@@ -12,8 +12,8 @@ import {
   type ExecutionContext,
   fetchFeed,
   type HttpRuntime,
+  type LinkVerifier,
   runLinkChecks,
-  type ScheduledLinkVerifier,
   verifyLink,
 } from './external-content-http.ts';
 import {
@@ -60,14 +60,13 @@ type FeedLoader = (
   service: Service,
   context: ExecutionContext,
 ) => Promise<FeedItem[]>;
-type LinkVerifier = ScheduledLinkVerifier;
 type CommonContentOptions = {
   dryRun?: boolean;
   contentDirectory?: string;
   linkVerifier?: LinkVerifier;
   executionBudgetMs?: number;
   executionContext?: ExecutionContext;
-  linkCheckIntervalMs?: number;
+  linkCheckBatchIntervalMs?: number;
   now?: () => number;
   sleep?: HttpRuntime['sleep'];
 };
@@ -139,7 +138,7 @@ export async function syncService(
     linkVerifier,
     executionBudgetMs,
     executionContext,
-    linkCheckIntervalMs = 1000,
+    linkCheckBatchIntervalMs = 1000,
     now = Date.now,
     sleep,
   }: SyncOptions = {},
@@ -153,9 +152,7 @@ export async function syncService(
       ...(executionBudgetMs === undefined
         ? {}
         : { budgetMs: executionBudgetMs }),
-      intervalMs: linkCheckIntervalMs,
       now,
-      ...(sleep ? { sleep } : {}),
     });
   try {
     const collection = service.collection;
@@ -188,8 +185,7 @@ export async function syncService(
       {
         services,
         context,
-        intervalMs: linkCheckIntervalMs,
-        now,
+        batchIntervalMs: linkCheckBatchIntervalMs,
         ...(sleep ? { sleep } : {}),
       },
     );
@@ -307,7 +303,7 @@ export async function pruneContent({
   linkVerifier,
   executionBudgetMs,
   executionContext,
-  linkCheckIntervalMs = 1000,
+  linkCheckBatchIntervalMs = 1000,
   now = Date.now,
   sleep,
 }: PruneOptions = {}): Promise<PruneResult> {
@@ -317,9 +313,7 @@ export async function pruneContent({
       ...(executionBudgetMs === undefined
         ? {}
         : { budgetMs: executionBudgetMs }),
-      intervalMs: linkCheckIntervalMs,
       now,
-      ...(sleep ? { sleep } : {}),
     });
   try {
     const indexes = new Map<
@@ -358,8 +352,7 @@ export async function pruneContent({
       {
         services,
         context,
-        intervalMs: linkCheckIntervalMs,
-        now,
+        batchIntervalMs: linkCheckBatchIntervalMs,
         ...(sleep ? { sleep } : {}),
       },
     );

@@ -84,6 +84,8 @@ CI を確認し、手動マージします。
 content」も手動実行できます。ローカルでは [dry-run コマンド](#主なコマンド)で同期・削除予定を確認できます。GitHub Actions
 はどちらも10分で終了します。
 
+リンク確認はサービスを問わず最大5件を並列実行し、バッチ全件の完了後、次のバッチまで1秒待機します（[ADR 0035](docs/adr/0035-batch-link-checks.md)）。
+
 PR の作成・更新と差分消失時のクローズは `create-pull-request` に委譲します。人が閉じた PR があっても、次回以降の差分で PR
 作成・更新を続けます。automation branch
 は自動処理専用とし、手動コミットがあっても停止せず、生成結果で上書きされる場合があります（[ADR 0034](docs/adr/0034-delegate-content-pr-management.md)）。

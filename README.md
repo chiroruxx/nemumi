@@ -19,30 +19,20 @@ https://nemumi.dev
 
 ## 初回セットアップ
 
-1. [mise](https://mise.jdx.dev/) をインストールし、シェルで有効化する。
+[mise](https://mise.jdx.dev/) をインストールし、シェルで有効化する。Homebrew の場合:
 
-   ```shell
-   brew install mise
-   ```
+```shell
+brew install mise
+```
 
-   Homebrew 版は fish
-   では自動で有効化される。その他のシェルは [mise のドキュメント](https://mise.jdx.dev/getting-started.html) を参照。
+Homebrew 版は fish では自動で有効化される。その他のシェルは [mise のドキュメント](https://mise.jdx.dev/getting-started.html) を参照。
+その後、リポジトリのルートで次のコマンドを一度実行する。
 
-2. リポジトリのディレクトリで `mise.toml` を信頼し、Node.js と pnpm をインストールする。
+```shell
+./scripts/setup.sh
+```
 
-   ```shell
-   mise trust
-   mise install
-   ```
-
-   Node.js（`.node-version`）と pnpm（`mise.toml`）は、記載したバージョンが mise によってインストールされるため、個別のインストールは不要。
-
-3. 依存パッケージをインストールする。`mise run` はシェルの mise 連携が有効でなくても、プロジェクトで指定した Node.js と
-   pnpm を使う。
-
-   ```shell
-   mise run install
-   ```
+スクリプトは `mise.toml` を信頼し、Node.js と pnpm をインストールしてから、`.env.example` を `.env` にコピーし、依存パッケージをインストールする。既存の `.env` は上書きしない。Node.js（`.node-version`）と pnpm（`mise.toml`）は記載したバージョンが mise によってインストールされるため、個別のインストールは不要。
 
 ## 開発
 
@@ -104,7 +94,7 @@ content」と「Prune content」の両 workflow を無効にし、既存PRの au
 
 ## コンテンツの追加
 
-サイト全体の日付タイムゾーンは `TZ` で指定する。ローカルでは `.env.example` を `.env` にコピーして値を設定する。
+サイト全体の日付タイムゾーンは `TZ` で指定する。初回セットアップ時に作成される `.env` の値を変更できる。
 `mise run` の各タスクと Astro は `.env` を読み込む。未設定時は `Asia/Tokyo`
 を使う。詳細は [ADR 0032](docs/adr/0032-site-time-zone.md) を参照。
 

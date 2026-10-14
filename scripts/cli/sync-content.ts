@@ -5,8 +5,9 @@ import {
   parseSyncArguments,
   writeGitHubSummary,
 } from '../lib/content-cli.ts';
-import type { Source, SyncResult } from '../lib/external-content.ts';
+import type { SyncResult } from '../lib/external-content.ts';
 import { syncService } from '../lib/external-content.ts';
+import type { Source } from '../lib/external-content-planning.ts';
 
 type RunSyncOptions = {
   source: Source;

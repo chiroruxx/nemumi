@@ -3,9 +3,11 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import {
   buildCollectionIndex,
+  canonicalUrl,
   createPrunePlan,
   createSyncPlan,
   type FeedItem,
+  isSource,
   limits,
   type StoredEntry,
   services,
@@ -30,6 +32,19 @@ const feedItem = (date: string, title: string, url: string): FeedItem => ({
   date: new Date(date),
   title,
   url,
+});
+
+test('canonicalUrl drops fragments while preserving query strings', () => {
+  assert.equal(
+    canonicalUrl('https://example.com/article?ref=feed#section'),
+    'https://example.com/article?ref=feed',
+  );
+});
+
+test('isSource accepts configured services only', () => {
+  assert.equal(isSource('sizu'), true);
+  assert.equal(isSource('unknown'), false);
+  assert.equal(isSource(undefined), false);
 });
 
 test('validateContentUrl applies one HTTPS, account, host, and credential policy while preserving query', () => {

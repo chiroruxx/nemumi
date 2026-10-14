@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { appendFile } from 'node:fs/promises';
-import { isSource } from './external-content.ts';
+import { isSource } from './external-content-planning.ts';
 
 type GitHubSummaryOptions = {
   outputPath?: string | null;

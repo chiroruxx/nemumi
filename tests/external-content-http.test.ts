@@ -60,6 +60,17 @@ test('parseFeedXml maps all service fixtures to site dates and normalized feed i
   }
 });
 
+test('parseFeedXml rejects RSS item URLs outside the configured service path', async () => {
+  const invalidFeed = feedFixtures[0][3].replace(
+    'https://sizu.me/chihiroxx/posts/fixture#fragment',
+    'https://example.com/not-an-sizu-post',
+  );
+  await assert.rejects(
+    parseFeedXml(invalidFeed, services.sizu),
+    /Unexpected .* content URL/,
+  );
+});
+
 test('fetchFeed applies bounded retries and honors Retry-After seconds for network failures and 5xx', async () => {
   const sleeps: number[] = [];
   const attempts: RequestInit[] = [];
@@ -593,4 +604,95 @@ test('verifyLink cancels bodies for redirects and each terminal HTTP status', as
     );
   }
   assert.equal(canceled, 4);
+});
+
+test('verifyLink reviews unsafe redirect destinations without fetching them', async () => {
+  const cases = [
+    {
+      url: 'https://sizu.me/chihiroxx/posts/post',
+      location: '/login',
+      requests: 1,
+    },
+    {
+      url: 'https://sizu.me/chihiroxx/posts/post',
+      location: '/',
+      requests: 1,
+    },
+    {
+      url: 'https://sizu.me/chihiroxx/posts/post',
+      location: '/other-account/posts/post',
+      requests: 1,
+    },
+    {
+      url: 'https://sizu.me/chihiroxx/posts/post',
+      location: 'http://sizu.me/chihiroxx/posts/post',
+      requests: 1,
+    },
+    {
+      url: 'https://sizu.me/chihiroxx/posts/post',
+      location: 'https://user:password@sizu.me/chihiroxx/posts/post',
+      requests: 1,
+    },
+    {
+      url: 'https://sizu.me/chihiroxx/posts/post',
+      location: 'https://example.com/chihiroxx/posts/post',
+      requests: 1,
+    },
+    {
+      url: 'http://sizu.me/chihiroxx/posts/post',
+      location: undefined,
+      requests: 0,
+    },
+    {
+      url: 'https://user:password@sizu.me/chihiroxx/posts/post',
+      location: undefined,
+      requests: 0,
+    },
+  ] as const;
+  for (const { url, location, requests: expectedRequests } of cases) {
+    let requests = 0;
+    const status = await verifyLink(url, services.sizu, {
+      fetch: async () => {
+        requests += 1;
+        return new Response(null, {
+          status: location ? 302 : 200,
+          ...(location ? { headers: { location } } : {}),
+        });
+      },
+    });
+    assert.equal(status, 'review', url);
+    assert.equal(requests, expectedRequests, url);
+  }
+});
+
+test('verifyLink reviews redirect loops and allows five redirects but rejects a sixth', async () => {
+  let requests = 0;
+  const request = (redirects: number) =>
+    verifyLink('https://sizu.me/chihiroxx/posts/start', services.sizu, {
+      fetch: async () => {
+        requests += 1;
+        if (redirects > 0 && requests > redirects) {
+          return new Response(null, { status: 200 });
+        }
+        return new Response(null, {
+          status: 302,
+          headers: {
+            location:
+              redirects === 0
+                ? '/chihiroxx/posts/start'
+                : `/chihiroxx/posts/step-${requests}`,
+          },
+        });
+      },
+    });
+  assert.equal(await request(0), 'review');
+  assert.equal(requests, 1);
+  for (const [redirects, expected] of [
+    [5, 'public'],
+    [6, 'review'],
+  ] as const) {
+    requests = 0;
+    assert.equal(await request(redirects), expected, `${redirects} redirects`);
+    assert.equal(requests, 6);
+  }
 });

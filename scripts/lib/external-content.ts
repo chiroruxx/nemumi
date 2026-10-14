@@ -31,28 +31,7 @@ import {
   services,
 } from './external-content-planning.ts';
 
-export { assertRepositoryFile } from './external-content-files.ts';
-export type {
-  Collection,
-  ContentData,
-  FeedItem,
-  LinkStatus,
-  PruneRemoval,
-  Service,
-  Source,
-  StoredEntry,
-  SyncChange,
-} from './external-content-planning.ts';
-export {
-  canonicalUrl,
-  isSource,
-  limits,
-  services,
-} from './external-content-planning.ts';
-
 const defaultContentDirectory = path.resolve('src/content');
-
-export { fetchFeed, verifyLink } from './external-content-http.ts';
 
 type FeedLoader = (
   service: Service,

@@ -1,3 +1,5 @@
+import { Octokit } from '@octokit/rest';
+import { z } from 'zod';
 import type {
   ContentAutomationApi,
   ContentAutomationCommit,
@@ -14,112 +16,93 @@ type ApiConfig = {
   apiBaseUrl?: string;
 };
 
-type PaginationState = { page: number; url: string };
+type ApiPage = { data: unknown };
+type PageIterator = AsyncIterator<ApiPage>;
+type PaginationState = {
+  page: number;
+  iterator: PageIterator;
+  next: IteratorResult<ApiPage>;
+};
 
-function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
-}
+const loginSchema = z
+  .object({ login: z.string().nullable().optional() })
+  .nullable()
+  .optional()
+  .transform((user) => (user ? { login: user.login ?? null } : null));
 
-function requiredString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-function login(value: unknown): { login: string | null } | null {
-  if (value === null || value === undefined) return null;
-  const user = record(value);
-  return { login: requiredString(user?.login) ?? null };
-}
-
-function parsePullRequest(value: unknown): ContentAutomationPullRequest {
-  const pullRequest = record(value);
-  if (!pullRequest) {
-    throw new Error('GitHub API returned an invalid pull request response');
-  }
-  const state = pullRequest?.state;
-  const mergedAt = pullRequest?.merged_at;
-  const body = pullRequest?.body;
-  const createdAt = requiredString(pullRequest?.created_at);
-  if (
-    !Number.isInteger(pullRequest?.number) ||
-    (state !== 'open' && state !== 'closed') ||
-    (mergedAt !== null && typeof mergedAt !== 'string') ||
-    (body !== null && typeof body !== 'string') ||
-    !createdAt ||
-    Number.isNaN(Date.parse(createdAt)) ||
-    (typeof mergedAt === 'string' && Number.isNaN(Date.parse(mergedAt)))
-  ) {
-    throw new Error('GitHub API returned an invalid pull request response');
-  }
-  return {
-    number: pullRequest.number as number,
+const pullRequestSchema = z
+  .object({
+    number: z.number().int(),
+    state: z.enum(['open', 'closed']),
+    merged_at: z.iso.datetime().nullable(),
+    body: z.string().nullable(),
+    created_at: z.iso.datetime(),
+  })
+  .transform(({ number, state, merged_at, body, created_at }) => ({
+    number,
     state,
-    mergedAt,
+    mergedAt: merged_at,
     body,
-    createdAt,
-  };
+    createdAt: created_at,
+  }));
+
+const eventSchema = z
+  .object({
+    id: z.number().int(),
+    event: z.string().min(1),
+    created_at: z.iso.datetime(),
+    actor: loginSchema,
+  })
+  .transform(({ id, event, created_at, actor }) => ({
+    id,
+    event,
+    createdAt: created_at,
+    actor,
+  }));
+
+const commitSchema = z
+  .object({ author: loginSchema, committer: loginSchema })
+  .transform(({ author, committer }) => ({ author, committer }));
+
+function parse<T>(schema: z.ZodType<T>, value: unknown, message: string): T {
+  const result = schema.safeParse(value);
+  if (!result.success) throw new Error(message);
+  return result.data;
 }
 
-function parseEvent(value: unknown): ContentAutomationEvent {
-  const event = record(value);
-  const id = event?.id;
-  const name = requiredString(event?.event);
-  const createdAt = requiredString(event?.created_at);
-  if (
-    !Number.isInteger(id) ||
-    !name ||
-    !createdAt ||
-    Number.isNaN(Date.parse(createdAt))
-  ) {
-    throw new Error('GitHub API returned an invalid issue event response');
+const parsePullRequest = (value: unknown): ContentAutomationPullRequest =>
+  parse(
+    pullRequestSchema,
+    value,
+    'GitHub API returned an invalid pull request response',
+  );
+
+const parseEvent = (value: unknown): ContentAutomationEvent =>
+  parse(
+    eventSchema,
+    value,
+    'GitHub API returned an invalid issue event response',
+  );
+
+const parseCommit = (value: unknown): ContentAutomationCommit =>
+  parse(commitSchema, value, 'GitHub API returned an invalid compare response');
+
+function errorStatus(error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null || !('status' in error)) {
+    return undefined;
   }
-  return {
-    id: id as number,
-    event: name,
-    createdAt,
-    actor: login(event?.actor),
-  };
+  return typeof error.status === 'number' ? error.status : undefined;
 }
 
-function parseCommit(value: unknown): ContentAutomationCommit {
-  const commit = record(value);
-  if (!commit)
-    throw new Error('GitHub API returned an invalid compare response');
-  return { author: login(commit.author), committer: login(commit.committer) };
-}
-
-function parseNextLink(
-  linkHeader: string | null,
-  responseUrl: string,
-  repositoryPath: string,
-): string | undefined {
-  if (linkHeader === null) return undefined;
-  const links = linkHeader.split(/,\s*(?=<)/);
-  if (links.length === 0 || links.some((link) => !link.trim())) {
-    throw new Error('GitHub API returned an invalid Link header');
-  }
-  let nextUrl: string | undefined;
-  for (const link of links) {
-    const target = link.match(/^\s*<([^>]+)>/);
-    const relation = link.match(
-      /(?:^|;)\s*rel=(?:"([^"]+)"|'([^']+)'|([^;\s]+))/,
-    );
-    if (!target || !relation) {
-      throw new Error('GitHub API returned an invalid Link header');
-    }
-    const rel = relation[1] ?? relation[2] ?? relation[3] ?? '';
-    if (!rel.split(/\s+/).includes('next')) continue;
-    const targetUrl = new URL(target[1] ?? '', responseUrl);
-    if (
-      targetUrl.origin !== new URL(responseUrl).origin ||
-      !targetUrl.pathname.startsWith(repositoryPath)
-    ) {
-      throw new Error('GitHub API returned an unsafe pagination Link');
-    }
-    nextUrl = targetUrl.toString();
-  }
-  return nextUrl;
+function safeRequestError(method: string, path: string, error: unknown): Error {
+  const status = errorStatus(error);
+  const result = new Error(
+    status === undefined
+      ? `${method} ${path} failed before a response`
+      : `${method} ${path} returned HTTP ${status}`,
+  );
+  if (status !== undefined) Object.assign(result, { status });
+  return result;
 }
 
 export function createContentAutomationApi(
@@ -129,68 +112,52 @@ export function createContentAutomationApi(
   if (!owner || !repo || !token.trim()) {
     throw new Error('GitHub API owner, repository, and token are required');
   }
-  const fetchImpl = config.fetchImpl ?? fetch;
   const apiBaseUrl = (config.apiBaseUrl ?? 'https://api.github.com').replace(
     /\/$/,
     '',
   );
-  const repositoryPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/`;
+  const apiBase = new URL(apiBaseUrl);
+  const repositoryPath = `${apiBase.pathname.replace(/\/$/, '')}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/`;
+  const fetchImpl = config.fetchImpl ?? fetch;
+  const octokit = new Octokit({
+    auth: token,
+    baseUrl: apiBaseUrl,
+    userAgent: 'nemumi-content-automation',
+    log: {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    },
+    request: {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(
+          input instanceof Request ? input.url : String(input),
+        );
+        if (
+          url.origin !== apiBase.origin ||
+          !url.pathname.startsWith(repositoryPath)
+        ) {
+          throw new Error('GitHub API returned an unsafe pagination Link');
+        }
+        const timeoutSignal = AbortSignal.timeout(30_000);
+        const signal = init?.signal
+          ? AbortSignal.any([init.signal, timeoutSignal])
+          : timeoutSignal;
+        return fetchImpl(input, { ...init, signal });
+      },
+    },
+  });
   const pagination = new Map<string, PaginationState>();
 
-  function endpoint(path: string): string {
-    return `${apiBaseUrl}${repositoryPath}${path}`;
-  }
-
-  async function request(
-    url: string,
-    method = 'GET',
-    body?: unknown,
-  ): Promise<Response> {
-    let response: Response;
+  async function nextPage(
+    iterator: PageIterator,
+    path: string,
+  ): Promise<IteratorResult<ApiPage>> {
     try {
-      response = await fetchImpl(url, {
-        method,
-        headers: {
-          accept: 'application/vnd.github+json',
-          authorization: `Bearer ${token}`,
-          'x-github-api-version': '2022-11-28',
-          ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-        },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        signal: AbortSignal.timeout(30_000),
-      });
-    } catch {
-      throw new Error(
-        `${method} ${new URL(url).pathname} failed before a response`,
-      );
-    }
-    return response;
-  }
-
-  async function responseJson(
-    response: Response,
-    method: string,
-    url: string,
-  ): Promise<unknown> {
-    try {
-      return await response.json();
-    } catch {
-      throw new Error(
-        `${method} ${new URL(url).pathname} returned invalid JSON`,
-      );
-    }
-  }
-
-  async function checkResponse(
-    response: Response,
-    method: string,
-    url: string,
-  ): Promise<void> {
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new Error(
-        `${method} ${new URL(url).pathname} returned HTTP ${response.status}`,
-      );
+      return await iterator.next();
+    } catch (error) {
+      throw safeRequestError('GET', path, error);
     }
   }
 
@@ -198,143 +165,163 @@ export function createContentAutomationApi(
     key: string;
     path: string;
     page: number;
-    perPage: number;
-    query?: Record<string, string>;
+    iterator: () => AsyncIterable<ApiPage>;
     parse: (value: unknown) => T;
+    extractItems?: (value: unknown) => unknown;
   }): Promise<ContentAutomationPage<{ items: T[] }>> {
-    let url: string;
+    let state = pagination.get(input.key);
+    let current: IteratorResult<ApiPage>;
     if (input.page === 1) {
-      pagination.delete(input.key);
-      const requestUrl = new URL(endpoint(input.path));
-      for (const [name, value] of Object.entries(input.query ?? {})) {
-        requestUrl.searchParams.set(name, value);
-      }
-      requestUrl.searchParams.set('per_page', String(input.perPage));
-      requestUrl.searchParams.set('page', '1');
-      url = requestUrl.toString();
+      const iterator = input.iterator()[Symbol.asyncIterator]();
+      current = await nextPage(iterator, input.path);
+      if (current.done) return { items: [], hasNextPage: false };
+      state = {
+        page: 2,
+        iterator,
+        next: await nextPage(iterator, input.path),
+      };
+    } else if (!state || state.page !== input.page) {
+      throw new Error('GitHub API pagination response is incomplete');
     } else {
-      const state = pagination.get(input.key);
-      if (!state || state.page !== input.page) {
-        throw new Error('GitHub API pagination response is incomplete');
+      current = state.next;
+      if (current.done) {
+        pagination.delete(input.key);
+        return { items: [], hasNextPage: false };
       }
-      url = state.url;
+      state = {
+        page: input.page + 1,
+        iterator: state.iterator,
+        next: await nextPage(state.iterator, input.path),
+      };
     }
-    const response = await request(url);
-    await checkResponse(response, 'GET', url);
-    const payload = await responseJson(response, 'GET', url);
-    if (!Array.isArray(payload)) {
+    if (!current || current.done) {
+      pagination.delete(input.key);
+      return { items: [], hasNextPage: false };
+    }
+    if (state.next.done) pagination.delete(input.key);
+    else pagination.set(input.key, state);
+    const items = input.extractItems
+      ? input.extractItems(current.value.data)
+      : current.value.data;
+    if (!Array.isArray(items)) {
       throw new Error('GitHub API returned an invalid list response');
     }
-    const nextUrl = parseNextLink(
-      response.headers.get('link'),
-      url,
-      repositoryPath,
-    );
-    if (nextUrl)
-      pagination.set(input.key, { page: input.page + 1, url: nextUrl });
-    else pagination.delete(input.key);
     return {
-      items: payload.map(input.parse),
-      hasNextPage: nextUrl !== undefined,
+      items: items.map(input.parse),
+      hasNextPage: !state.next.done,
     };
   }
 
-  const api: ContentAutomationApi = {
+  return {
     async listPullRequests({ head, base, page, perPage }) {
-      const key = `pulls:${head}:${base}`;
-      const result = await paginated({
-        key,
-        path: 'pulls',
+      const path = `${repositoryPath}pulls`;
+      return paginated({
+        key: `pulls:${head}:${base}`,
+        path,
         page,
-        perPage,
-        query: {
-          head: `${owner}:${head}`,
-          base,
-          state: 'all',
-          sort: 'created',
-          direction: 'desc',
-        },
+        iterator: () =>
+          octokit.paginate.iterator(octokit.rest.pulls.list, {
+            owner,
+            repo,
+            head: `${owner}:${head}`,
+            base,
+            state: 'all',
+            sort: 'created',
+            direction: 'desc',
+            per_page: perPage,
+          }),
         parse: parsePullRequest,
       });
-      return { items: result.items, hasNextPage: result.hasNextPage };
     },
 
     async compareCommits({ base, head, page, perPage }) {
+      const path = `${repositoryPath}compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`;
       const key = `compare:${base}:${head}`;
-      let url: string;
-      if (page === 1) {
-        pagination.delete(key);
-        const requestUrl = new URL(
-          endpoint(
-            `compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`,
-          ),
-        );
-        requestUrl.searchParams.set('per_page', String(perPage));
-        requestUrl.searchParams.set('page', '1');
-        url = requestUrl.toString();
-      } else {
-        const state = pagination.get(key);
-        if (!state || state.page !== page) {
-          throw new Error('GitHub API pagination response is incomplete');
+      let result: ContentAutomationPage<{ items: ContentAutomationCommit[] }>;
+      try {
+        result = await paginated({
+          key,
+          path,
+          page,
+          iterator: () =>
+            octokit.paginate.iterator(
+              octokit.rest.repos.compareCommitsWithBasehead,
+              { owner, repo, basehead: `${base}...${head}`, per_page: perPage },
+            ),
+          parse: parseCommit,
+          extractItems: (value) =>
+            typeof value === 'object' && value !== null && 'commits' in value
+              ? value.commits
+              : undefined,
+        });
+      } catch (error) {
+        if (errorStatus(error) !== 404 || page !== 1) throw error;
+        try {
+          const branch = await octokit.rest.repos.getBranch({
+            owner,
+            repo,
+            branch: head,
+          });
+          if (branch.data.name !== head) {
+            throw new Error('GitHub API returned an invalid branch response');
+          }
+        } catch (branchError) {
+          if (errorStatus(branchError) === 404) {
+            pagination.delete(key);
+            return { found: false, commits: [], hasNextPage: false };
+          }
+          if (
+            branchError instanceof Error &&
+            /invalid branch response/.test(branchError.message)
+          ) {
+            throw branchError;
+          }
+          throw safeRequestError(
+            'GET',
+            `${repositoryPath}branches/${encodeURIComponent(head)}`,
+            branchError,
+          );
         }
-        url = state.url;
+        throw error;
       }
-      const response = await request(url);
-      if (response.status === 404 && page === 1) {
-        await response.body?.cancel();
-        const branchUrl = endpoint(`branches/${encodeURIComponent(head)}`);
-        const branchResponse = await request(branchUrl);
-        if (branchResponse.status === 404) {
-          await branchResponse.body?.cancel();
-          pagination.delete(key);
-          return { found: false, commits: [], hasNextPage: false };
-        }
-        await checkResponse(branchResponse, 'GET', branchUrl);
-        const branch = record(
-          await responseJson(branchResponse, 'GET', branchUrl),
-        );
-        if (requiredString(branch?.name) !== head) {
-          throw new Error('GitHub API returned an invalid branch response');
-        }
-        throw new Error(`GET ${new URL(url).pathname} returned HTTP 404`);
-      }
-      await checkResponse(response, 'GET', url);
-      const payload = record(await responseJson(response, 'GET', url));
-      if (!payload || !Array.isArray(payload.commits)) {
-        throw new Error('GitHub API returned an invalid compare response');
-      }
-      const nextUrl = parseNextLink(
-        response.headers.get('link'),
-        url,
-        repositoryPath,
-      );
-      if (nextUrl) pagination.set(key, { page: page + 1, url: nextUrl });
-      else pagination.delete(key);
       return {
         found: true,
-        commits: payload.commits.map(parseCommit),
-        hasNextPage: nextUrl !== undefined,
+        commits: result.items,
+        hasNextPage: result.hasNextPage,
       };
     },
 
     async listIssueEvents({ pullNumber, page, perPage }) {
-      const key = `events:${pullNumber}`;
+      const path = `${repositoryPath}issues/${pullNumber}/events`;
       const result = await paginated({
-        key,
-        path: `issues/${pullNumber}/events`,
+        key: `events:${pullNumber}`,
+        path,
         page,
-        perPage,
+        iterator: () =>
+          octokit.paginate.iterator(octokit.rest.issues.listEventsForRepo, {
+            owner,
+            repo,
+            issue_number: pullNumber,
+            per_page: perPage,
+          }),
         parse: parseEvent,
       });
       return { events: result.items, hasNextPage: result.hasNextPage };
     },
 
     async updatePullRequest({ number, body, state }) {
-      const url = endpoint(`pulls/${number}`);
-      const response = await request(url, 'PATCH', { body, state });
-      await checkResponse(response, 'PATCH', url);
-      await response.body?.cancel();
+      const path = `${repositoryPath}pulls/${number}`;
+      try {
+        await octokit.rest.pulls.update({
+          owner,
+          repo,
+          pull_number: number,
+          body,
+          state,
+        });
+      } catch (error) {
+        throw safeRequestError('PATCH', path, error);
+      }
     },
   };
-  return api;
 }

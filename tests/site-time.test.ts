@@ -5,17 +5,17 @@ import {
   getSiteTimeZone,
 } from '../src/config/site-time.ts';
 
-test('site timezone environment variable is shared with date formatting', () => {
-  const original = process.env.SITE_TIME_ZONE;
+test('TZ environment variable is shared with site date formatting', () => {
+  const original = process.env.TZ;
   try {
-    process.env.SITE_TIME_ZONE = 'America/Los_Angeles';
+    process.env.TZ = 'America/Los_Angeles';
     assert.equal(getSiteTimeZone(), 'America/Los_Angeles');
     assert.equal(
       formatDateInSiteTimeZone(new Date('2026-10-02T16:30:00.000Z')),
       '2026-10-02',
     );
   } finally {
-    if (original === undefined) delete process.env.SITE_TIME_ZONE;
-    else process.env.SITE_TIME_ZONE = original;
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
   }
 });

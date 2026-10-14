@@ -1,9 +1,5 @@
 export function getSiteTimeZone(): string {
-  return (
-    process.env.SITE_TIME_ZONE ||
-    import.meta.env?.SITE_TIME_ZONE ||
-    'Asia/Tokyo'
-  );
+  return process.env.TZ || import.meta.env?.TZ || 'Asia/Tokyo';
 }
 
 export function formatDateInSiteTimeZone(date: Date): string {

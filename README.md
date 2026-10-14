@@ -104,14 +104,13 @@ content」と「Prune content」の両 workflow を無効にし、既存PRの au
 
 ## コンテンツの追加
 
-サイト全体の日付タイムゾーンは `SITE_TIME_ZONE` で指定する。ローカルでは `.env.example` を `.env` にコピーして値を設定する。
+サイト全体の日付タイムゾーンは `TZ` で指定する。ローカルでは `.env.example` を `.env` にコピーして値を設定する。
 `mise run` の各タスクと Astro は `.env` を読み込む。未設定時は `Asia/Tokyo`
 を使う。詳細は [ADR 0032](docs/adr/0032-site-time-zone.md) を参照。
 
 登壇と活動は、`src/content/talks/` または `src/content/activities/` に YAML ファイルを1件ずつ追加する。日付は `YYYY-MM-DD`
 形式で記載し、同じディレクトリ内で重複しないファイル名を付ける。項目名と必須・任意項目は [コンテンツ定義](src/content.config.ts)
-で確認できる。サイトの日付に使うタイムゾーンは [サイト設定](src/config/site-time.ts)
-で管理する（[ADR 0032](docs/adr/0032-site-time-zone.md)）。
+で確認できる。
 
 ### 登壇を追加する
 

@@ -6,8 +6,12 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
 if ! command -v mise >/dev/null 2>&1; then
-  printf '%s\n' 'mise is required. Install it first: https://mise.jdx.dev/getting-started.html' >&2
-  exit 1
+  if command -v brew >/dev/null 2>&1; then
+    brew install mise
+  else
+    printf '%s\n' 'mise is required. Install it first: https://mise.jdx.dev/getting-started.html' >&2
+    exit 1
+  fi
 fi
 
 mise trust -y

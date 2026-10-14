@@ -25,14 +25,17 @@ https://nemumi.dev
 brew install mise
 ```
 
-Homebrew 版は fish では自動で有効化される。その他のシェルは [mise のドキュメント](https://mise.jdx.dev/getting-started.html) を参照。
+Homebrew 版は fish
+では自動で有効化される。その他のシェルは [mise のドキュメント](https://mise.jdx.dev/getting-started.html) を参照。
 その後、リポジトリのルートで次のコマンドを一度実行する。
 
 ```shell
 ./scripts/setup.sh
 ```
 
-スクリプトは `mise.toml` を信頼し、Node.js と pnpm をインストールしてから、`.env.example` を `.env` にコピーし、依存パッケージをインストールする。既存の `.env` は上書きしない。Node.js（`.node-version`）と pnpm（`mise.toml`）は記載したバージョンが mise によってインストールされるため、個別のインストールは不要。
+スクリプトは `mise.toml` を信頼し、Node.js と pnpm をインストールしてから、`.env.example` を `.env`
+にコピーし、依存パッケージをインストールする。既存の `.env` は上書きしない。Node.js（`.node-version`）と pnpm（`mise.toml`
+）は記載したバージョンが mise によってインストールされるため、個別のインストールは不要。
 
 ## 開発
 

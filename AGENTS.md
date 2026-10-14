@@ -4,7 +4,7 @@
 
 ## Markdown
 
-- Markdown ファイルを作成・編集したら、JetBrains IDE の MCP サーバの `reformat_file` で整形する。
+- Markdown ファイルを作成・編集したら、利用可能な場合は JetBrains IDE の MCP サーバの `reformat_file` で整形する。利用できない場合は、見出し・リスト・コードブロック・リンクの構造を確認する。
 
 ## ADR
 

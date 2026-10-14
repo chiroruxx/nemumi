@@ -19,30 +19,23 @@ https://nemumi.dev
 
 ## 初回セットアップ
 
-1. [mise](https://mise.jdx.dev/) をインストールし、シェルで有効化する。
+[mise](https://mise.jdx.dev/) をインストールし、シェルで有効化する。Homebrew の場合:
 
-   ```shell
-   brew install mise
-   ```
+```shell
+brew install mise
+```
 
-   Homebrew 版は fish
-   では自動で有効化される。その他のシェルは [mise のドキュメント](https://mise.jdx.dev/getting-started.html) を参照。
+Homebrew 版は fish
+では自動で有効化される。その他のシェルは [mise のドキュメント](https://mise.jdx.dev/getting-started.html) を参照。
+その後、リポジトリのルートで次のコマンドを一度実行する。
 
-2. リポジトリのディレクトリで `mise.toml` を信頼し、Node.js と pnpm をインストールする。
+```shell
+./scripts/setup.sh
+```
 
-   ```shell
-   mise trust
-   mise install
-   ```
-
-   Node.js（`.node-version`）と pnpm（`mise.toml`）は、記載したバージョンが mise によってインストールされるため、個別のインストールは不要。
-
-3. 依存パッケージをインストールする。`mise run` はシェルの mise 連携が有効でなくても、プロジェクトで指定した Node.js と
-   pnpm を使う。
-
-   ```shell
-   mise run install
-   ```
+スクリプトは `mise.toml` を信頼し、Node.js と pnpm をインストールしてから、`.env.example` を `.env`
+にコピーし、依存パッケージをインストールする。既存の `.env` は上書きしない。Node.js（`.node-version`）と pnpm（`mise.toml`
+）は記載したバージョンが mise によってインストールされるため、個別のインストールは不要。
 
 ## 開発
 
@@ -54,39 +47,59 @@ mise run dev
 
 ### 主なコマンド
 
-| コマンド                                  | 内容                                   |
-|-------------------------------------------|----------------------------------------|
-| `mise run dev`                            | 開発サーバを起動する                   |
-| `mise run sync-content -- sizu`           | しずかなインターネットの記事を同期する |
-| `mise run sync-content -- hatena`         | はてなブログの記事を同期する           |
-| `mise run sync-content -- speakerdeck`    | Speaker Deck の登壇資料を同期する      |
-| `mise run prune-content`                  | 保持件数を適用し、無効リンクを除去する |
-| `mise run sync-content -- sizu --dry-run` | 同期差分を表示する（書き込みなし）     |
-| `mise run prune-content -- --dry-run`     | 削除差分を表示する（書き込みなし）     |
-| `mise run build`                          | 本番用にビルドする（出力先は `dist/`） |
-| `mise run preview`                        | ビルド結果をローカルで確認する         |
-| `mise run lint`                           | Biome、Stylelint と export 関数のテスト確認を実行する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)） |
-| `mise run check-exported-function-tests`   | export 関数のテスト対応だけを確認する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)、[ADR 0031](docs/adr/0031-align-test-runner-and-static-check.md)） |
-| `mise run format`                         | Biome でファイルを整形する             |
-| `mise run check`                          | `astro check` で型チェックする         |
-| `mise run test`                           | Astro をビルドし、`tests/**/*.test.ts` を再帰的に実行する |
-| `mise run lighthouse-ci`                  | Lighthouse CI でビルド成果物を検査する |
+| コマンド                                  | 内容                                                                                                                                                                 |
+|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `mise run dev`                            | 開発サーバを起動する                                                                                                                                                 |
+| `mise run sync-content -- sizu`           | しずかなインターネットの記事を同期する                                                                                                                               |
+| `mise run sync-content -- hatena`         | はてなブログの記事を同期する                                                                                                                                         |
+| `mise run sync-content -- speakerdeck`    | Speaker Deck の登壇資料を同期する                                                                                                                                    |
+| `mise run prune-content`                  | 保持件数を適用し、無効リンクを除去する                                                                                                                               |
+| `mise run sync-content -- sizu --dry-run` | 同期差分を表示する（書き込みなし）                                                                                                                                   |
+| `mise run prune-content -- --dry-run`     | 削除差分を表示する（書き込みなし）                                                                                                                                   |
+| `mise run build`                          | 本番用にビルドする（出力先は `dist/`）                                                                                                                               |
+| `mise run preview`                        | ビルド結果をローカルで確認する                                                                                                                                       |
+| `mise run lint`                           | Biome、Stylelint と export 関数のテスト確認を実行する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)）                                                  |
+| `mise run check-exported-function-tests`  | export 関数のテスト対応だけを確認する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)、[ADR 0031](docs/adr/0031-align-test-runner-and-static-check.md)） |
+| `mise run format`                         | Biome でファイルを整形する                                                                                                                                           |
+| `mise run check`                          | `astro check` で型チェックする                                                                                                                                       |
+| `mise run test`                           | Astro をビルドし、`tests/**/*.test.ts` を再帰的に実行する                                                                                                            |
+| `mise run lighthouse-ci`                  | Lighthouse CI でビルド成果物を検査する                                                                                                                               |
 
 ## 外部コンテンツの自動更新
 
-GitHub Actions は毎日 JST 06:17 に3サービスを並列で同期し、JST 07:17 に `main` の保存済みデータを対象に prune します。同期はサービス別 PR、prune は共通 PR を作成・更新します。同期が失敗したサービスは差分を適用せず、他サービスの同期は継続します。prune は同期 PR のマージを待たず、実行時点の最新 `main` を対象にします。
+GitHub Actions は毎日 JST 06:17 に3サービスを並列で同期し、JST 07:17 に `main` の保存済みデータを対象に prune
+します。同期はサービス別 PR、prune は共通 PR を作成・更新します。同期が失敗したサービスは差分を適用せず、他サービスの同期は継続します。prune
+は同期 PR のマージを待たず、実行時点の最新 `main` を対象にします。
 
-PR 作成には、この repository にインストールした GitHub App を使います。`APP_CLIENT_ID` を `Settings > Secrets and variables > Actions > Variables` に、`APP_PRIVATE_KEY` を同じ画面の `Secrets` に登録してください。App をこの repository にインストールし、`Contents: Read and write` と `Pull requests: Read and write` を付与します。branch protection の bypass 権限は不要です。workflow の `GITHUB_TOKEN` は read-only のままです。
+PR 作成には、この repository にインストールした GitHub App を使います。`APP_CLIENT_ID` を
+`Settings > Secrets and variables > Actions > Variables` に、`APP_PRIVATE_KEY` を同じ画面の `Secrets` に登録してください。App
+をこの repository にインストールし、`Contents: Read and write` と `Pull requests: Read and write` を付与します。branch
+protection の bypass 権限は不要です。workflow の `GITHUB_TOKEN` は read-only のままです。
 
-`CONTENT_AUTO_MERGE` が文字列 `true` のとき、必須 CI 成功後に auto-merge を要求します。それ以外（未設定を含む）は新たな自動マージを要求せず、PR の確認・マージは手動です。自動マージを使う場合は repository 設定で Auto-merge と必須チェックも有効にしてください。初回は自動マージを無効にして差分と CI を確認し、手動マージします。
+`CONTENT_AUTO_MERGE` が文字列 `true` のとき、必須 CI 成功後に auto-merge を要求します。それ以外（未設定を含む）は新たな自動マージを要求せず、PR
+の確認・マージは手動です。自動マージを使う場合は repository 設定で Auto-merge と必須チェックも有効にしてください。初回は自動マージを無効にして差分と
+CI を確認し、手動マージします。
 
-「Update content」はサービスを選択して手動実行できます。「Prune content」も手動実行できます。ローカルでは [dry-run コマンド](#主なコマンド)で同期・削除予定を確認できます。GitHub Actions はどちらも10分で終了します。
+「Update content」はサービスを選択して手動実行できます。「Prune
+content」も手動実行できます。ローカルでは [dry-run コマンド](#主なコマンド)で同期・削除予定を確認できます。GitHub Actions
+はどちらも10分で終了します。
 
-差分がなくなった bot PR は no-diff marker を付けて閉じます。後に差分が戻れば bot が閉じた PR を再利用します。人が閉じた PR は自動再開されません。再開時は対象 PR を手動で再 open してください。automation branch へ人が直接 commit すると guard が停止します。変更を通常の PR で `main` に反映するか、内容を退避して automation branch を `main` から作り直してください。
+差分がなくなった bot PR は no-diff marker を付けて閉じます。後に差分が戻れば bot が閉じた PR を再利用します。人が閉じた PR
+は自動再開されません。再開時は対象 PR を手動で再 open してください。automation branch へ人が直接 commit すると guard
+が停止します。変更を通常の PR で `main` に反映するか、内容を退避して automation branch を `main` から作り直してください。
 
-`CONTENT_AUTO_MERGE=false` または未設定では、以後の実行で自動マージを要求しません。すでにPRで有効な auto-merge は残るため、必要なら各PR画面の `Disable auto-merge`（または `gh pr merge <番号> --disable-auto`）で個別に解除してください。両workflowを無効化しても、すでにPRへ設定した auto-merge は解除されません。自動処理全体を止める場合は「Update content」と「Prune content」の両 workflow を無効にし、既存PRの auto-merge も必要に応じて解除してください。通信期限、保持方針、PR の復旧手順は [ADR 0025](docs/adr/0025-sync-external-content-from-rss.md)、[ADR 0027](docs/adr/0027-prune-stored-content-without-rss.md)、[ADR 0029](docs/adr/0029-bound-content-network-execution.md)、[ADR 0030](docs/adr/0030-guard-content-automation-lifecycle.md) を参照してください。
+`CONTENT_AUTO_MERGE=false` または未設定では、以後の実行で自動マージを要求しません。すでにPRで有効な auto-merge
+は残るため、必要なら各PR画面の `Disable auto-merge`（または `gh pr merge <番号> --disable-auto`
+）で個別に解除してください。両workflowを無効化しても、すでにPRへ設定した auto-merge は解除されません。自動処理全体を止める場合は「Update
+content」と「Prune content」の両 workflow を無効にし、既存PRの auto-merge も必要に応じて解除してください。通信期限、保持方針、PR
+の復旧手順は [ADR 0025](docs/adr/0025-sync-external-content-from-rss.md)、[ADR 0027](docs/adr/0027-prune-stored-content-without-rss.md)、[ADR 0029](docs/adr/0029-bound-content-network-execution.md)、[ADR 0030](docs/adr/0030-guard-content-automation-lifecycle.md)
+を参照してください。
 
 ## コンテンツの追加
+
+サイト全体の日付タイムゾーンは `TZ` で指定する。初回セットアップ時に作成される `.env` の値を変更できる。
+`mise run` の各タスクと Astro は `.env` を読み込む。未設定時は `Asia/Tokyo`
+を使う。詳細は [ADR 0032](docs/adr/0032-site-time-zone.md) を参照。
 
 登壇と活動は、`src/content/talks/` または `src/content/activities/` に YAML ファイルを1件ずつ追加する。日付は `YYYY-MM-DD`
 形式で記載し、同じディレクトリ内で重複しないファイル名を付ける。項目名と必須・任意項目は [コンテンツ定義](src/content.config.ts)

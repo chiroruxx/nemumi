@@ -1,4 +1,5 @@
 import Parser from 'rss-parser';
+import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import {
   type LinkCheck,
   type LinkStatus,
@@ -210,20 +211,11 @@ async function readLimitedText(response: Response): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-function tokyoDate(value: string): string {
+function publicationDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime()))
     throw new Error(`Invalid RSS publication date: ${value}`);
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Tokyo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const part = Object.fromEntries(
-    parts.map(({ type, value: partValue }) => [type, partValue]),
-  );
-  return `${part.year}-${part.month}-${part.day}`;
+  return formatDateInSiteTimeZone(date);
 }
 
 export async function parseFeedXml(xml: string, service: Service) {
@@ -238,7 +230,7 @@ export async function parseFeedXml(xml: string, service: Service) {
       );
     }
     return {
-      date: tokyoDate(item.pubDate),
+      date: publicationDate(item.pubDate),
       title,
       url: validateContentUrl(item.link, service),
     };

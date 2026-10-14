@@ -6,14 +6,13 @@ interface Props {
   title: string;
 }
 
+import { formatDateInSiteTimeZone } from '../config/site-time.ts';
+
 const { startDate, endDate, tags, title } = Astro.props;
-const formatDate = (date: Date) =>
-  Temporal.Instant.fromEpochMilliseconds(date.getTime())
-    .toZonedDateTimeISO('UTC')
-    .toPlainDate()
-    .toString();
-const formattedStartDate = formatDate(startDate);
-const formattedEndDate = endDate ? formatDate(endDate) : undefined;
+const formattedStartDate = formatDateInSiteTimeZone(startDate);
+const formattedEndDate = endDate
+  ? formatDateInSiteTimeZone(endDate)
+  : undefined;
 ---
 
 <span class="record-date">

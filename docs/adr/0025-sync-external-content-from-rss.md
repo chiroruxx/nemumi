@@ -48,7 +48,7 @@ GitHub の公式ドキュメントでは、`GITHUB_TOKEN` で作成・更新し�
 
 - 公開 URL を項目の照合キーとし、既存ファイルを保持する。新規ファイルにはサービス名と URL の SHA-256 を使う。
 - SHA-256 は64桁の小文字16進数を使う。削除に伴う連番の振り直しや改名は行わない。
-- 公開日時は `Asia/Tokyo` の日付に変換する。Speaker Deck も RSS の公開日を使う。
+- 公開日時はサイト設定のタイムゾーン（[ADR 0032](0032-site-time-zone.md)）の日付に変換する。Speaker Deck も RSS の公開日を使う。
 - サービスに対応する種別は新規項目へ設定し、既存項目の手動の種別は保持する。
 
 ### 保持件数と上限超過の整理
@@ -96,7 +96,8 @@ GitHub の公式ドキュメントでは、`GITHUB_TOKEN` で作成・更新し�
 
 ### 認証・マージ・公開
 
-PR の停止・再開、固定 automation branch の扱い、共通 workflow action の運用は [ADR 0030](0030-guard-content-automation-lifecycle.md) を参照する。
+PR の停止・再開、固定 automation branch の扱い、共通 workflow action
+の運用は [ADR 0030](0030-guard-content-automation-lifecycle.md) を参照する。
 
 - PR の操作には、このリポジトリに限定した GitHub App を使う。ルールセットの bypass 権限を付与しない。
 - 各同期 PR と共通の削除 PR は、既存の必須 CI とマージ条件を満たしてから `main` に反映する。

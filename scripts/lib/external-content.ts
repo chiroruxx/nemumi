@@ -186,6 +186,46 @@ export async function fetchFeed(service: Service): Promise<FeedItem[]> {
   });
 }
 
+function validateContentData(value: unknown, file: string): ContentData {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${file}: invalid <root>: expected an object`);
+  }
+  const data = value as Record<string, unknown>;
+  if (
+    typeof data.date !== 'string' ||
+    Number.isNaN(new Date(data.date).getTime())
+  ) {
+    throw new Error(`${file}: invalid date: expected a valid date string`);
+  }
+  if (typeof data.title !== 'string' || data.title.trim().length === 0) {
+    throw new Error(`${file}: invalid title: expected a non-empty string`);
+  }
+  if (data.url !== undefined) {
+    if (typeof data.url !== 'string') {
+      throw new Error(`${file}: invalid url: expected a URL string`);
+    }
+    try {
+      new URL(data.url);
+    } catch {
+      throw new Error(`${file}: invalid url: expected a valid absolute URL`);
+    }
+  }
+  if (data.types !== undefined) {
+    if (
+      !Array.isArray(data.types) ||
+      data.types.length === 0 ||
+      data.types.some(
+        (type) => typeof type !== 'string' || type.trim().length === 0,
+      )
+    ) {
+      throw new Error(
+        `${file}: invalid types: expected a non-empty array of non-empty strings`,
+      );
+    }
+  }
+  return data as ContentData;
+}
+
 async function readCollection(
   collection: Collection,
   contentDirectory: string,
@@ -195,13 +235,17 @@ async function readCollection(
     name.endsWith('.yaml'),
   );
   return Promise.all(
-    files.map(async (name) => ({
-      file: path.join(directory, name),
-      id: name,
-      data: YAML.parse(
-        await readFile(path.join(directory, name), 'utf8'),
-      ) as ContentData,
-    })),
+    files.map(async (name) => {
+      const file = path.join(directory, name);
+      let value: unknown;
+      try {
+        value = YAML.parse(await readFile(file, 'utf8'));
+      } catch (error) {
+        const details = error instanceof Error ? error.message : String(error);
+        throw new Error(`${file}: invalid YAML: ${details}`, { cause: error });
+      }
+      return { file, id: name, data: validateContentData(value, file) };
+    }),
   );
 }
 
@@ -456,23 +500,15 @@ async function verifyLinks(
 export async function pruneContent({
   dryRun = false,
   contentDirectory = defaultContentDirectory,
-  feedLoader = fetchFeed,
   linkVerifier = verifyLink,
   linkCheckIntervalMs = 1000,
 }: {
   dryRun?: boolean;
   contentDirectory?: string;
-  feedLoader?: typeof fetchFeed;
   linkVerifier?: typeof verifyLink;
   linkCheckIntervalMs?: number;
 } = {}) {
-  const sources = Object.keys(services) as Source[];
-  const feedEntries = await Promise.all(
-    sources.map(
-      async (source) => [source, await feedLoader(services[source])] as const,
-    ),
-  );
-  const feeds = new Map<Source, FeedItem[]>(feedEntries);
+  const feeds = new Map<Source, FeedItem[]>();
   const removals: { reason: 'limit' | 'link'; entry: StoredEntry }[] = [];
   const held: { url: string; source: Source; entry: StoredEntry }[] = [];
 

@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import type { z } from 'zod';
+import type { contentRecordSchema } from '../../src/config/content-schema.ts';
 
 export const services = {
   sizu: {
@@ -33,13 +35,8 @@ export const limits = { articles: 20, talks: 10 };
 export type Source = keyof typeof services;
 export type Collection = keyof typeof limits;
 export type Service = (typeof services)[Source];
-export type ContentData = {
-  date: string;
-  types?: string[];
-  title: string;
-  url?: string;
-};
-export type FeedItem = { date: string; title: string; url: string };
+export type ContentData = z.infer<typeof contentRecordSchema>;
+export type FeedItem = { date: Date; title: string; url: string };
 export type StoredEntry = { file: string; id: string; data: ContentData };
 export type LinkStatus = 'public' | 'deleted' | 'defer' | 'review';
 export type IndexedEntry = {
@@ -56,7 +53,7 @@ export type CollectionIndex = {
 export type SyncChange = {
   action: 'add' | 'update';
   file: string;
-  date: string;
+  date: Date;
   title: string;
   url: string;
   types: string[];
@@ -64,7 +61,7 @@ export type SyncChange = {
 export type PruneRemoval = {
   reason: 'limit' | 'link';
   file: string;
-  date: string;
+  date: Date;
   title: string;
   url: string;
 };
@@ -186,7 +183,7 @@ function rankedKeepSet(
   index: CollectionIndex,
   feedByUrl: Map<string, FeedItem> = new Map(),
 ): Set<string> {
-  const byUrl = new Map<string, { date: string }>();
+  const byUrl = new Map<string, { date: Date }>();
   for (const indexed of index.byUrl.values()) {
     if (indexed.url) byUrl.set(indexed.url, { date: indexed.entry.data.date });
   }
@@ -202,7 +199,7 @@ function rankedKeepSet(
     [...byUrl.entries()]
       .sort(
         ([urlA, a], [urlB, b]) =>
-          b.date.localeCompare(a.date) || urlA.localeCompare(urlB),
+          b.date.getTime() - a.date.getTime() || urlA.localeCompare(urlB),
       )
       .slice(0, available)
       .map(([url]) => url),
@@ -252,7 +249,7 @@ export function createSyncPlan({
     const types = previous?.data.types ?? [service.type];
     if (
       previous &&
-      previous.data.date === item.date &&
+      previous.data.date.getTime() === item.date.getTime() &&
       previous.data.title === item.title &&
       previous.data.url === item.url &&
       sameValues(previous.data.types, types)

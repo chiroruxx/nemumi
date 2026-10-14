@@ -53,7 +53,7 @@ test('parseFeedXml maps all service fixtures to site dates and normalized feed i
     const parsed = await parseFeedXml(xml, service);
     assert.deepEqual(parsed, [
       {
-        date: '2026-10-13',
+        date: new Date('2026-10-13'),
         title: `${service === services.sizu ? 'Sizu' : service === services.hatena ? 'Hatena' : 'Speaker Deck'} & fixture`,
         url: normalizedUrl,
       },

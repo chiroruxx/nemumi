@@ -1,5 +1,6 @@
 import path from 'node:path';
 import YAML from 'yaml';
+import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import {
   applyFileChanges,
   type ContentFileOperation,
@@ -119,7 +120,7 @@ function syncOperations(changes: SyncChange[]): ContentFileOperation[] {
     target: change.file,
     content: YAML.stringify(
       {
-        date: change.date,
+        date: formatDateInSiteTimeZone(change.date),
         types: change.types,
         title: change.title,
         url: change.url,
@@ -380,7 +381,7 @@ export async function pruneContent({
         if (!source || !url) {
           skipped.push({
             file: entry.file,
-            date: entry.data.date,
+            date: formatDateInSiteTimeZone(entry.data.date),
             title: entry.data.title,
             ...(entry.data.url ? { url: entry.data.url } : {}),
             reason: 'manual',
@@ -393,7 +394,7 @@ export async function pruneContent({
             (checkedUrls.has(url) ? 'defer' : 'public'));
         kept.push({
           file: entry.file,
-          date: entry.data.date,
+          date: formatDateInSiteTimeZone(entry.data.date),
           title: entry.data.title,
           url,
           reason: reason as KeptContent['reason'],

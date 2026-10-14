@@ -22,12 +22,12 @@ function storedEntry(
   return {
     file: `/repo/src/content/articles/${id}`,
     id,
-    data: { date, title, url, ...(types ? { types } : {}) },
+    data: { date: new Date(date), title, url, ...(types ? { types } : {}) },
   };
 }
 
 const feedItem = (date: string, title: string, url: string): FeedItem => ({
-  date,
+  date: new Date(date),
   title,
   url,
 });
@@ -161,21 +161,21 @@ test('createSyncPlan is deterministic, keeps existing types, and reports links t
     [
       {
         action: 'add',
-        date: '2026-10-03',
+        date: new Date('2026-10-03'),
         title: 'New A',
         url: 'https://sizu.me/chihiroxx/posts/a',
         types: ['日常記事'],
       },
       {
         action: 'add',
-        date: '2026-10-03',
+        date: new Date('2026-10-03'),
         title: 'New B',
         url: 'https://sizu.me/chihiroxx/posts/b',
         types: ['日常記事'],
       },
       {
         action: 'update',
-        date: '2026-10-02',
+        date: new Date('2026-10-02'),
         title: 'Updated title',
         url: 'https://sizu.me/chihiroxx/posts/existing?ref=feed',
         types: ['手動分類'],

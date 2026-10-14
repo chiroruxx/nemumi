@@ -18,7 +18,7 @@ const syncReport = {
     {
       action: 'add' as const,
       file: '/repo/src/content/articles/new.yaml',
-      date: '2026-10-13',
+      date: new Date('2026-10-13'),
       title: 'New post',
       url: 'https://sizu.me/chihiroxx/posts/new?ref=rss',
       types: ['日常記事'],

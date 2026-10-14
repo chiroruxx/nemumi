@@ -9,11 +9,8 @@ import {
 } from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
-import type {
-  Collection,
-  ContentData,
-  StoredEntry,
-} from './external-content-planning.ts';
+import { contentRecordSchema } from '../../src/config/content-schema.ts';
+import type { Collection, StoredEntry } from './external-content-planning.ts';
 
 const defaultContentDirectory = path.resolve('src/content');
 
@@ -30,50 +27,16 @@ export type ContentFileSystem = {
 
 const defaultFileSystem: ContentFileSystem = { lstat, writeFile, rename, rm };
 
-function invalidField(file: string, field: string, message: string): never {
-  throw new Error(`${file}: invalid ${field}: ${message}`);
-}
-
-function validateContentData(value: unknown, file: string): ContentData {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    invalidField(file, '<root>', 'expected an object');
+function parseContentData(value: unknown, file: string) {
+  const result = contentRecordSchema.safeParse(value);
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    const field = issue?.path.join('.') || '<root>';
+    throw new Error(`${file}: invalid ${field}: ${issue?.message}`, {
+      cause: result.error,
+    });
   }
-  const data = value as Record<string, unknown>;
-  if (
-    typeof data.date !== 'string' ||
-    Number.isNaN(new Date(data.date).getTime())
-  ) {
-    invalidField(file, 'date', 'expected a valid date string');
-  }
-  if (typeof data.title !== 'string' || data.title.trim().length === 0) {
-    invalidField(file, 'title', 'expected a non-empty string');
-  }
-  if (data.url !== undefined) {
-    if (typeof data.url !== 'string') {
-      invalidField(file, 'url', 'expected a URL string');
-    }
-    try {
-      new URL(data.url);
-    } catch {
-      invalidField(file, 'url', 'expected a valid absolute URL');
-    }
-  }
-  if (data.types !== undefined) {
-    if (
-      !Array.isArray(data.types) ||
-      data.types.length === 0 ||
-      data.types.some(
-        (type) => typeof type !== 'string' || type.trim().length === 0,
-      )
-    ) {
-      invalidField(
-        file,
-        'types',
-        'expected a non-empty array of non-empty strings',
-      );
-    }
-  }
-  return data as ContentData;
+  return result.data;
 }
 
 export async function readCollection(
@@ -95,7 +58,7 @@ export async function readCollection(
         const details = error instanceof Error ? error.message : String(error);
         throw new Error(`${file}: invalid YAML: ${details}`, { cause: error });
       }
-      return { file, id: name, data: validateContentData(value, file) };
+      return { file, id: name, data: parseContentData(value, file) };
     }),
   );
 }

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { appendFile } from 'node:fs/promises';
 import path from 'node:path';
+import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import type { PruneResult, SyncResult } from './external-content.ts';
 import { isSource } from './external-content.ts';
 
@@ -143,7 +144,7 @@ export function formatSyncSummary(
     result.changes.map(({ action, file, date, title, url }) => ({
       label: action === 'add' ? '追加' : '更新',
       file: displayRelativePath(file, root),
-      date,
+      date: formatDateInSiteTimeZone(date),
       title,
       url,
     })),
@@ -178,7 +179,7 @@ export function formatPruneSummary(
     result.removals.map(({ reason, file, date, title, url }) => ({
       label: reason === 'limit' ? '上限超過' : 'リンク切れ',
       file: displayRelativePath(file, root),
-      date,
+      date: formatDateInSiteTimeZone(date),
       title,
       url,
     })),
@@ -224,12 +225,13 @@ export function formatPruneSummary(
 export function serializeContentResult(
   result: SyncResult | PruneResult,
   root = process.cwd(),
-): SyncResult | PruneResult {
+): Record<string, unknown> {
   if ('source' in result) {
     return {
       ...result,
       changes: result.changes.map((change) => ({
         ...change,
+        date: formatDateInSiteTimeZone(change.date),
         file: displayRelativePath(change.file, root),
       })),
     };
@@ -238,6 +240,7 @@ export function serializeContentResult(
     ...result,
     removals: result.removals.map((removal) => ({
       ...removal,
+      date: formatDateInSiteTimeZone(removal.date),
       file: displayRelativePath(removal.file, root),
     })),
     kept: result.kept.map((entry) => ({

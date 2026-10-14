@@ -192,7 +192,7 @@ test('sync report keeps original values while serializing file paths relative an
       {
         action: 'add' as const,
         file: '/repo/src/content/articles/new.yaml',
-        date: '2026-10-13',
+        date: new Date('2026-10-13'),
         title: 'New\npost',
         url: 'https://sizu.me/chihiroxx/posts/new?ref=rss',
         types: ['日常記事'],
@@ -214,7 +214,13 @@ test('sync report keeps original values while serializing file paths relative an
   };
   assert.deepEqual(serializeContentResult(result, '/repo'), {
     ...result,
-    changes: [{ ...result.changes[0], file: 'src/content/articles/new.yaml' }],
+    changes: [
+      {
+        ...result.changes[0],
+        date: '2026-10-13',
+        file: 'src/content/articles/new.yaml',
+      },
+    ],
   });
   assert.equal(result.changes[0].file, '/repo/src/content/articles/new.yaml');
   const summary = formatSyncSummary(result, '/repo');
@@ -231,7 +237,7 @@ test('prune report summarizes removal, keep, manual skip, and remaining counts w
       {
         reason: 'limit' as const,
         file: '/repo/src/content/articles/old.yaml',
-        date: '2020-01-01',
+        date: new Date('2020-01-01'),
         title: 'Old post',
         url: 'http://example.com/old?from=archive',
       },
@@ -262,7 +268,11 @@ test('prune report summarizes removal, keep, manual skip, and remaining counts w
   assert.deepEqual(serializeContentResult(result, '/repo'), {
     ...result,
     removals: [
-      { ...result.removals[0], file: 'src/content/articles/old.yaml' },
+      {
+        ...result.removals[0],
+        date: '2020-01-01',
+        file: 'src/content/articles/old.yaml',
+      },
     ],
     kept: [{ ...result.kept[0], file: 'src/content/articles/current.yaml' }],
     skipped: [

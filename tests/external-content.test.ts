@@ -58,7 +58,7 @@ test('feed parsing trims titles and converts publication time to the site date',
   await withFetch(new Response(feedXml), async () => {
     assert.deepEqual(await fetchFeed(services.sizu), [
       {
-        date: '2026-10-03',
+        date: new Date('2026-10-03'),
         title: 'A & B',
         url: 'https://sizu.me/chihiroxx/posts/example',
       },

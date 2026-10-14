@@ -66,7 +66,13 @@ test('readCollection returns parsed and validated content with file identity', a
   assert.equal(entries[0].data.title, 'A post');
 });
 
-test('assertRepositoryFile rejects a path outside the content directory', () => {
+test('assertRepositoryFile accepts content paths and rejects paths outside the content directory', () => {
+  assert.doesNotThrow(() =>
+    assertRepositoryFile(
+      '/repo/src/content/articles/post.yaml',
+      '/repo/src/content',
+    ),
+  );
   assert.throws(
     () => assertRepositoryFile('/repo/src/secret.yaml', '/repo/src/content'),
     /outside src\/content/,

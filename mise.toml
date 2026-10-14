@@ -33,7 +33,7 @@ description = "保持件数を適用し、無効リンクを除去する"
 run = "pnpm prune-content"
 
 [tasks.check-exported-function-tests]
-description = "export 関数の直接テストと Node.js test runner の対象を確認する"
+description = "export 関数の直接テストを確認する"
 run = "pnpm check:exported-function-tests"
 
 [tasks.lint]
@@ -49,7 +49,7 @@ description = "Astro で型チェックする"
 run = "pnpm check"
 
 [tasks.test]
-description = "fixture コンテンツで生成ページをテストする"
+description = "Astro をビルドし、Node.js の glob test runner でテストする"
 run = "pnpm test"
 
 [tasks.lighthouse-ci]

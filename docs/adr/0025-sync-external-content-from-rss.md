@@ -96,6 +96,8 @@ GitHub の公式ドキュメントでは、`GITHUB_TOKEN` で作成・更新し�
 
 ### 認証・マージ・公開
 
+PR の停止・再開、固定 automation branch の扱い、共通 workflow action の運用は [ADR 0030](0030-guard-content-automation-lifecycle.md) を参照する。
+
 - PR の操作には、このリポジトリに限定した GitHub App を使う。ルールセットの bypass 権限を付与しない。
 - 各同期 PR と共通の削除 PR は、既存の必須 CI とマージ条件を満たしてから `main` に反映する。
 - 通常運用は必須 CI 成功後に自動マージする。初回の取り込みは手動で確認・マージする。

@@ -28,6 +28,19 @@ function createFetch(responses: Response[]) {
   return { calls, fetchImpl };
 }
 
+function responseWithTrackedBody(value: unknown, status = 200) {
+  const response = jsonResponse(value, { status });
+  const body = response.body;
+  assert.ok(body);
+  let canceled = false;
+  const cancel = body.cancel.bind(body);
+  body.cancel = async (reason?: unknown) => {
+    canceled = true;
+    await cancel(reason);
+  };
+  return { response, wasCanceled: () => canceled };
+}
+
 test('pull request pages map REST fields and follow the Link next URL', async () => {
   const nextUrl = `${apiBaseUrl}/repos/owner/repo/pulls?head=owner%3Aautomation%2Fsizu&base=main&state=all&sort=created&direction=desc&per_page=100&page=2`;
   const fake = createFetch([
@@ -260,6 +273,64 @@ test('PATCH sends body and state together and keeps token only in authorization 
     state: 'closed',
   });
   assert.equal(call?.url.includes(token), false);
+});
+
+test('API releases response bodies for HTTP errors, compare 404s, and PATCH success', async () => {
+  const forbidden = responseWithTrackedBody({ message: 'Forbidden' }, 403);
+  const forbiddenApi = createContentAutomationApi({
+    owner: 'owner',
+    repo: 'repo',
+    token,
+    fetchImpl: createFetch([forbidden.response]).fetchImpl,
+    apiBaseUrl,
+  });
+  await assert.rejects(
+    forbiddenApi.listPullRequests({
+      head: 'automation/sizu',
+      base: 'main',
+      page: 1,
+      perPage: 100,
+    }),
+    /HTTP 403/,
+  );
+  assert.equal(forbidden.wasCanceled(), true);
+
+  const compareMissing = responseWithTrackedBody({ message: 'Not Found' }, 404);
+  const branchMissing = responseWithTrackedBody({ message: 'Not Found' }, 404);
+  const absentApi = createContentAutomationApi({
+    owner: 'owner',
+    repo: 'repo',
+    token,
+    fetchImpl: createFetch([compareMissing.response, branchMissing.response])
+      .fetchImpl,
+    apiBaseUrl,
+  });
+  assert.deepEqual(
+    await absentApi.compareCommits({
+      base: 'main',
+      head: 'automation/sizu',
+      page: 1,
+      perPage: 100,
+    }),
+    { found: false, commits: [], hasNextPage: false },
+  );
+  assert.equal(compareMissing.wasCanceled(), true);
+  assert.equal(branchMissing.wasCanceled(), true);
+
+  const patched = responseWithTrackedBody({ state: 'closed' });
+  const patchApi = createContentAutomationApi({
+    owner: 'owner',
+    repo: 'repo',
+    token,
+    fetchImpl: createFetch([patched.response]).fetchImpl,
+    apiBaseUrl,
+  });
+  await patchApi.updatePullRequest({
+    number: 29,
+    body: 'closed',
+    state: 'closed',
+  });
+  assert.equal(patched.wasCanceled(), true);
 });
 
 test('invalid Link header, missing required data, unknown HTTP status, and fetch errors reject without exposing token', async () => {

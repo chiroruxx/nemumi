@@ -4,10 +4,9 @@
 確認日: 2026-10-13。PR #29 の比較元は `5340f47693dd1c39598c5ffb7167c2ad29bb260a`、比較先は `957c922e39d330f99bb5d1abcc42525ffd55a5ac`。PR #29 は最新 main `d4c4599` にマージ済み。
 23 ファイル、追加 2,039 行・削除 22 行の差分と、既存のコンテンツ定義・関連 ADR を確認した。
 
-以下は **30 件の改善候補**。実装方針の決定記録ではなく、レビューと作業分割のためのバックログである。
-03 と 07 はレビュー指摘を受けて方針を確定し、[ADR 0027](../adr/0027-prune-stored-content-without-rss.md) に記録した。その他の改善案は未採用。
-ADR 0027 は、対象 PR で追加された ADR 0025・0026 の続番とする。
-候補一覧にあるコード行番号はレビュー時の比較先 `957c922` に対する参照であり、現在の実装は PR #29 を含む最新 main `d4c4599` を基準にする。新しい実装用 worktree は `/private/tmp/nemumi-pr29-refactoring` に作成済みで、PR #29 が追加したファイルも最新 main に存在する。レビュー時の行番号は実装開始時に現行コードへ読み替える。
+以下は **30 件の改善候補**と、6段階の実装・検証記録である。候補欄の「現状」は初回レビュー時点の指摘を残しており、現在の対応状況は末尾の「6 PR の追跡」を参照する。
+03 と 07 の確定方針は [ADR 0027](../adr/0027-prune-stored-content-without-rss.md)、計画と適用の分離は [ADR 0028](../adr/0028-separate-content-planning-and-application.md)、通信と締切は [ADR 0029](../adr/0029-bound-content-network-execution.md)、自動 PR の停止・再開は [ADR 0030](../adr/0030-guard-content-automation-lifecycle.md) を参照する。
+候補一覧のコード行番号はレビュー時の比較先 `957c922` に対する参照であり、各 PR は PR #29 を含む main `d4c4599` から順に積み上げる。
 
 既存方針は PR 内の [ADR 0025](https://github.com/chiroruxx/nemumi/blob/957c922e39d330f99bb5d1abcc42525ffd55a5ac/docs/adr/0025-sync-external-content-from-rss.md) と
 [ADR 0026](https://github.com/chiroruxx/nemumi/blob/957c922e39d330f99bb5d1abcc42525ffd55a5ac/docs/adr/0026-check-exported-function-tests.md) を参照する。
@@ -400,8 +399,8 @@ ADR 0027 は、対象 PR で追加された ADR 0025・0026 の続番とする�
 | 1 | [#37](https://github.com/chiroruxx/nemumi/pull/37) | 先行4件 RED、format・lint・check、全29テスト成功。GitHub CI・Lighthouse 成功 | 未実施 | PR作成済み（未マージ） |
 | 2 | [#38](https://github.com/chiroruxx/nemumi/pull/38) | 先行2件 RED、全31件、format・lint・check・test成功 | 未実施 | PR作成済み（未マージ） |
 | 3 | [#39](https://github.com/chiroruxx/nemumi/pull/39) | 変更前31件 GREEN、境界テスト先行、全42件・format・lint・check・GitHub CI・Lighthouse 成功 | 未実施 | PR作成済み（未マージ） |
-| 4 | 作成準備中 | 変更前42件 GREEN、締切・レポート回帰 RED→GREEN、全66件・format・lint・check 成功 | 未実施 | 実装・レビュー完了 |
-| 5 | 未作成 | ガードの独立テスト15件とlint・check成功、統合検証待ち | 未実施 | 独立部分を実装中 |
+| 4 | [#40](https://github.com/chiroruxx/nemumi/pull/40) | 変更前42件 GREEN、締切・レポート回帰 RED→GREEN、全66件・format・lint・check・GitHub CI・Lighthouse 成功 | 未実施 | PR作成済み（未マージ） |
+| 5 | 作成準備中 | CLI・API・表示の先行 RED→GREEN、全115件・format・lint・check 成功。workflow 構造4件・actionlint 検証成功 | 未実施 | 実装・レビュー完了 |
 | 6 | 未作成 | 単独実装でformat・lint・check・単独checker、全33テスト成功 | 未実施 | 独立部分実装済み・統合待ち |
 
 コード・テスト検証には実行したコマンドと結果を記載する。merge 後チェックリストには対象 workflow・実行リンクまたは記録・結果を記載する。PR 作成時点では本番運用確認を「未実施」とし、テスト成功だけで確認済みとはしない。

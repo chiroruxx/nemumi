@@ -40,6 +40,7 @@ test('prune CLI passes dry-run through and emits an empty result summary', async
       };
     },
     writeOutput: (value) => output.push(value),
+    repositoryRoot: '/repo',
     writeSummary: async (value) => {
       summaries.push(value);
     },
@@ -55,7 +56,20 @@ test('prune CLI passes dry-run through and emits an empty result summary', async
     unchecked: [],
     remainingByCollection: { articles: 0, talks: 0 },
   });
-  assert.deepEqual(summaries, ['削除対象はありません。']);
+  assert.deepEqual(summaries, [
+    [
+      '削除: 0件',
+      '削除対象はありません。',
+      '保持: 0件',
+      '保持対象はありません。',
+      '手動管理: 0件',
+      '手動管理項目はありません。',
+      '判定保留: 0件',
+      '要確認: 0件',
+      '未確認: 0件',
+      '残件数: articles: 0件、talks: 0件',
+    ].join('\n'),
+  ]);
 });
 
 test('prune CLI renders the named removal fields in its existing summary and JSON shape', async () => {
@@ -79,16 +93,28 @@ test('prune CLI renders the named removal fields in its existing summary and JSO
       remainingByCollection: { articles: 0, talks: 0 },
     }),
     writeOutput: (value) => output.push(value),
+    repositoryRoot: '/repo',
     writeSummary: async (value) => {
       summaries.push(value);
     },
   });
 
   assert.deepEqual(summaries, [
-    '- 上限超過: 2026-10-03「A saved post」 https://sizu.me/chihiroxx/posts/saved',
+    [
+      '削除: 1件',
+      '- 上限超過: 2026-10-03「A saved post」 <https://sizu.me/chihiroxx/posts/saved> (`src/content/articles/post.yaml`)',
+      '保持: 0件',
+      '保持対象はありません。',
+      '手動管理: 0件',
+      '手動管理項目はありません。',
+      '判定保留: 0件',
+      '要確認: 0件',
+      '未確認: 0件',
+      '残件数: articles: 0件、talks: 0件',
+    ].join('\n'),
   ]);
   assert.deepEqual(JSON.parse(output[0]), {
-    removals: [removal],
+    removals: [{ ...removal, file: 'src/content/articles/post.yaml' }],
     kept: [],
     skipped: [],
     deferred: [],

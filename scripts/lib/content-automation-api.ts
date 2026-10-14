@@ -187,6 +187,7 @@ export function createContentAutomationApi(
     url: string,
   ): Promise<void> {
     if (!response.ok) {
+      await response.body?.cancel();
       throw new Error(
         `${method} ${new URL(url).pathname} returned HTTP ${response.status}`,
       );
@@ -280,9 +281,11 @@ export function createContentAutomationApi(
       }
       const response = await request(url);
       if (response.status === 404 && page === 1) {
+        await response.body?.cancel();
         const branchUrl = endpoint(`branches/${encodeURIComponent(head)}`);
         const branchResponse = await request(branchUrl);
         if (branchResponse.status === 404) {
+          await branchResponse.body?.cancel();
           pagination.delete(key);
           return { found: false, commits: [], hasNextPage: false };
         }
@@ -330,6 +333,7 @@ export function createContentAutomationApi(
       const url = endpoint(`pulls/${number}`);
       const response = await request(url, 'PATCH', { body, state });
       await checkResponse(response, 'PATCH', url);
+      await response.body?.cancel();
     },
   };
   return api;

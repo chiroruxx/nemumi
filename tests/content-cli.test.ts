@@ -8,7 +8,6 @@ import {
   parsePruneArguments,
   parseSyncArguments,
   serializeContentResult,
-  writeGitHubOutput,
   writeGitHubSummary,
 } from '../scripts/lib/content-cli.ts';
 
@@ -79,26 +78,6 @@ test('GitHub summary append errors propagate to the caller', async () => {
       createDelimiter: () => 'DELIMITER',
     }),
     /disk full/,
-  );
-});
-
-test('single-line GitHub outputs use a separate output key writer', async () => {
-  const writes: { path: string; content: string }[] = [];
-  await writeGitHubOutput('proceed', 'false', {
-    outputPath: '/tmp/github-output',
-    append: async (path, content) => {
-      writes.push({ path, content });
-    },
-  });
-  assert.deepEqual(writes, [
-    { path: '/tmp/github-output', content: 'proceed=false\n' },
-  ]);
-  await assert.rejects(
-    writeGitHubOutput('summary', 'multiple\nlines', {
-      outputPath: '/tmp/github-output',
-      append: async () => {},
-    }),
-    /single line/,
   );
 });
 

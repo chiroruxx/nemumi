@@ -1,11 +1,11 @@
 # PR #29 リファクタリング候補
 
 対象: [PR #29 — feat: automate external content synchronization and pruning](https://github.com/chiroruxx/nemumi/pull/29)。
-確認日: 2026-10-13。PR #29 の比較元は `5340f47693dd1c39598c5ffb7167c2ad29bb260a`、比較先は `957c922e39d330f99bb5d1abcc42525ffd55a5ac`。PR #29 は最新 main `d4c4599` にマージ済み。
+確認日: 2026-10-13。PR #29 の比較元は `5340f47693dd1c39598c5ffb7167c2ad29bb260a`、比較先は `957c922e39d330f99bb5d1abcc42525ffd55a5ac`。PR #29 は実装開始時の main `d4c4599` にマージ済み。
 23 ファイル、追加 2,039 行・削除 22 行の差分と、既存のコンテンツ定義・関連 ADR を確認した。
 
 以下は **30 件の改善候補**と、6段階の実装・検証記録である。候補欄の「現状」は初回レビュー時点の指摘を残しており、現在の対応状況は末尾の「6 PR の追跡」を参照する。
-03 と 07 の確定方針は [ADR 0027](../adr/0027-prune-stored-content-without-rss.md)、計画と適用の分離は [ADR 0028](../adr/0028-separate-content-planning-and-application.md)、通信と締切は [ADR 0029](../adr/0029-bound-content-network-execution.md)、自動 PR の停止・再開は [ADR 0030](../adr/0030-guard-content-automation-lifecycle.md) を参照する。
+03 と 07 の確定方針は [ADR 0027](../adr/0027-prune-stored-content-without-rss.md)、計画と適用の分離は [ADR 0028](../adr/0028-separate-content-planning-and-application.md)、通信と締切は [ADR 0029](../adr/0029-bound-content-network-execution.md)、自動 PR の停止・再開は [ADR 0030](../adr/0030-guard-content-automation-lifecycle.md)、静的検査と runner の対象は [ADR 0031](../adr/0031-align-test-runner-and-static-check.md) を参照する。
 候補一覧のコード行番号はレビュー時の比較先 `957c922` に対する参照であり、各 PR は PR #29 を含む main `d4c4599` から順に積み上げる。
 
 既存方針は PR 内の [ADR 0025](https://github.com/chiroruxx/nemumi/blob/957c922e39d330f99bb5d1abcc42525ffd55a5ac/docs/adr/0025-sync-external-content-from-rss.md) と
@@ -14,14 +14,14 @@
 
 ## 優先度と確認状況
 
-| 表記 | 意味 |
-|---|---|
-| P1 | 自動更新・削除を運用する前に対応または仕様を確定したい |
-| P2 | 責務分離・テスト・運用上の保守性を改善する |
-| P3 | 上記の整理後に必要性を判断する |
-| 再現済み | 比較先のコードを一時ディレクトリで実行して挙動を確認した |
+| 表記       | 意味                                                           |
+| ---------- | -------------------------------------------------------------- |
+| P1         | 自動更新・削除を運用する前に対応または仕様を確定したい         |
+| P2         | 責務分離・テスト・運用上の保守性を改善する                     |
+| P3         | 上記の整理後に必要性を判断する                                 |
+| 再現済み   | 比較先のコードを一時ディレクトリで実行して挙動を確認した       |
 | コード確認 | 実装・テストから確認した。該当する異常系の実行確認はしていない |
-| 仕様確認 | 現行 ADR・計画・実装の関係を確認してから変更する |
+| 仕様確認   | 現行 ADR・計画・実装の関係を確認してから変更する               |
 
 ## 先に扱う挙動と境界
 
@@ -88,7 +88,7 @@
 
 ### 07. 手動フィールドの保持に関する計画文書をスキーマに合わせる
 
-- **P2 / ドキュメント訂正 / 方針確定**
+- **P2 / ドキュメント訂正・PR #44 で反映済み / 方針確定**
 - 対象: PR の `docs/projects/auto-update.md:105`、`external-content.ts:327` の保存データ構築。
 - 確定方針: Astro Content Collections のスキーマにないフィールドは同期時に消えてよい。
   スキーマ内の既存 `types` は保持する（[ADR 0027](../adr/0027-prune-stored-content-without-rss.md)）。
@@ -327,7 +327,7 @@
 
 ## 作業の分け方の案
 
-以下の6段階をそれぞれ独立した PR として実装する。レビューしやすいように積み上げ、段階1のPRは `main` を base にし、段階2は段階1のブランチ、段階3は段階2のブランチという順で、段階6まで直前段階のブランチを base にする。先行 PR が main にマージされたら、必要に応じて後続ブランチを最新 main へ rebase し、PR の base を更新して差分を整理する。これは実行順とレビュー境界の案であり、新しい設計決定ではない。候補番号の主担当は一段階に一度だけ割り当てる。後段に主担当を置いた候補が前段の変更に関係する場合、前段ではその変更に必要な範囲のテストや受け渡しだけを行い、候補全体の完了とは扱わない。バグ修正は実装前に再現テストが失敗することを確認し、リファクタリングは維持する振る舞いのテストが実装前に成功することを確認する。変更後は同じテストと関連する既存テストを実行する。
+以下の6段階をそれぞれ独立した PR として実装する。レビューしやすいように積み上げ、段階1のPRは `main` を base にし、段階2は段階1のブランチ、段階3は段階2のブランチという順で、段階6まで直前段階のブランチを base にする。先行 PR が main にマージされた後の後続 PR の base 更新と restack は、登録済みの GitHub native stack に従う。これは実行順とレビュー境界の案であり、新しい設計決定ではない。候補番号の主担当は一段階に一度だけ割り当てる。後段に主担当を置いた候補が前段の変更に関係する場合、前段ではその変更に必要な範囲のテストや受け渡しだけを行い、候補全体の完了とは扱わない。バグ修正は実装前に再現テストが失敗することを確認し、リファクタリングは維持する振る舞いのテストが実装前に成功することを確認する。変更後は同じテストと関連する既存テストを実行する。
 
 ### 1. URL 遷移と RSS 重複
 
@@ -379,14 +379,14 @@
 
 ### 候補の主担当一覧
 
-| 段階 | 主担当候補 |
-|---|---|
-| 1 | 01、02 |
-| 2 | 03、04 |
-| 3 | 08〜12 |
-| 4 | 05、06、13〜15 |
-| 5 | 07、16〜21、29、30 |
-| 6 | 22〜28 |
+| 段階 | 主担当候補         |
+| ---- | ------------------ |
+| 1    | 01、02             |
+| 2    | 03、04             |
+| 3    | 08〜12             |
+| 4    | 05、06、13〜15     |
+| 5    | 07、16〜21、29、30 |
+| 6    | 22〜28             |
 
 この割当てにより、重複していた候補 05・06・21・28 の主担当をそれぞれ段階 4・4・5・6 に固定した。候補 03 は PR #38 で実装済み（未マージ）、候補 07 は段階 5 で文書反映する。
 
@@ -394,14 +394,16 @@
 
 各 PR の実装後に、リンクと実施した検証結果を記入する。未実施の検証欄は空欄のままにし、コード上の確認と外部運用の実績を混同しない。本番の workflow 実行は当該 PR 群の merge 後に確認するチェックリストであり、今回の PR 作成完了条件ではない。
 
-| 段階 | PR | PR 内のコード・テスト検証結果 | merge 後の本番運用確認・結果 | 状態 |
-|---|---|---|---|---|
-| 1 | [#37](https://github.com/chiroruxx/nemumi/pull/37) | 先行4件 RED、format・lint・check、全29テスト成功。GitHub CI・Lighthouse 成功 | 未実施 | PR作成済み（未マージ） |
-| 2 | [#38](https://github.com/chiroruxx/nemumi/pull/38) | 先行2件 RED、全31件、format・lint・check・test成功 | 未実施 | PR作成済み（未マージ） |
-| 3 | [#39](https://github.com/chiroruxx/nemumi/pull/39) | 変更前31件 GREEN、境界テスト先行、全42件・format・lint・check・GitHub CI・Lighthouse 成功 | 未実施 | PR作成済み（未マージ） |
-| 4 | [#40](https://github.com/chiroruxx/nemumi/pull/40) | 変更前42件 GREEN、締切・レポート回帰 RED→GREEN、全66件・format・lint・check・GitHub CI・Lighthouse 成功 | 未実施 | PR作成済み（未マージ） |
-| 5 | 作成準備中 | CLI・API・表示の先行 RED→GREEN、全115件・format・lint・check 成功。workflow 構造4件・actionlint 検証成功 | 未実施 | 実装・レビュー完了 |
-| 6 | 未作成 | 単独実装でformat・lint・check・単独checker、全33テスト成功 | 未実施 | 独立部分実装済み・統合待ち |
+| 段階 | PR                                                 | PR 内のコード・テスト検証結果                                                                                                                                             | merge 後の本番運用確認・結果 | 状態                   |
+| ---- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------- |
+| 1    | [#37](https://github.com/chiroruxx/nemumi/pull/37) | 先行4件 RED、format・lint・check、全29テスト成功。GitHub CI・Lighthouse 成功                                                                                              | 未実施                       | PR作成済み（未マージ） |
+| 2    | [#38](https://github.com/chiroruxx/nemumi/pull/38) | 先行2件 RED、全31件、format・lint・check・test成功                                                                                                                       | 未実施                       | PR作成済み（未マージ） |
+| 3    | [#39](https://github.com/chiroruxx/nemumi/pull/39) | 変更前31件 GREEN、境界テスト先行、全42件・format・lint・check・GitHub CI・Lighthouse 成功                                                                                 | 未実施                       | PR作成済み（未マージ） |
+| 4    | [#40](https://github.com/chiroruxx/nemumi/pull/40) | 変更前42件 GREEN、締切・レポート回帰 RED→GREEN、全66件・format・lint・check・GitHub CI・Lighthouse 成功                                                                   | 未実施                       | PR作成済み（未マージ） |
+| 5    | [#44](https://github.com/chiroruxx/nemumi/pull/44) | CLI・API・表示の先行 RED→GREEN、全115件・format・lint・check 成功。workflow 構造4件・actionlint 検証成功、GitHub CI・Lighthouse・Workers Builds 成功                      | 未実施                       | PR作成済み（未マージ） |
+| 6    | [#45](https://github.com/chiroruxx/nemumi/pull/45) | AST/探索/runner の先行 RED→GREEN、残契約追加、全132件・format・lint・check・本番 build 成功。CI は [PR checks](https://github.com/chiroruxx/nemumi/pull/45/checks) を参照 | 未実施                       | PR作成済み（未マージ） |
+
+全段階の実装は GPT-6 Luna のサブエージェントに委任し、親エージェントが候補の割当・先行テスト・レビュー・検証結果を管理した。全 PR はレビュー可能な状態で開き、GitHub native stack #46 に登録済み。stack 全体を最新 main に rebase 済み。merge と本番運用確認は未実施。
 
 コード・テスト検証には実行したコマンドと結果を記載する。merge 後チェックリストには対象 workflow・実行リンクまたは記録・結果を記載する。PR 作成時点では本番運用確認を「未実施」とし、テスト成功だけで確認済みとはしない。
 
@@ -409,12 +411,12 @@
 
 このチェックリストは6件の PR が merge された後に実施する。本番確認の許可・実施は今回の PR 作成依頼には含まれない。
 
-| 確認項目 | 実施条件 | 結果 |
-|---|---|---|
-| main 以外からの dispatch と checkout/base | merge 後、対象 workflow を実行 | 未実施 |
-| 既存 PR の更新・手動編集・手動 close | merge 後、専用の検証ケースで実行 | 未実施 |
-| 差分消滅時の PR / workflow 動作 | merge 後、専用の検証ケースで実行 | 未実施 |
-| 実サービスへの通信・締切時の挙動 | merge 後、運用手順と権限の範囲で実行 | 未実施 |
+| 確認項目                                  | 実施条件                             | 結果   |
+| ----------------------------------------- | ------------------------------------ | ------ |
+| main 以外からの dispatch と checkout/base | merge 後、対象 workflow を実行       | 未実施 |
+| 既存 PR の更新・手動編集・手動 close      | merge 後、専用の検証ケースで実行     | 未実施 |
+| 差分消滅時の PR / workflow 動作           | merge 後、専用の検証ケースで実行     | 未実施 |
+| 実サービスへの通信・締切時の挙動          | merge 後、運用手順と権限の範囲で実行 | 未実施 |
 
 ## 検証した範囲
 
@@ -426,3 +428,5 @@
 - サイトのビルド、PR 全体の lint・型チェック、本番サービスの非公開表示、GitHub Actions の既存 PR 更新・マージは今回の検証に含まない。
   PR 本文の「24 件成功」は PR 作成者の報告であり、今回再実行したのは上記 14 件。
 - 上記は初回レビュー時点の検証記録。6段階の実装と検証結果は追跡表に記録する。
+
+ローカル文書は Prettier CLI 3.9.9 で整形済み。現在の Markdown 手順では、JetBrains MCP の `reformat_file` が利用できない場合に見出し・リスト・コードブロック・リンクの構造を確認する。

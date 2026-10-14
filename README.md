@@ -66,9 +66,10 @@ mise run dev
 | `mise run build`                          | 本番用にビルドする（出力先は `dist/`） |
 | `mise run preview`                        | ビルド結果をローカルで確認する         |
 | `mise run lint`                           | Biome、Stylelint と export 関数のテスト確認を実行する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)） |
+| `mise run check-exported-function-tests`   | export 関数のテスト対応だけを確認する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)、[ADR 0031](docs/adr/0031-align-test-runner-and-static-check.md)） |
 | `mise run format`                         | Biome でファイルを整形する             |
 | `mise run check`                          | `astro check` で型チェックする         |
-| `mise run test`                           | 固定 fixture で生成ページをテストする  |
+| `mise run test`                           | Astro をビルドし、`tests/**/*.test.ts` を再帰的に実行する |
 | `mise run lighthouse-ci`                  | Lighthouse CI でビルド成果物を検査する |
 
 ## 外部コンテンツの自動更新

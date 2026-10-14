@@ -1,6 +1,7 @@
 import path from 'node:path';
 import ts from 'typescript';
 import { findUntestedExports } from '../lib/exported-function-tests.ts';
+import { findTestFiles } from '../lib/test-files.ts';
 
 const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists);
 if (!configPath) throw new Error('tsconfig.json was not found.');
@@ -32,7 +33,7 @@ const sources = parsed.fileNames.filter(
     !file.endsWith('.d.ts') &&
     !/\.test\.tsx?$/.test(file),
 );
-const tests = parsed.fileNames.filter((file) => /\.test\.tsx?$/.test(file));
+const tests = await findTestFiles(path.resolve('tests'));
 const missing = findUntestedExports(program, { sources, tests });
 for (const entry of missing) {
   console.error(

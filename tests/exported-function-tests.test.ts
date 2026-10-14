@@ -58,19 +58,68 @@ test('reports exported functions with no direct test call, ignoring private func
   ]);
 });
 
-test('recognizes aliases, namespaces, arrow functions, default exports, and re-exports', () => {
+test('recognizes an aliased import from node:test', () => {
   const fixture = createFixture({
-    'source.ts': `export function named() { return 1; }
-      export const arrow = () => 2;
-      export default function () { return 3; }`,
-    'barrel.ts': `export { named as renamed } from './source.ts';`,
+    'source.ts': 'export function action() {}',
     'source.test.ts': `import { it as check } from 'node:test';
-      import * as runner from 'node:test';
-      import defaultFunction, * as api from './source.ts';
-      import { renamed as aliased } from './barrel.ts';
-      check('named', () => { aliased(); });
-      runner.test('arrow', () => { api.arrow(); });
-      check('default', () => { defaultFunction(); });`,
+      import { action as alias } from './source.ts';
+      check('aliased action', () => { alias(); });`,
+  });
+  assert.deepEqual(findUntestedExports(fixture.program, fixture.files), []);
+});
+
+test('recognizes namespace imports and only tests', () => {
+  const fixture = createFixture({
+    'source.ts': 'export function action() {}',
+    'source.test.ts': `import * as runner from 'node:test';
+      import { action } from './source.ts';
+      runner.test.only('focused action', () => { action(); });`,
+  });
+  assert.deepEqual(findUntestedExports(fixture.program, fixture.files), []);
+});
+
+test('recognizes the default test export through a namespace import', () => {
+  const fixture = createFixture({
+    'source.ts': 'export function action() {}',
+    'source.test.ts': `import * as runner from 'node:test';
+      import { action } from './source.ts';
+      runner.default('default action', () => { action(); });`,
+  });
+  assert.deepEqual(findUntestedExports(fixture.program, fixture.files), []);
+});
+
+test('recognizes default.only and a named default import from node:test', () => {
+  const fixture = createFixture({
+    'source.ts': `export function namespaceAction() {}
+      export function namedAction() {}`,
+    'source.test.ts': `import * as runner from 'node:test';
+      import { default as check } from 'node:test';
+      import { namespaceAction, namedAction } from './source.ts';
+      runner.default.only('focused namespace action', () => {
+        namespaceAction();
+      });
+      check('named default action', () => { namedAction(); });`,
+  });
+  assert.deepEqual(findUntestedExports(fixture.program, fixture.files), []);
+});
+
+test('recognizes default exported functions', () => {
+  const fixture = createFixture({
+    'source.ts': 'export default function action() {}',
+    'source.test.ts': `import test from 'node:test';
+      import action from './source.ts';
+      test('default action', () => { action(); });`,
+  });
+  assert.deepEqual(findUntestedExports(fixture.program, fixture.files), []);
+});
+
+test('treats re-exports as the same exported function', () => {
+  const fixture = createFixture({
+    'source.ts': 'export function action() {}',
+    'barrel.ts': `export { action as renamed } from './source.ts';`,
+    'source.test.ts': `import test from 'node:test';
+      import { renamed } from './barrel.ts';
+      test('re-exported action', () => { renamed(); });`,
   });
   assert.deepEqual(findUntestedExports(fixture.program, fixture.files), []);
 });
@@ -95,6 +144,33 @@ test('ignores calls outside tests and in skipped or todo tests', () => {
   );
 });
 
+test('recognizes skip and todo options set to false', () => {
+  const fixture = createFixture({
+    'source.ts': 'export function action() {}',
+    'source.test.ts': `import test from 'node:test';
+      import { action } from './source.ts';
+      test('enabled skip option', { skip: false }, () => { action(); });
+      test('enabled todo option', { todo: false }, () => { action(); });`,
+  });
+  assert.deepEqual(findUntestedExports(fixture.program, fixture.files), []);
+});
+
+test('does not count type-only imports or exports as runtime test calls', () => {
+  const fixture = createFixture({
+    'source.ts': 'export function action() {}',
+    'barrel.ts': `export type { action } from './source.ts';`,
+    'source.test.ts': `import type test from 'node:test';
+      import type { action } from './source.ts';
+      type TestCallback = typeof action;
+      let callback: TestCallback;
+      void callback;`,
+  });
+  assert.deepEqual(
+    findUntestedExports(fixture.program, fixture.files).map(({ name }) => name),
+    ['action'],
+  );
+});
+
 test('does not confuse a shadowed name with the imported function', () => {
   const fixture = createFixture({
     'source.ts': 'export function action() {}',
@@ -111,11 +187,51 @@ test('does not confuse a shadowed name with the imported function', () => {
   );
 });
 
+test('the checker does not accept TSX test files that Node cannot execute', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'nemumi-tsx-test-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, 'src'));
+  await mkdir(path.join(root, 'tests'));
+  await writeFile(
+    path.join(root, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: { noLib: true, types: [], jsx: 'preserve' },
+      include: ['src/**/*.ts', 'tests/**/*.tsx'],
+    }),
+  );
+  await writeFile(
+    path.join(root, 'src/api.ts'),
+    'export function missing() {}',
+  );
+  await writeFile(
+    path.join(root, 'tests/api.test.tsx'),
+    `import test from 'node:test';
+      import { missing } from '../src/api.ts';
+      test('tsx test', () => { missing(); });`,
+  );
+  await assert.rejects(
+    promisify(execFile)(
+      process.execPath,
+      [path.resolve('scripts/cli/check-exported-function-tests.ts')],
+      { cwd: root },
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof Error && 'code' in error && 'stderr' in error);
+      assert.equal(error.code, 1);
+      assert.match(
+        String(error.stderr),
+        /src\/api.ts:1: exported function "missing"/,
+      );
+      return true;
+    },
+  );
+});
+
 test('CLI fails for an untested export and succeeds after adding a direct test call', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'nemumi-export-tests-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, 'src'));
-  await mkdir(path.join(root, 'tests'));
+  await mkdir(path.join(root, 'tests', 'nested'), { recursive: true });
   await writeFile(
     path.join(root, 'tsconfig.json'),
     JSON.stringify({
@@ -143,9 +259,9 @@ test('CLI fails for an untested export and succeeds after adding a direct test c
     return true;
   });
   await writeFile(
-    path.join(root, 'tests/api.test.ts'),
+    path.join(root, 'tests/nested/api.test.ts'),
     `import test from 'node:test';
-    import { missing } from '../src/api.ts';
+    import { missing } from '../../src/api.ts';
     test('missing', () => { missing(); });`,
   );
   const result = await run();

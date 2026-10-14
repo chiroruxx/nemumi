@@ -155,14 +155,12 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
       url: 'https://sizu.me/chihiroxx/posts/planned-2',
     },
   ];
-  const feedStatus = new Map(feed.map(({ url }) => [url, 'public' as const]));
   const initialIndex = buildCollectionIndex('articles', []);
   const initialPlan = createSyncPlan({
     source: 'sizu',
     index: initialIndex,
     feed,
     contentDirectory,
-    linkStatuses: feedStatus,
   });
   const secondTarget = initialPlan.changes[1].file;
   let failOnce = true;
@@ -204,7 +202,6 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
     index: buildCollectionIndex('articles', afterFailure),
     feed,
     contentDirectory,
-    linkStatuses: feedStatus,
   });
   assert.equal(retryPlan.changes.length, 1);
   assert.equal(retryPlan.changes[0].url, feed[1].url);

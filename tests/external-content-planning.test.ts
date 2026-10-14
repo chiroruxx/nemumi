@@ -138,20 +138,13 @@ test('createSyncPlan is deterministic, keeps existing types, and reports links t
     contentDirectory: '/repo/src/content',
   };
   const initial = createSyncPlan(options);
-  const verified = createSyncPlan({
-    ...options,
-    linkStatuses: new Map([
-      ['https://sizu.me/chihiroxx/posts/a', 'public' as const],
-      ['https://sizu.me/chihiroxx/posts/b', 'public' as const],
-    ]),
-  });
 
   assert.deepEqual(initial.linkChecks, [
     { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/a' },
     { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/b' },
   ]);
   assert.deepEqual(
-    verified.changes.map(({ action, date, title, url, types }) => ({
+    initial.changes.map(({ action, date, title, url, types }) => ({
       action,
       date,
       title,
@@ -183,7 +176,7 @@ test('createSyncPlan is deterministic, keeps existing types, and reports links t
     ],
   );
   assert.deepEqual(
-    verified.changes.map(({ url }) => url),
+    initial.changes.map(({ url }) => url),
     [
       'https://sizu.me/chihiroxx/posts/a',
       'https://sizu.me/chihiroxx/posts/b',
@@ -220,7 +213,7 @@ test('sync ranks one source against saved entries from another source under the 
   assert.deepEqual(plan, { changes: [], linkChecks: [] });
 });
 
-test('createPrunePlan ranks saved entries by date and URL, preserves manual slots, and holds uncertain links', () => {
+test('createPrunePlan ranks saved entries by date and URL and preserves manual slots', () => {
   const saved = Array.from({ length: limits.articles + 1 }, (_, index) => {
     const day = index + 1;
     const date =
@@ -240,13 +233,7 @@ test('createPrunePlan ranks saved entries by date and URL, preserves manual slot
     'https://example.com/manual',
   );
   const index = buildCollectionIndex('articles', [...saved, manual]);
-  const initial = createPrunePlan(index);
-  const statuses = new Map([
-    ['https://sizu.me/chihiroxx/posts/tie-1', 'defer' as const],
-    ['https://sizu.me/chihiroxx/posts/tie-2', 'review' as const],
-    ['https://sizu.me/chihiroxx/posts/tie-3', 'deleted' as const],
-  ]);
-  const final = createPrunePlan(index, statuses);
+  const plan = createPrunePlan(index);
 
   assert.equal(index.manualCount, 1);
   const tieEntries = [
@@ -286,9 +273,9 @@ test('createPrunePlan ranks saved entries by date and URL, preserves manual slot
     tiePlan.linkChecks.map(({ url }) => url),
     ['https://sizu.me/chihiroxx/posts/a'],
   );
-  assert.deepEqual(tiePlan.removals.map(({ url }) => url).sort(), [
-    'https://sizu.me/chihiroxx/posts/m',
-    'https://sizu.me/chihiroxx/posts/z',
+  assert.deepEqual(tiePlan.removals.map(({ file }) => file).sort(), [
+    '/repo/src/content/articles/tie-m.yaml',
+    '/repo/src/content/articles/tie-z.yaml',
   ]);
   const collisionUrl = 'https://sizu.me/chihiroxx/posts/collision';
   const collisionFilename = `sizu-${createHash('sha256').update(collisionUrl).digest('hex')}.yaml`;
@@ -310,20 +297,19 @@ test('createPrunePlan ranks saved entries by date and URL, preserves manual slot
     /Filename collision while adding/,
   );
   assert.deepEqual(
-    initial.removals.map(({ reason, url }) => [reason, url]),
+    plan.removals.map(({ file }) => file),
     [
-      ['limit', 'https://sizu.me/chihiroxx/posts/post-1'],
-      ['limit', 'https://sizu.me/chihiroxx/posts/post-2'],
+      '/repo/src/content/articles/01.yaml',
+      '/repo/src/content/articles/02.yaml',
     ],
   );
   assert.deepEqual(
-    final.removals.map(({ reason, url }) => [reason, url]),
+    plan.linkChecks.map(({ url }) => url).filter((url) => url.includes('tie-')),
     [
-      ['limit', 'https://sizu.me/chihiroxx/posts/post-1'],
-      ['limit', 'https://sizu.me/chihiroxx/posts/post-2'],
-      ['link', 'https://sizu.me/chihiroxx/posts/tie-3'],
+      'https://sizu.me/chihiroxx/posts/tie-1',
+      'https://sizu.me/chihiroxx/posts/tie-2',
+      'https://sizu.me/chihiroxx/posts/tie-3',
     ],
   );
-  assert.ok(final.linkChecks.every(({ url }) => !url.includes('tie-')));
-  assert.ok(!final.removals.some(({ url }) => url === manual.data.url));
+  assert.ok(!plan.removals.some(({ file }) => file.endsWith('manual.yaml')));
 });

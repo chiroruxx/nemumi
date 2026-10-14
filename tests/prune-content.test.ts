@@ -87,11 +87,23 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
 
   const options = {
     contentDirectory,
-    linkVerifier: async (url: string) =>
-      url.endsWith('/post-02') ? ('deleted' as const) : ('public' as const),
+    linkVerifier: async (url: string) => {
+      if (url.endsWith('/post-02')) return 'deleted' as const;
+      if (url.endsWith('/post-03')) return 'defer' as const;
+      if (url.endsWith('/post-04')) return 'review' as const;
+      return 'public' as const;
+    },
     linkCheckBatchIntervalMs: 0,
   };
-  await pruneContent({ ...options, dryRun: true });
+  const dryRun = await pruneContent({ ...options, dryRun: true });
+  assert.deepEqual(
+    dryRun.deferred.map(({ url }) => url),
+    ['https://sizu.me/chihiroxx/posts/post-03'],
+  );
+  assert.deepEqual(
+    dryRun.review.map(({ url }) => url),
+    ['https://sizu.me/chihiroxx/posts/post-04'],
+  );
   assert.deepEqual(
     (await readdir(articlesDirectory)).sort(),
     [
@@ -104,7 +116,15 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
   );
   assert.equal((await readdir(articlesDirectory)).length, 21);
 
-  await pruneContent(options);
+  const result = await pruneContent(options);
+  assert.deepEqual(
+    result.deferred.map(({ url }) => url),
+    ['https://sizu.me/chihiroxx/posts/post-03'],
+  );
+  assert.deepEqual(
+    result.review.map(({ url }) => url),
+    ['https://sizu.me/chihiroxx/posts/post-04'],
+  );
   const remainingFiles = await readdir(articlesDirectory);
   assert.equal(remainingFiles.length, 19);
   assert.ok(remainingFiles.includes(manualFilename));

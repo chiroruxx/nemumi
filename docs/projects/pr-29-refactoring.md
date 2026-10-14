@@ -400,8 +400,8 @@
 | 2 | [#38](https://github.com/chiroruxx/nemumi/pull/38) | 先行2件 RED、全31件、format・lint・check・test成功 | 未実施 | PR作成済み（未マージ） |
 | 3 | [#39](https://github.com/chiroruxx/nemumi/pull/39) | 変更前31件 GREEN、境界テスト先行、全42件・format・lint・check・GitHub CI・Lighthouse 成功 | 未実施 | PR作成済み（未マージ） |
 | 4 | [#40](https://github.com/chiroruxx/nemumi/pull/40) | 変更前42件 GREEN、締切・レポート回帰 RED→GREEN、全66件・format・lint・check・GitHub CI・Lighthouse 成功 | 未実施 | PR作成済み（未マージ） |
-| 5 | [#44](https://github.com/chiroruxx/nemumi/pull/44) | CLI・API・表示の先行 RED→GREEN、全115件・format・lint・check 成功。workflow 構造4件・actionlint 検証成功、GitHub CI・Workers Builds 成功 | 未実施 | PR作成済み（未マージ） |
-| 6 | 作成準備中 | AST/探索/runner の先行 RED→GREEN、残契約追加、全132件・format・lint・check・本番 build 成功 | 未実施 | 実装・レビュー完了 |
+| 5 | [#44](https://github.com/chiroruxx/nemumi/pull/44) | CLI・API・表示の先行 RED→GREEN、全115件・format・lint・check 成功。workflow 構造4件・actionlint 検証成功、GitHub CI・Lighthouse・Workers Builds 成功 | 未実施 | PR作成済み（未マージ） |
+| 6 | [#45](https://github.com/chiroruxx/nemumi/pull/45) | AST/探索/runner の先行 RED→GREEN、残契約追加、全132件・format・lint・check・本番 build 成功。CI は [PR checks](https://github.com/chiroruxx/nemumi/pull/45/checks) を参照 | 未実施 | PR作成済み（未マージ） |
 
 全段階の実装は GPT-6 Luna のサブエージェントに委任し、親エージェントが候補の割当・先行テスト・レビュー・検証結果を管理した。全PRは draft として作成し、mainへのmergeは行わない。
 

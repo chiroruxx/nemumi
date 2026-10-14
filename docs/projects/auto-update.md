@@ -17,6 +17,8 @@ pruning は [ADR 0027](../adr/0027-prune-stored-content-without-rss.md)
 同期は空のRSS・不正なYAML・URL衝突・検証失敗で差分を適用しない。同期では既存ファイルの正式schema外フィールドは保持対象にしないため、更新時に消える。pruneは保存済み
 YAML の日付・URLだけで対象を選び、同一実行内で削除後の補充はしない。defer、review、未確認リンクは保持する。
 
+リンク確認はサービスを問わず最大5件ずつ並列実行し、次のバッチまで1秒待機する。個々の HTTP リクエスト間隔は制御しない（[ADR 0035](../adr/0035-batch-link-checks.md)）。
+
 ## 初回運用チェックリスト
 
 - [ ] GitHub App、Actions settings、repository permissions、Auto-merge

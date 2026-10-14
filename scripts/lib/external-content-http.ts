@@ -5,8 +5,7 @@ import {
   type LinkCheck,
   type LinkStatus,
   type Service,
-  type Source,
-  services,
+  type services,
   validateContentUrl,
 } from './external-content-planning.ts';
 
@@ -14,13 +13,12 @@ export const DEFAULT_EXECUTION_BUDGET_MS = 8 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 30_000;
 const RSS_RESPONSE_LIMIT_BYTES = 5 * 1024 * 1024;
 const MAX_RETRIES = 2;
+const LINK_CHECK_BATCH_SIZE = 5;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 export type ExecutionContext = {
   signal: AbortSignal;
   remainingMs(): number;
-  startRequest?(source: Source): Promise<boolean>;
-  initialRequestScheduled?: boolean;
   dispose(): void;
 };
 
@@ -30,8 +28,6 @@ export type ExecutionContextOptions = {
   now?: () => number;
   setTimer?: (callback: () => void, delayMs: number) => Timer;
   clearTimer?: (timer: Timer) => void;
-  intervalMs?: number;
-  sleep?: Sleep;
 };
 
 export function createExecutionContext({
@@ -39,14 +35,10 @@ export function createExecutionContext({
   now = Date.now,
   setTimer = (callback, delayMs) => setTimeout(callback, delayMs),
   clearTimer = (timer) => clearTimeout(timer),
-  intervalMs = 1000,
-  sleep: wait = sleep,
 }: ExecutionContextOptions = {}): ExecutionContext {
   const controller = new AbortController();
   const deadlineAt = now() + Math.max(0, budgetMs);
   let expired = false;
-  const lastStarted = new Map<Source, number>();
-  const requestQueues = new Map<Source, Promise<void>>();
   const timer = setTimer(
     () => {
       expired = true;
@@ -59,39 +51,6 @@ export function createExecutionContext({
   return {
     signal: controller.signal,
     remainingMs: () => (expired ? 0 : Math.max(0, deadlineAt - now())),
-    startRequest: async (source) => {
-      const previousQueue = requestQueues.get(source) ?? Promise.resolve();
-      let releaseQueue!: () => void;
-      const currentQueue = new Promise<void>((resolve) => {
-        releaseQueue = resolve;
-      });
-      requestQueues.set(source, currentQueue);
-      await previousQueue;
-      try {
-        while (!expired && !controller.signal.aborted) {
-          const previous = lastStarted.get(source);
-          const delay =
-            previous === undefined ? 0 : previous + intervalMs - now();
-          if (delay <= 0) {
-            if (deadlineAt <= now()) return false;
-            lastStarted.set(source, now());
-            return true;
-          }
-          if (delay >= deadlineAt - now()) return false;
-          try {
-            await wait(delay, controller.signal);
-          } catch {
-            return false;
-          }
-        }
-        return false;
-      } finally {
-        releaseQueue();
-        if (requestQueues.get(source) === currentQueue) {
-          requestQueues.delete(source);
-        }
-      }
-    },
     dispose: () => clearTimer(timer),
   };
 }
@@ -111,14 +70,6 @@ export type HttpRuntime = {
   context?: ExecutionContext;
   requestTimeoutMs?: number;
 };
-
-function sourceForService(service: Service): Source | undefined {
-  return (Object.entries(services) as [Source, Service][]).find(
-    ([, configured]) =>
-      configured.host === service.host &&
-      configured.pathPrefix === service.pathPrefix,
-  )?.[0];
-}
 
 function sleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) return Promise.reject(signal.reason);
@@ -243,12 +194,6 @@ export async function fetchFeed(service: Service, runtime: HttpRuntime = {}) {
   let response: Response | undefined;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     assertBudget(runtime);
-    const source = sourceForService(service);
-    if (source && runtime.context?.startRequest) {
-      if (!(await runtime.context.startRequest(source))) {
-        throw new DOMException('Execution deadline exceeded', 'TimeoutError');
-      }
-    }
     try {
       response = await fetchImpl(service.feed, {
         signal: requestSignal(runtime),
@@ -339,14 +284,6 @@ export async function verifyLink(
     }
     if (visited.has(url.href)) return 'review';
     visited.add(url.href);
-    const source = sourceForService(service);
-    if (
-      source &&
-      runtime.context?.startRequest &&
-      !(redirects === 0 && runtime.context.initialRequestScheduled)
-    ) {
-      if (!(await runtime.context.startRequest(source))) return 'defer';
-    }
     let response: Response;
     try {
       response = await fetchImpl(url.href, {
@@ -380,7 +317,7 @@ export async function verifyLink(
   return 'review';
 }
 
-export type ScheduledLinkVerifier = (
+export type LinkVerifier = (
   url: string,
   service: Service,
   context: ExecutionContext,
@@ -388,8 +325,7 @@ export type ScheduledLinkVerifier = (
 export type LinkCheckRunOptions = {
   services: typeof services;
   context: ExecutionContext;
-  intervalMs?: number;
-  now?: () => number;
+  batchIntervalMs?: number;
   sleep?: Sleep;
 };
 export type LinkCheckRunResult = {
@@ -399,169 +335,58 @@ export type LinkCheckRunResult = {
 
 export async function runLinkChecks(
   entries: LinkCheck[],
-  verify: ScheduledLinkVerifier,
+  verify: LinkVerifier,
   {
     services: configuredServices,
     context,
-    intervalMs = 1000,
-    now = Date.now,
+    batchIntervalMs = 1000,
     sleep: wait = sleep,
   }: LinkCheckRunOptions,
 ): Promise<LinkCheckRunResult> {
   const statuses = new Map<string, LinkStatus>();
-  const pending = entries.map((entry, index) => ({ entry, index }));
-  const inFlight = new Map<number, Promise<void>>();
-  const lastStarted = new Map<Source, number>();
-  let resolveDeadline!: () => void;
+  const expired = () => context.signal.aborted || context.remainingMs() <= 0;
+  let onDeadline!: () => void;
   const deadline = new Promise<void>((resolve) => {
-    resolveDeadline = resolve;
+    onDeadline = resolve;
   });
-  const onDeadline = () => resolveDeadline();
   context.signal.addEventListener('abort', onDeadline, { once: true });
-  if (context.signal.aborted) resolveDeadline();
-  let startBlocked = false;
 
   try {
-    while (pending.length || inFlight.size) {
-      if (context.signal.aborted) break;
-      if (context.remainingMs() <= 0) {
-        if (inFlight.size) await deadline;
-        break;
-      }
-      let started = false;
-      while (!startBlocked && inFlight.size < 2) {
-        const currentTime = now();
-        const eligibleIndex = context.startRequest
-          ? pending.length
-            ? 0
-            : -1
-          : pending.findIndex(({ entry }) => {
-              const previous = lastStarted.get(entry.source);
-              return (
-                previous === undefined || currentTime - previous >= intervalMs
-              );
-            });
-        if (eligibleIndex < 0) break;
-        const [{ entry, index }] = pending.splice(eligibleIndex, 1);
-        if (context.startRequest) {
-          let requestGranted = false;
+    for (
+      let offset = 0;
+      offset < entries.length && !expired();
+      offset += LINK_CHECK_BATCH_SIZE
+    ) {
+      const batch = entries
+        .slice(offset, offset + LINK_CHECK_BATCH_SIZE)
+        .map(async (entry) => {
+          if (expired()) return;
+          let status: LinkStatus;
           try {
-            requestGranted = await context.startRequest(entry.source);
+            status = await verify(
+              entry.url,
+              configuredServices[entry.source],
+              context,
+            );
           } catch {
-            requestGranted = false;
+            status = 'defer';
           }
-          if (!requestGranted) {
-            pending.unshift({ entry, index });
-            startBlocked = true;
-            break;
-          }
-        } else {
-          lastStarted.set(entry.source, now());
-        }
-        const linkContext = context.startRequest
-          ? { ...context, initialRequestScheduled: true }
-          : context;
-        let verification: Promise<LinkStatus>;
-        try {
-          verification = verify(
-            entry.url,
-            configuredServices[entry.source],
-            linkContext,
-          );
-        } catch (error) {
-          verification = Promise.reject(error);
-        }
-        const task = verification
-          .then((status) => {
-            if (!context.signal.aborted && context.remainingMs() > 0) {
-              statuses.set(entry.url, status);
-            }
-          })
-          .catch(() => {
-            if (!context.signal.aborted && context.remainingMs() > 0) {
-              statuses.set(entry.url, 'defer');
-            }
-          })
-          .finally(() => inFlight.delete(index));
-        inFlight.set(index, task);
-        started = true;
-      }
-      if (started) continue;
-
-      if (inFlight.size) {
-        const progress = Promise.race(inFlight.values());
-        if (pending.length && !startBlocked && !context.startRequest) {
-          const currentTime = now();
-          const nextDelay = Math.min(
-            ...pending.map(({ entry }) =>
-              Math.max(
-                0,
-                (lastStarted.get(entry.source) ?? currentTime) +
-                  intervalMs -
-                  currentTime,
-              ),
-            ),
-          );
-          const remaining = context.remainingMs();
-          const waitMs = nextDelay < remaining ? nextDelay : remaining;
-          const beforeWait = now();
-          try {
-            await Promise.race([
-              progress,
-              wait(waitMs, context.signal),
-              deadline,
-            ]);
-          } catch {
-            await deadline;
-          }
-          if (
-            !context.signal.aborted &&
-            context.remainingMs() > 0 &&
-            now() === beforeWait
-          ) {
-            await Promise.race([progress, deadline]);
-          }
-        } else {
-          await Promise.race([progress, deadline]);
-        }
-        continue;
-      }
-
-      if (pending.length && !startBlocked) {
-        const currentTime = now();
-        const nextDelay = Math.min(
-          ...pending.map(({ entry }) =>
-            Math.max(
-              0,
-              (lastStarted.get(entry.source) ?? currentTime) +
-                intervalMs -
-                currentTime,
-            ),
-          ),
-        );
-        const remaining = context.remainingMs();
-        if (nextDelay >= remaining) break;
-        const beforeWait = now();
-        try {
-          await Promise.race([wait(nextDelay, context.signal), deadline]);
-        } catch {
-          await deadline;
-        }
-        if (
-          !context.signal.aborted &&
-          context.remainingMs() > 0 &&
-          now() === beforeWait
-        ) {
-          break;
-        }
-        continue;
-      }
-      break;
+          if (!expired()) statuses.set(entry.url, status);
+        });
+      // A custom verifier may ignore AbortSignal, so stop waiting at the deadline.
+      await Promise.race([Promise.all(batch), deadline]);
+      if (expired() || offset + LINK_CHECK_BATCH_SIZE >= entries.length) break;
+      if (context.remainingMs() <= batchIntervalMs) break;
+      await Promise.race([wait(batchIntervalMs, context.signal), deadline]);
     }
+  } catch (error) {
+    if (!context.signal.aborted) throw error;
   } finally {
     context.signal.removeEventListener('abort', onDeadline);
   }
 
-  const unchecked = entries.filter((entry) => !statuses.has(entry.url));
-  return { statuses, unchecked };
+  return {
+    statuses,
+    unchecked: entries.filter(({ url }) => !statuses.has(url)),
+  };
 }

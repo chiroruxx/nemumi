@@ -397,12 +397,12 @@ ADR 0027 は、対象 PR で追加された ADR 0025・0026 の続番とする�
 
 | 段階 | PR | PR 内のコード・テスト検証結果 | merge 後の本番運用確認・結果 | 状態 |
 |---|---|---|---|---|
-| 1 | 未作成 | 未実施 | merge 後チェックリスト参照 | 未着手 |
-| 2 | [#38](https://github.com/chiroruxx/nemumi/pull/38) | 先行 2 件 RED、全 31 件、format・lint・check・test 成功 | 未実施 | PR 作成済み（未マージ） |
-| 3 | 未作成 | 未実施 | merge 後チェックリスト参照 | 未着手 |
-| 4 | 未作成 | 未実施 | merge 後チェックリスト参照 | 未着手 |
-| 5 | 未作成 | 未実施 | merge 後チェックリスト参照 | 未着手 |
-| 6 | 未作成 | 未実施 | merge 後チェックリスト参照 | 未着手 |
+| 1 | [#37](https://github.com/chiroruxx/nemumi/pull/37) | 先行4件 RED、format・lint・check、全29テスト成功。GitHub CI・Lighthouse 成功 | 未実施 | PR作成済み（未マージ） |
+| 2 | [#38](https://github.com/chiroruxx/nemumi/pull/38) | 先行2件 RED、全31件、format・lint・check・test成功 | 未実施 | PR作成済み（未マージ） |
+| 3 | 作成準備中 | 変更前31テスト GREEN、境界テスト先行、format・lint・check、全42テスト成功 | 未実施 | 実装・レビュー完了 |
+| 4 | 未作成 | 未実施 | 未実施 | 未着手 |
+| 5 | 未作成 | ガードの独立テスト15件とlint・check成功、統合検証待ち | 未実施 | 独立部分を実装中 |
+| 6 | 未作成 | 単独実装でformat・lint・check・単独checker、全33テスト成功 | 未実施 | 独立部分実装済み・統合待ち |
 
 コード・テスト検証には実行したコマンドと結果を記載する。merge 後チェックリストには対象 workflow・実行リンクまたは記録・結果を記載する。PR 作成時点では本番運用確認を「未実施」とし、テスト成功だけで確認済みとはしない。
 

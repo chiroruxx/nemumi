@@ -44,7 +44,8 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
   assert.equal(dryRun.changes[0].action, 'add');
   assert.deepEqual(await readdir(path.join(contentDirectory, 'articles')), []);
 
-  await syncService('sizu', options);
+  const applied = await syncService('sizu', options);
+  assert.deepEqual(applied.changes, dryRun.changes);
   const files = await readdir(path.join(contentDirectory, 'articles'));
   assert.equal(files.length, 1);
   const saved = YAML.parse(
@@ -82,7 +83,7 @@ test('sync deduplicates identical feed content after fragment normalization rega
   assert.equal(reverse.changes.length, 1);
   assert.deepEqual(forward.changes, reverse.changes);
   assert.equal(
-    forward.changes[0].data.url,
+    forward.changes[0].url,
     'https://sizu.me/chihiroxx/posts/repeated?ref=rss',
   );
 });

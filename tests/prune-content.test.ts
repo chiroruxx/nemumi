@@ -42,6 +42,30 @@ test('prune CLI passes dry-run through and emits an empty result summary', async
   assert.deepEqual(summaries, ['削除対象はありません。']);
 });
 
+test('prune CLI renders the named removal fields in its existing summary and JSON shape', async () => {
+  const removal = {
+    reason: 'limit' as const,
+    file: '/repo/src/content/articles/post.yaml',
+    date: '2026-10-03',
+    title: 'A saved post',
+    url: 'https://sizu.me/chihiroxx/posts/saved',
+  };
+  const output: string[] = [];
+  const summaries: string[] = [];
+  await runPruneContent({
+    prune: async () => ({ removals: [removal] }),
+    writeOutput: (value) => output.push(value),
+    writeSummary: async (value) => {
+      summaries.push(value);
+    },
+  });
+
+  assert.deepEqual(summaries, [
+    '- 上限超過: 2026-10-03「A saved post」 https://sizu.me/chihiroxx/posts/saved',
+  ]);
+  assert.deepEqual(JSON.parse(output[0]), { removals: [removal] });
+});
+
 test('pruning honors the directory cap, preserves manual content, and dry-run leaves files intact', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
@@ -76,7 +100,7 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
   };
   const dryRun = await pruneContent({ ...options, dryRun: true });
   assert.deepEqual(
-    dryRun.removals.map(({ reason, entry }) => [reason, entry.id]),
+    dryRun.removals.map(({ reason, file }) => [reason, path.basename(file)]),
     [
       ['limit', 'entry-01.yaml'],
       ['link', 'entry-02.yaml'],
@@ -85,6 +109,7 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
   assert.equal((await readdir(articlesDirectory)).length, 21);
 
   const applied = await pruneContent(options);
+  assert.deepEqual(applied.removals, dryRun.removals);
   assert.equal(applied.removals.length, 2);
   const remainingFiles = await readdir(articlesDirectory);
   assert.equal(remainingFiles.length, 19);
@@ -121,7 +146,7 @@ test('pruning ranks saved entries without requesting RSS feeds', async (t) => {
     });
     assert.equal(fetchCalls, 0);
     assert.deepEqual(
-      result.removals.map(({ reason, entry }) => [reason, entry.id]),
+      result.removals.map(({ reason, file }) => [reason, path.basename(file)]),
       [['limit', 'entry-01.yaml']],
     );
   } finally {

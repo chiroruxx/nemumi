@@ -1,77 +1,70 @@
-import { createHash } from 'node:crypto';
-import { readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import Parser from 'rss-parser';
 import YAML from 'yaml';
+import {
+  applyFileChanges,
+  type ContentFileOperation,
+  readCollection,
+  validateFileTargets,
+} from './external-content-files.ts';
+import {
+  buildCollectionIndex,
+  type Collection,
+  createPrunePlan,
+  createSyncPlan,
+  type FeedItem,
+  type LinkCheck,
+  type LinkStatus,
+  limits,
+  type PruneRemoval,
+  type Service,
+  type Source,
+  type SyncChange,
+  services,
+  validateContentUrl,
+} from './external-content-planning.ts';
 
-export const services = {
-  sizu: {
-    label: 'しずかなインターネット',
-    feed: 'https://sizu.me/chihiroxx/rss',
-    collection: 'articles',
-    type: '日常記事',
-    host: 'sizu.me',
-    pathPrefix: '/chihiroxx/posts/',
-  },
-  hatena: {
-    label: 'はてなブログ',
-    feed: 'https://toyo.hatenablog.jp/rss',
-    collection: 'articles',
-    type: 'テック記事',
-    host: 'toyo.hatenablog.jp',
-    pathPrefix: '/entry/',
-  },
-  speakerdeck: {
-    label: 'Speaker Deck',
-    feed: 'https://speakerdeck.com/chiroruxx.rss',
-    collection: 'talks',
-    type: '登壇資料',
-    host: 'speakerdeck.com',
-    pathPrefix: '/chiroruxx/',
-  },
-} as const;
+export { assertRepositoryFile } from './external-content-files.ts';
+export type {
+  Collection,
+  ContentData,
+  FeedItem,
+  LinkStatus,
+  PruneRemoval,
+  Service,
+  Source,
+  StoredEntry,
+  SyncChange,
+} from './external-content-planning.ts';
+export {
+  canonicalUrl,
+  isSource,
+  limits,
+  services,
+  validateContentUrl,
+} from './external-content-planning.ts';
 
-type Source = keyof typeof services;
-type Collection = keyof typeof limits;
-type Service = (typeof services)[Source];
-type ContentData = {
-  date: string;
-  types?: string[];
-  title: string;
-  url?: string;
-};
-type FeedItem = { date: string; title: string; url: string };
-type StoredEntry = { file: string; id: string; data: ContentData };
-type KeepEntry = ContentData & { file?: string; source?: Source };
-type LinkStatus = 'public' | 'deleted' | 'defer' | 'review';
-
-export const limits = { articles: 20, talks: 10 };
 const defaultContentDirectory = path.resolve('src/content');
 const parser = new Parser({ timeout: 30_000, maxRedirects: 0 });
 
-export function isSource(value: string | undefined): value is Source {
-  return value !== undefined && Object.hasOwn(services, value);
-}
-
-function sourceForUrl(
-  value: string | undefined,
-  collection: Collection,
-): Source | undefined {
-  if (!value) return undefined;
-  const url = new URL(value);
-  return (Object.entries(services) as [Source, Service][]).find(
-    ([, service]) =>
-      service.collection === collection &&
-      service.host === url.hostname &&
-      url.pathname.startsWith(service.pathPrefix),
-  )?.[0];
-}
-
-export function canonicalUrl(value: string): string {
-  const url = new URL(value);
-  url.hash = '';
-  return url.toString();
-}
+type FeedLoader = (service: Service) => Promise<FeedItem[]>;
+type LinkVerifier = (url: string, service: Service) => Promise<LinkStatus>;
+type CommonContentOptions = {
+  dryRun?: boolean;
+  contentDirectory?: string;
+  linkVerifier?: LinkVerifier;
+};
+export type SyncOptions = CommonContentOptions & { feedLoader?: FeedLoader };
+export type PruneOptions = CommonContentOptions & {
+  linkCheckIntervalMs?: number;
+};
+export type SyncResult = {
+  source: Source;
+  collection: Collection;
+  feedCount: number;
+  changes: SyncChange[];
+};
+export type PruneResult = { removals: PruneRemoval[] };
 
 function tokyoDate(value: string): string {
   const date = new Date(value);
@@ -87,20 +80,6 @@ function tokyoDate(value: string): string {
     parts.map(({ type, value: partValue }) => [type, partValue]),
   );
   return `${part.year}-${part.month}-${part.day}`;
-}
-
-function validateUrl(value: string, service: Service): string {
-  const url = new URL(value);
-  if (
-    url.protocol !== 'https:' ||
-    url.hostname !== service.host ||
-    !url.pathname.startsWith(service.pathPrefix) ||
-    url.username ||
-    url.password
-  ) {
-    throw new Error(`Unexpected ${service.label} content URL: ${value}`);
-  }
-  return canonicalUrl(url.href);
 }
 
 export async function fetchFeed(service: Service): Promise<FeedItem[]> {
@@ -181,230 +160,9 @@ export async function fetchFeed(service: Service): Promise<FeedItem[]> {
     return {
       date: tokyoDate(item.pubDate),
       title,
-      url: validateUrl(item.link, service),
+      url: validateContentUrl(item.link, service),
     };
   });
-}
-
-function validateContentData(value: unknown, file: string): ContentData {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`${file}: invalid <root>: expected an object`);
-  }
-  const data = value as Record<string, unknown>;
-  if (
-    typeof data.date !== 'string' ||
-    Number.isNaN(new Date(data.date).getTime())
-  ) {
-    throw new Error(`${file}: invalid date: expected a valid date string`);
-  }
-  if (typeof data.title !== 'string' || data.title.trim().length === 0) {
-    throw new Error(`${file}: invalid title: expected a non-empty string`);
-  }
-  if (data.url !== undefined) {
-    if (typeof data.url !== 'string') {
-      throw new Error(`${file}: invalid url: expected a URL string`);
-    }
-    try {
-      new URL(data.url);
-    } catch {
-      throw new Error(`${file}: invalid url: expected a valid absolute URL`);
-    }
-  }
-  if (data.types !== undefined) {
-    if (
-      !Array.isArray(data.types) ||
-      data.types.length === 0 ||
-      data.types.some(
-        (type) => typeof type !== 'string' || type.trim().length === 0,
-      )
-    ) {
-      throw new Error(
-        `${file}: invalid types: expected a non-empty array of non-empty strings`,
-      );
-    }
-  }
-  return data as ContentData;
-}
-
-async function readCollection(
-  collection: Collection,
-  contentDirectory: string,
-): Promise<StoredEntry[]> {
-  const directory = path.join(contentDirectory, collection);
-  const files = (await readdir(directory)).filter((name) =>
-    name.endsWith('.yaml'),
-  );
-  return Promise.all(
-    files.map(async (name) => {
-      const file = path.join(directory, name);
-      let value: unknown;
-      try {
-        value = YAML.parse(await readFile(file, 'utf8'));
-      } catch (error) {
-        const details = error instanceof Error ? error.message : String(error);
-        throw new Error(`${file}: invalid YAML: ${details}`, { cause: error });
-      }
-      return { file, id: name, data: validateContentData(value, file) };
-    }),
-  );
-}
-
-function ensureUniqueUrls(
-  entries: StoredEntry[],
-  collection: Collection,
-): void {
-  const seen = new Map();
-  for (const entry of entries) {
-    const entryUrl = entry.data.url;
-    if (!entryUrl) continue;
-    const url = canonicalUrl(entryUrl);
-    if (seen.has(url)) {
-      throw new Error(
-        `${collection} URL is duplicated in ${seen.get(url)} and ${entry.id}: ${url}`,
-      );
-    }
-    seen.set(url, entry.id);
-  }
-}
-
-function selectKeepSet(
-  collection: Collection,
-  existing: StoredEntry[],
-  feeds: Map<Source, FeedItem[]>,
-): Map<string, KeepEntry> {
-  const byUrl = new Map<string, KeepEntry>();
-  for (const entry of existing) {
-    const entryUrl = entry.data.url;
-    if (entryUrl && sourceForUrl(entryUrl, collection))
-      byUrl.set(canonicalUrl(entryUrl), {
-        ...entry.data,
-        file: entry.file,
-      });
-  }
-  for (const [source, items] of feeds) {
-    const service = services[source];
-    if (service.collection !== collection) continue;
-    for (const item of items) {
-      const previous = byUrl.get(item.url);
-      byUrl.set(item.url, {
-        ...(previous ?? {}),
-        ...item,
-        types: previous?.types ?? [service.type],
-        source,
-      });
-    }
-  }
-
-  const manualCount = existing.filter(
-    (entry) => !sourceForUrl(entry.data.url, collection),
-  ).length;
-  const available = limits[collection] - manualCount;
-  if (available < 0)
-    throw new Error(
-      `${collection} manual entries exceed its ${limits[collection]} item limit`,
-    );
-  const ranked = [...byUrl.entries()].sort(
-    ([urlA, a], [urlB, b]) =>
-      b.date.localeCompare(a.date) || urlA.localeCompare(urlB),
-  );
-  return new Map(ranked.slice(0, available));
-}
-
-function filenameFor(source: Source, url: string): string {
-  return `${source}-${createHash('sha256').update(url).digest('hex')}.yaml`;
-}
-
-function serialize(data: ContentData): string {
-  return YAML.stringify(data, { defaultStringType: 'QUOTE_DOUBLE' });
-}
-
-export async function syncService(
-  source: Source,
-  {
-    dryRun = false,
-    contentDirectory = defaultContentDirectory,
-    feedLoader = fetchFeed,
-    linkVerifier = verifyLink,
-  }: {
-    dryRun?: boolean;
-    contentDirectory?: string;
-    feedLoader?: typeof fetchFeed;
-    linkVerifier?: typeof verifyLink;
-  } = {},
-) {
-  const service = services[source];
-  if (!service) throw new Error(`Unknown service: ${source}`);
-
-  const collection = service.collection;
-  const existing = await readCollection(collection, contentDirectory);
-  ensureUniqueUrls(existing, collection);
-  // Service syncs remain independent. Other services' current content reserves
-  // its place; the later prune run applies the complete cross-service ranking.
-  const currentFeed = await feedLoader(service);
-  const uniqueFeed = new Map<string, FeedItem>();
-  for (const item of currentFeed) {
-    const url = canonicalUrl(item.url);
-    const normalized = { ...item, url };
-    const previous = uniqueFeed.get(url);
-    if (
-      previous &&
-      (previous.date !== normalized.date || previous.title !== normalized.title)
-    ) {
-      throw new Error(`Conflicting RSS items for URL: ${url}`);
-    }
-    uniqueFeed.set(url, normalized);
-  }
-  const feeds = new Map<Source, FeedItem[]>([
-    [source, [...uniqueFeed.values()]],
-  ]);
-  const keep = selectKeepSet(collection, existing, feeds);
-  const byUrl = new Map<string, StoredEntry>();
-  for (const entry of existing) {
-    const entryUrl = entry.data.url;
-    if (entryUrl && sourceForUrl(entryUrl, collection) === source)
-      byUrl.set(canonicalUrl(entryUrl), entry);
-  }
-  const changes: {
-    action: 'add' | 'update';
-    data: ContentData;
-    target: string;
-  }[] = [];
-
-  for (const item of uniqueFeed.values()) {
-    if (!keep.has(item.url)) continue;
-    const previous = byUrl.get(item.url);
-    if (!previous) {
-      const status = await linkVerifier(item.url, service);
-      if (status === 'deleted') {
-        console.warn(`Skipping unavailable new item: ${item.url}`);
-        continue;
-      }
-      if (status !== 'public') {
-        throw new Error(`Could not verify new item (${status}): ${item.url}`);
-      }
-    }
-    const data = {
-      date: item.date,
-      types: previous?.data.types ?? [service.type],
-      title: item.title,
-      url: item.url,
-    };
-    const target =
-      previous?.file ??
-      path.join(contentDirectory, collection, filenameFor(source, item.url));
-    assertRepositoryFile(target, contentDirectory);
-    if (previous && serialize(previous.data) === serialize(data)) continue;
-    if (!previous && existing.some(({ id }) => id === path.basename(target))) {
-      throw new Error(`Filename collision while adding ${item.url}`);
-    }
-    changes.push({ action: previous ? 'update' : 'add', data, target });
-  }
-
-  if (!dryRun) {
-    for (const change of changes)
-      await writeFile(change.target, serialize(change.data));
-  }
-  return { source, collection, feedCount: currentFeed.length, changes };
 }
 
 export async function verifyLink(
@@ -416,20 +174,10 @@ export async function verifyLink(
   for (let redirects = 0; redirects <= 5; redirects += 1) {
     let url: URL;
     try {
-      url = new URL(target);
+      url = new URL(validateContentUrl(target, service));
     } catch {
       return 'review';
     }
-    if (
-      url.protocol !== 'https:' ||
-      url.hostname !== service.host ||
-      !url.pathname.startsWith(service.pathPrefix) ||
-      url.username ||
-      url.password
-    ) {
-      return 'review';
-    }
-    url.hash = '';
     if (visited.has(url.href)) return 'review';
     visited.add(url.href);
     let response: Response;
@@ -468,8 +216,8 @@ export async function verifyLink(
 }
 
 async function verifyLinks(
-  entries: { url: string; source: Source }[],
-  linkVerifier: typeof verifyLink,
+  entries: LinkCheck[],
+  linkVerifier: LinkVerifier,
   intervalMs: number,
 ): Promise<Map<string, LinkStatus>> {
   const results = new Map<string, LinkStatus>();
@@ -497,69 +245,126 @@ async function verifyLinks(
   return results;
 }
 
+function syncOperations(changes: SyncChange[]): ContentFileOperation[] {
+  return changes.map((change) => ({
+    kind: change.action === 'add' ? 'create' : 'replace',
+    target: change.file,
+    content: YAML.stringify(
+      {
+        date: change.date,
+        types: change.types,
+        title: change.title,
+        url: change.url,
+      },
+      { defaultStringType: 'QUOTE_DOUBLE' },
+    ),
+  }));
+}
+
+export async function syncService(
+  source: Source,
+  {
+    dryRun = false,
+    contentDirectory = defaultContentDirectory,
+    feedLoader = fetchFeed,
+    linkVerifier = verifyLink,
+  }: SyncOptions = {},
+): Promise<SyncResult> {
+  const service = services[source];
+  if (!service) throw new Error(`Unknown service: ${source}`);
+
+  const collection = service.collection;
+  const existing = await readCollection(collection, contentDirectory);
+  const index = buildCollectionIndex(collection, existing);
+  // Sync each source independently. Saved entries from other sources still
+  // reserve their current slots until the later prune run ranks the collection.
+  const currentFeed = await feedLoader(service);
+  const planInput = {
+    source,
+    index,
+    feed: currentFeed,
+    contentDirectory,
+  };
+  const preliminaryPlan = createSyncPlan(planInput);
+  await validateFileTargets(
+    syncOperations(preliminaryPlan.changes),
+    contentDirectory,
+  );
+
+  const linkStatuses = new Map<string, LinkStatus>();
+  for (const check of preliminaryPlan.linkChecks) {
+    linkStatuses.set(
+      check.url,
+      await linkVerifier(check.url, services[check.source]),
+    );
+  }
+  const plan = createSyncPlan({ ...planInput, linkStatuses });
+  const operations = syncOperations(plan.changes);
+  await validateFileTargets(operations, contentDirectory);
+  if (!dryRun) await applyFileChanges(operations, contentDirectory);
+  return {
+    source,
+    collection,
+    feedCount: currentFeed.length,
+    changes: plan.changes,
+  };
+}
+
+function pruneOperations(removals: PruneRemoval[]): ContentFileOperation[] {
+  return removals.map(({ file }) => ({ kind: 'delete', target: file }));
+}
+
 export async function pruneContent({
   dryRun = false,
   contentDirectory = defaultContentDirectory,
   linkVerifier = verifyLink,
   linkCheckIntervalMs = 1000,
-}: {
-  dryRun?: boolean;
-  contentDirectory?: string;
-  linkVerifier?: typeof verifyLink;
-  linkCheckIntervalMs?: number;
-} = {}) {
-  const feeds = new Map<Source, FeedItem[]>();
-  const removals: { reason: 'limit' | 'link'; entry: StoredEntry }[] = [];
-  const held: { url: string; source: Source; entry: StoredEntry }[] = [];
-
+}: PruneOptions = {}): Promise<PruneResult> {
+  const indexes = new Map<
+    Collection,
+    ReturnType<typeof buildCollectionIndex>
+  >();
+  const initialPlans = new Map<
+    Collection,
+    ReturnType<typeof createPrunePlan>
+  >();
   for (const collection of Object.keys(limits) as Collection[]) {
-    const existing = await readCollection(collection, contentDirectory);
-    ensureUniqueUrls(existing, collection);
-    const keep = selectKeepSet(collection, existing, feeds);
-    for (const entry of existing) {
-      const entryUrl = entry.data.url;
-      const source = sourceForUrl(entryUrl, collection);
-      if (!source || !entryUrl) continue;
-      const url = canonicalUrl(entryUrl);
-      if (!keep.has(url)) {
-        removals.push({ reason: 'limit', entry });
-        continue;
-      }
-      held.push({ url, source, entry });
-    }
+    const entries = await readCollection(collection, contentDirectory);
+    const index = buildCollectionIndex(collection, entries);
+    indexes.set(collection, index);
+    initialPlans.set(collection, createPrunePlan(index));
   }
 
-  held.sort(
-    (a, b) => a.source.localeCompare(b.source) || a.url.localeCompare(b.url),
+  const initialRemovals = [...initialPlans.values()].flatMap(
+    ({ removals }) => removals,
   );
-  const linkResults = await verifyLinks(
-    held,
+  await validateFileTargets(pruneOperations(initialRemovals), contentDirectory);
+  const linkChecks = [...initialPlans.values()]
+    .flatMap(({ linkChecks: checks }) => checks)
+    .sort(
+      (a, b) => a.source.localeCompare(b.source) || a.url.localeCompare(b.url),
+    );
+  const linkStatuses = await verifyLinks(
+    linkChecks,
     linkVerifier,
     linkCheckIntervalMs,
   );
-  for (const { url, entry } of held) {
-    const status = linkResults.get(url);
-    if (status === 'deleted') removals.push({ reason: 'link', entry });
-    else if (status === 'defer' || status === 'review') {
-      console.warn(`Link check ${status}; keeping ${entry.id}: ${url}`);
+  for (const check of linkChecks) {
+    const status = linkStatuses.get(check.url);
+    if (status === 'defer' || status === 'review') {
+      const entry = [...indexes.values()]
+        .flatMap(({ entries }) => entries)
+        .find(({ url }) => url === check.url)?.entry;
+      if (entry)
+        console.warn(`Link check ${status}; keeping ${entry.id}: ${check.url}`);
     }
   }
 
-  if (!dryRun) {
-    for (const { entry } of removals) {
-      assertRepositoryFile(entry.file, contentDirectory);
-      await rm(entry.file);
-    }
-  }
+  const removals = [...indexes.values()].flatMap(
+    (index) => createPrunePlan(index, linkStatuses).removals,
+  );
+  const operations = pruneOperations(removals);
+  await validateFileTargets(operations, contentDirectory);
+  if (!dryRun) await applyFileChanges(operations, contentDirectory);
   return { removals };
-}
-
-export function assertRepositoryFile(
-  file: string,
-  contentDirectory = defaultContentDirectory,
-): void {
-  const relative = path.relative(contentDirectory, file);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`Refusing to modify a path outside src/content: ${file}`);
-  }
 }

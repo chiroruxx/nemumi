@@ -44,7 +44,7 @@ function createTestContext(
   return { signal, remainingMs: remaining, dispose: () => {} };
 }
 
-test('parseFeedXml maps all service fixtures to Tokyo dates and normalized feed items without network access', async () => {
+test('parseFeedXml maps all service fixtures to site dates and normalized feed items without network access', async () => {
   for (const [service, , normalizedUrl, xml] of feedFixtures) {
     const source = Object.entries(services).find(
       ([, value]) => value === service,

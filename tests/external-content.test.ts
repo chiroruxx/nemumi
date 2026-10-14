@@ -54,7 +54,7 @@ test('repository file validation accepts content paths and rejects paths outside
   );
 });
 
-test('feed parsing trims titles and converts publication time to Tokyo date', async () => {
+test('feed parsing trims titles and converts publication time to the site date', async () => {
   await withFetch(new Response(feedXml), async () => {
     assert.deepEqual(await fetchFeed(services.sizu), [
       {

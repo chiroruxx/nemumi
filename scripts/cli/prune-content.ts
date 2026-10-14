@@ -19,14 +19,25 @@ export async function runPruneContent({
   writeSummary?: (value: string) => Promise<void>;
 } = {}) {
   const result = await prune({ dryRun });
-  const summary = result.removals.length
-    ? result.removals
-        .map(
-          ({ reason, date, title, url }) =>
-            `- ${reason === 'limit' ? '上限超過' : 'リンク切れ'}: ${date}「${title}」 ${url}`,
-        )
-        .join('\n')
-    : '削除対象はありません。';
+  const removalSummary = result.removals.map(
+    ({ reason, date, title, url }) =>
+      `- ${reason === 'limit' ? '上限超過' : 'リンク切れ'}: ${date}「${title}」 ${url}`,
+  );
+  const reportSummary = [
+    result.skipped.length
+      ? `手動管理のため対象外: ${result.skipped.length} 件`
+      : '',
+    result.deferred.length
+      ? `確認保留のため保持: ${result.deferred.length} 件`
+      : '',
+    result.review.length ? `要確認のため保持: ${result.review.length} 件` : '',
+    result.unchecked.length
+      ? `未確認のため保持: ${result.unchecked.length} 件`
+      : '',
+  ].filter(Boolean);
+  const summary =
+    [...removalSummary, ...reportSummary].join('\n') ||
+    '削除対象はありません。';
   await writeSummary(summary);
   writeOutput(
     JSON.stringify(
@@ -38,6 +49,12 @@ export async function runPruneContent({
           title,
           url,
         })),
+        kept: result.kept,
+        skipped: result.skipped,
+        deferred: result.deferred,
+        review: result.review,
+        unchecked: result.unchecked,
+        remainingByCollection: result.remainingByCollection,
       },
       null,
       2,

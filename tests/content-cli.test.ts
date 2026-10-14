@@ -1,13 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  displayRelativePath,
-  formatContentSummary,
-  formatPruneSummary,
-  formatSyncSummary,
+  formatUnverifiedLinks,
   parsePruneArguments,
   parseSyncArguments,
-  serializeContentResult,
   writeGitHubSummary,
 } from '../scripts/lib/content-cli.ts';
 
@@ -81,189 +77,35 @@ test('GitHub summary append errors propagate to the caller', async () => {
   );
 });
 
-test('content summary keeps each title on one escaped Markdown line and preserves URL queries', () => {
-  const summary = formatContentSummary(
+test('reports only distinct URLs whose public status could not be verified', () => {
+  const result = {
+    deferred: [
+      { source: 'sizu' as const, url: 'https://sizu.me/deferred' },
+      { source: 'hatena' as const, url: 'https://sizu.me/shared' },
+    ],
+    review: [{ source: 'sizu' as const, url: 'https://sizu.me/review' }],
+    unchecked: [
+      { source: 'sizu' as const, url: 'https://sizu.me/shared' },
+      { source: 'sizu' as const, url: 'https://sizu.me/unchecked' },
+    ],
+  };
+  assert.equal(
+    formatUnverifiedLinks(result),
     [
-      {
-        label: '追加',
-        date: '2026-10-13',
-        title: 'title\n- injected `code` [link] *bold*',
-        url: 'https://example.com/a?one=1&two=two',
-      },
-    ],
-    '変更はありません。',
+      '公開状態を確認できなかった URL:',
+      '- https://sizu.me/deferred',
+      '- https://sizu.me/shared',
+      '- https://sizu.me/review',
+      '- https://sizu.me/unchecked',
+    ].join('\n'),
   );
   assert.equal(
-    summary,
-    '- 追加: 2026-10-13「title \\- injected \\`code\\` \\[link\\] \\*bold\\*」 <https://example.com/a?one=1&two=two>',
+    formatUnverifiedLinks({
+      ...result,
+      deferred: [],
+      review: [],
+      unchecked: [],
+    }),
+    '公開状態を確認できなかった URL はありません。',
   );
-  assert.equal(
-    formatContentSummary([], '変更はありません。'),
-    '変更はありません。',
-  );
-});
-
-test('content summary displays existing HTTP URLs without changing their query', () => {
-  assert.equal(
-    formatContentSummary(
-      [
-        {
-          label: '上限超過',
-          date: '2020-01-01',
-          title: 'Legacy URL',
-          url: 'http://example.com/legacy?source=manual',
-        },
-      ],
-      '削除対象はありません。',
-    ),
-    '- 上限超過: 2020-01-01「Legacy URL」 <http://example.com/legacy?source=manual>',
-  );
-});
-
-test('content summary displays credentialed and non-HTTP URLs as inert text', () => {
-  assert.equal(
-    formatContentSummary(
-      [
-        {
-          label: '削除',
-          date: '2020-01-01',
-          title: 'Legacy scheme',
-          url: 'ftp://user:secret@example.com/file?download=1',
-        },
-      ],
-      '削除対象はありません。',
-    ),
-    '- 削除: 2020-01-01「Legacy scheme」 `ftp://user:secret@example.com/file?download=1`',
-  );
-});
-
-test('content summary safely fences backticks in legacy URLs and file paths', () => {
-  assert.equal(
-    formatContentSummary(
-      [
-        {
-          label: '削除',
-          date: '2020-01-01',
-          title: 'Legacy URL',
-          url: 'javascript:alert(`x`)',
-          file: 'src/content/articles/file`name.yaml',
-        },
-      ],
-      '削除対象はありません。',
-    ),
-    '- 削除: 2020-01-01「Legacy URL」 ``javascript:alert(`x`)`` (``src/content/articles/file`name.yaml``)',
-  );
-});
-
-test('file display path is relative to the supplied repository root', () => {
-  assert.equal(
-    displayRelativePath('/repo/src/content/articles/post.yaml', '/repo'),
-    'src/content/articles/post.yaml',
-  );
-});
-
-test('sync report keeps original values while serializing file paths relative and summarizes dispositions', () => {
-  const result = {
-    source: 'sizu' as const,
-    collection: 'articles' as const,
-    feedCount: 4,
-    changes: [
-      {
-        action: 'add' as const,
-        file: '/repo/src/content/articles/new.yaml',
-        date: new Date('2026-10-13'),
-        title: 'New\npost',
-        url: 'https://sizu.me/chihiroxx/posts/new?ref=rss',
-        types: ['日常記事'],
-      },
-    ],
-    kept: 5,
-    skipped: [
-      {
-        source: 'sizu' as const,
-        url: 'https://sizu.me/chihiroxx/posts/skipped',
-        status: 'unchecked' as const,
-        reason: 'execution-deadline' as const,
-      },
-    ],
-    deferred: [],
-    review: [],
-    unchecked: [],
-    remainingByCollection: { articles: 6 },
-  };
-  assert.deepEqual(serializeContentResult(result, '/repo'), {
-    ...result,
-    changes: [
-      {
-        ...result.changes[0],
-        date: '2026-10-13',
-        file: 'src/content/articles/new.yaml',
-      },
-    ],
-  });
-  assert.equal(result.changes[0].file, '/repo/src/content/articles/new.yaml');
-  const summary = formatSyncSummary(result, '/repo');
-  assert.match(summary, /RSS取得: 4件/);
-  assert.match(summary, /保持: 5件/);
-  assert.match(summary, /未確認/);
-  assert.match(summary, /src\/content\/articles\/new.yaml/);
-  assert.match(summary, /ref=rss/);
-});
-
-test('prune report summarizes removal, keep, manual skip, and remaining counts with relative files', () => {
-  const result = {
-    removals: [
-      {
-        reason: 'limit' as const,
-        file: '/repo/src/content/articles/old.yaml',
-        date: new Date('2020-01-01'),
-        title: 'Old post',
-        url: 'http://example.com/old?from=archive',
-      },
-    ],
-    kept: [
-      {
-        file: '/repo/src/content/articles/current.yaml',
-        date: '2026-10-13',
-        title: 'Current post',
-        url: 'https://example.com/current',
-        reason: 'public' as const,
-      },
-    ],
-    skipped: [
-      {
-        file: '/repo/src/content/articles/manual.yaml',
-        date: '2026-10-12',
-        title: 'Manual post',
-        url: 'mailto:editor@example.com',
-        reason: 'manual' as const,
-      },
-    ],
-    deferred: [{ source: 'sizu' as const, url: 'https://sizu.me/item' }],
-    review: [],
-    unchecked: [],
-    remainingByCollection: { articles: 20, talks: 10 },
-  };
-  assert.deepEqual(serializeContentResult(result, '/repo'), {
-    ...result,
-    removals: [
-      {
-        ...result.removals[0],
-        date: '2020-01-01',
-        file: 'src/content/articles/old.yaml',
-      },
-    ],
-    kept: [{ ...result.kept[0], file: 'src/content/articles/current.yaml' }],
-    skipped: [
-      { ...result.skipped[0], file: 'src/content/articles/manual.yaml' },
-    ],
-  });
-  const summary = formatPruneSummary(result, '/repo');
-  assert.match(summary, /上限超過/);
-  assert.match(summary, /保持: 1件/);
-  assert.match(summary, /手動管理: 1件/);
-  assert.match(summary, /判定保留/);
-  assert.match(summary, /articles: 20件/);
-  assert.match(summary, /src\/content\/articles\/old.yaml/);
-  assert.match(summary, /mailto:editor@example.com/);
 });

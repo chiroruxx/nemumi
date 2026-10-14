@@ -7,7 +7,7 @@ import { runPruneContent } from '../scripts/cli/prune-content.ts';
 import { pruneContent } from '../scripts/lib/external-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
-test('prune CLI passes dry-run through and emits an empty result summary', async () => {
+test('prune CLI reports no unverified URLs when all links are verified', async () => {
   const output: string[] = [];
   const summaries: string[] = [];
   let receivedDryRun = false;
@@ -17,104 +17,45 @@ test('prune CLI passes dry-run through and emits an empty result summary', async
     prune: async (options) => {
       receivedDryRun = options?.dryRun ?? false;
       return {
-        removals: [],
-        kept: [],
-        skipped: [],
         deferred: [],
         review: [],
         unchecked: [],
-        remainingByCollection: { articles: 0, talks: 0 },
       };
     },
     writeOutput: (value) => output.push(value),
-    repositoryRoot: '/repo',
     writeSummary: async (value) => {
       summaries.push(value);
     },
   });
 
   assert.equal(receivedDryRun, true);
-  assert.deepEqual(JSON.parse(output[0]), {
-    removals: [],
-    kept: [],
-    skipped: [],
-    deferred: [],
-    review: [],
-    unchecked: [],
-    remainingByCollection: { articles: 0, talks: 0 },
-  });
-  assert.deepEqual(summaries, [
-    [
-      '削除: 0件',
-      '削除対象はありません。',
-      '保持: 0件',
-      '保持対象はありません。',
-      '手動管理: 0件',
-      '手動管理項目はありません。',
-      '判定保留: 0件',
-      '要確認: 0件',
-      '未確認: 0件',
-      '残件数: articles: 0件、talks: 0件',
-    ].join('\n'),
-  ]);
+  assert.deepEqual(output, ['公開状態を確認できなかった URL はありません。']);
+  assert.deepEqual(summaries, output);
 });
 
-test('prune CLI renders the named removal fields in its existing summary and JSON shape', async () => {
-  const removal = {
-    reason: 'limit' as const,
-    file: '/repo/src/content/articles/post.yaml',
-    date: new Date('2026-10-03'),
-    title: 'A saved post',
-    url: 'https://sizu.me/chihiroxx/posts/saved',
-  };
+test('prune CLI reports only unverified URLs', async () => {
   const output: string[] = [];
   const summaries: string[] = [];
   await runPruneContent({
     prune: async () => ({
-      removals: [removal],
-      kept: [],
-      skipped: [],
-      deferred: [],
-      review: [],
-      unchecked: [],
-      remainingByCollection: { articles: 0, talks: 0 },
+      deferred: [{ source: 'sizu', url: 'https://sizu.me/deferred' }],
+      review: [{ source: 'hatena', url: 'https://sizu.me/review' }],
+      unchecked: [{ source: 'speakerdeck', url: 'https://sizu.me/unchecked' }],
     }),
     writeOutput: (value) => output.push(value),
-    repositoryRoot: '/repo',
     writeSummary: async (value) => {
       summaries.push(value);
     },
   });
 
-  assert.deepEqual(summaries, [
-    [
-      '削除: 1件',
-      '- 上限超過: 2026-10-03「A saved post」 <https://sizu.me/chihiroxx/posts/saved> (`src/content/articles/post.yaml`)',
-      '保持: 0件',
-      '保持対象はありません。',
-      '手動管理: 0件',
-      '手動管理項目はありません。',
-      '判定保留: 0件',
-      '要確認: 0件',
-      '未確認: 0件',
-      '残件数: articles: 0件、talks: 0件',
-    ].join('\n'),
-  ]);
-  assert.deepEqual(JSON.parse(output[0]), {
-    removals: [
-      {
-        ...removal,
-        date: '2026-10-03',
-        file: 'src/content/articles/post.yaml',
-      },
-    ],
-    kept: [],
-    skipped: [],
-    deferred: [],
-    review: [],
-    unchecked: [],
-    remainingByCollection: { articles: 0, talks: 0 },
-  });
+  const expected = [
+    '公開状態を確認できなかった URL:',
+    '- https://sizu.me/deferred',
+    '- https://sizu.me/review',
+    '- https://sizu.me/unchecked',
+  ].join('\n');
+  assert.deepEqual(summaries, [expected]);
+  assert.deepEqual(output, summaries);
 });
 
 test('pruning honors the directory cap, preserves manual content, and dry-run leaves files intact', async (t) => {
@@ -150,32 +91,26 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
       url.endsWith('/post-02') ? ('deleted' as const) : ('public' as const),
     linkCheckBatchIntervalMs: 0,
   };
-  const dryRun = await pruneContent({ ...options, dryRun: true });
+  await pruneContent({ ...options, dryRun: true });
   assert.deepEqual(
-    dryRun.removals.map(({ reason, file }) => [reason, path.basename(file)]),
+    (await readdir(articlesDirectory)).sort(),
     [
-      ['limit', 'entry-01.yaml'],
-      ['link', 'entry-02.yaml'],
-    ],
+      ...Array.from(
+        { length: 20 },
+        (_, index) => `entry-${String(index + 1).padStart(2, '0')}.yaml`,
+      ),
+      manualFilename,
+    ].sort(),
   );
   assert.equal((await readdir(articlesDirectory)).length, 21);
-  assert.deepEqual(dryRun.skipped, [
-    {
-      file: path.join(articlesDirectory, manualFilename),
-      date: '2020-01-21',
-      title: 'Manual entry',
-      url: 'https://example.com/manual',
-      reason: 'manual',
-    },
-  ]);
 
-  const applied = await pruneContent(options);
-  assert.deepEqual(applied.removals, dryRun.removals);
-  assert.equal(applied.removals.length, 2);
+  await pruneContent(options);
   const remainingFiles = await readdir(articlesDirectory);
   assert.equal(remainingFiles.length, 19);
   assert.ok(remainingFiles.includes(manualFilename));
   assert.ok(remainingFiles.includes('entry-03.yaml'));
+  assert.equal(remainingFiles.includes('entry-01.yaml'), false);
+  assert.equal(remainingFiles.includes('entry-02.yaml'), false);
 });
 
 test('pruning stops without changing files when manual entries exceed the collection cap', async (t) => {
@@ -232,22 +167,25 @@ test('pruning ranks saved entries without requesting RSS feeds', async (t) => {
     throw new Error('RSS must not be fetched while pruning');
   };
   try {
-    const result = await pruneContent({
+    await pruneContent({
       contentDirectory,
       linkVerifier: async () => 'public',
       linkCheckBatchIntervalMs: 0,
     });
     assert.equal(fetchCalls, 0);
     assert.deepEqual(
-      result.removals.map(({ reason, file }) => [reason, path.basename(file)]),
-      [['limit', 'entry-01.yaml']],
+      (await readdir(path.join(contentDirectory, 'articles'))).sort(),
+      Array.from(
+        { length: 20 },
+        (_, index) => `entry-${String(index + 2).padStart(2, '0')}.yaml`,
+      ),
     );
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('pruning reports collection counts from indexed ownership under an articles-named parent', async (t) => {
+test('pruning preserves manual entries and applies each collection limit under an articles-named parent', async (t) => {
   const baseDirectory = await createContentDirectory(t);
   const contentDirectory = path.join(baseDirectory, 'articles');
   const articlesDirectory = path.join(contentDirectory, 'articles');
@@ -273,25 +211,13 @@ test('pruning reports collection counts from indexed ownership under an articles
       }),
     );
   }
-  const result = await pruneContent({
+  await pruneContent({
     contentDirectory,
     linkVerifier: async () => 'public',
     linkCheckBatchIntervalMs: 0,
   });
-  assert.deepEqual(result.remainingByCollection, { articles: 1, talks: 10 });
-  assert.equal(result.kept.length, 10);
-  assert.ok(result.kept[0]);
-  assert.equal('memo' in result.kept[0], false);
-  assert.deepEqual(result.skipped, [
-    {
-      file: path.join(articlesDirectory, 'manual.yaml'),
-      date: '2026-10-01',
-      title: 'Manual entry',
-      reason: 'manual',
-    },
-  ]);
-  assert.ok(result.skipped[0]);
-  assert.equal('memo' in result.skipped[0], false);
+  assert.deepEqual((await readdir(articlesDirectory)).sort(), ['manual.yaml']);
+  assert.equal((await readdir(talksDirectory)).length, 10);
 });
 
 test('pruning applies confirmed limit and link removals while retaining unchecked links at deadline', async (t) => {
@@ -328,14 +254,12 @@ test('pruning applies confirmed limit and link removals while retaining unchecke
       return 'deleted';
     },
   });
-  assert.deepEqual(
-    result.removals.map(({ reason, file }) => [reason, path.basename(file)]),
-    [
-      ['limit', 'entry-01.yaml'],
-      ['link', 'entry-02.yaml'],
-    ],
-  );
   assert.equal(result.unchecked.length, 19);
-  assert.equal(result.remainingByCollection.articles, 19);
-  assert.equal((await readdir(articlesDirectory)).length, 19);
+  assert.deepEqual(
+    (await readdir(articlesDirectory)).sort(),
+    Array.from(
+      { length: 19 },
+      (_, index) => `entry-${String(index + 3).padStart(2, '0')}.yaml`,
+    ),
+  );
 });

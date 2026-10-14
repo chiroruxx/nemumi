@@ -54,8 +54,8 @@ mise run dev
 | `mise run sync-content -- hatena`         | はてなブログの記事を同期する                                                                                                                                         |
 | `mise run sync-content -- speakerdeck`    | Speaker Deck の登壇資料を同期する                                                                                                                                    |
 | `mise run prune-content`                  | 保持件数を適用し、無効リンクを除去する                                                                                                                               |
-| `mise run sync-content -- sizu --dry-run` | 同期差分を表示する（書き込みなし）                                                                                                                                   |
-| `mise run prune-content -- --dry-run`     | 削除差分を表示する（書き込みなし）                                                                                                                                   |
+| `mise run sync-content -- sizu --dry-run` | 公開状態を確認できない URL を表示する（書き込みなし）                                                                                                                |
+| `mise run prune-content -- --dry-run`     | 公開状態を確認できない URL を表示する（書き込みなし）                                                                                                                |
 | `mise run build`                          | 本番用にビルドする（出力先は `dist/`）                                                                                                                               |
 | `mise run preview`                        | ビルド結果をローカルで確認する                                                                                                                                       |
 | `mise run lint`                           | Biome、Stylelint と export 関数のテスト確認を実行する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)）                                                  |
@@ -81,7 +81,8 @@ protection の bypass 権限は不要です。workflow の `GITHUB_TOKEN` は re
 CI を確認し、手動マージします。
 
 「Update content」はサービスを選択して手動実行できます。「Prune
-content」も手動実行できます。ローカルでは [dry-run コマンド](#主なコマンド)で同期・削除予定を確認できます。GitHub Actions
+content」も手動実行できます。ローカルと自動更新 PR の本文には、公開状態を確認できなかった URL
+だけを表示します（[ADR 0036](docs/adr/0036-report-unverified-content-urls.md)）。GitHub Actions
 はどちらも10分で終了します。
 
 リンク確認はサービスを問わず最大5件を並列実行し、バッチ全件の完了後、次のバッチまで1秒待機します（[ADR 0035](docs/adr/0035-batch-link-checks.md)）。

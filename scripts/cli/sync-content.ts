@@ -1,9 +1,8 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  formatSyncSummary,
+  formatUnverifiedLinks,
   parseSyncArguments,
-  serializeContentResult,
   writeGitHubSummary,
 } from '../lib/content-cli.ts';
 import type { Source, SyncResult } from '../lib/external-content.ts';
@@ -15,20 +14,30 @@ type RunSyncOptions = {
   sync?: typeof syncService;
   writeOutput?: (value: string) => void;
   writeSummary?: (value: string) => Promise<void>;
-  repositoryRoot?: string;
 };
 
 function hasSyncReport(
   error: unknown,
 ): error is Error & { report: SyncResult } {
-  return (
-    error instanceof Error &&
-    typeof error === 'object' &&
-    'report' in error &&
-    Boolean(error.report) &&
-    typeof error.report === 'object' &&
-    error.report !== null &&
-    'source' in error.report
+  if (
+    !(error instanceof Error) ||
+    !('report' in error) ||
+    !error.report ||
+    typeof error.report !== 'object'
+  ) {
+    return false;
+  }
+  const report = error.report as Record<string, unknown>;
+  return ['deferred', 'review', 'unchecked'].every(
+    (key) =>
+      Array.isArray(report[key]) &&
+      report[key].every(
+        (entry) =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          'url' in entry &&
+          typeof entry.url === 'string',
+      ),
   );
 }
 
@@ -38,13 +47,11 @@ export async function runSyncContent({
   sync = syncService,
   writeOutput = (value) => console.log(value),
   writeSummary = writeGitHubSummary,
-  repositoryRoot = process.cwd(),
 }: RunSyncOptions): Promise<SyncResult> {
   const writeReport = async (result: SyncResult) => {
-    await writeSummary(formatSyncSummary(result, repositoryRoot));
-    writeOutput(
-      JSON.stringify(serializeContentResult(result, repositoryRoot), null, 2),
-    );
+    const summary = formatUnverifiedLinks(result);
+    writeOutput(summary);
+    await writeSummary(summary);
   };
 
   let result: SyncResult;

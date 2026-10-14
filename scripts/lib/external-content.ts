@@ -24,7 +24,6 @@ import {
   createSyncPlan,
   type FeedItem,
   type LinkCheck,
-  type LinkStatus,
   limits,
   type PruneRemoval,
   type Service,
@@ -72,45 +71,15 @@ type CommonContentOptions = {
 };
 export type SyncOptions = CommonContentOptions & { feedLoader?: FeedLoader };
 export type PruneOptions = CommonContentOptions;
-/** A feed item withheld from sync; PruneResult.skipped is reserved for manual entries. */
-export type LinkDisposition = LinkCheck & {
-  status: LinkStatus | 'unchecked';
-  reason: 'deleted' | 'execution-deadline' | 'verification-failed';
-};
-export type KeptContent = {
-  file: string;
-  date: string;
-  title: string;
-  url: string;
-  reason: 'public' | 'defer' | 'review' | 'unchecked';
-};
-export type SkippedContent = {
-  file: string;
-  date: string;
-  title: string;
-  url?: string;
-  reason: 'manual';
-};
 export type SyncResult = {
-  source: Source;
-  collection: Collection;
-  feedCount: number;
-  changes: SyncChange[];
-  kept: number;
-  skipped: LinkDisposition[];
   deferred: LinkCheck[];
   review: LinkCheck[];
   unchecked: LinkCheck[];
-  remainingByCollection: Partial<Record<Collection, number>>;
 };
 export type PruneResult = {
-  removals: PruneRemoval[];
-  kept: KeptContent[];
-  skipped: SkippedContent[];
   deferred: LinkCheck[];
   review: LinkCheck[];
   unchecked: LinkCheck[];
-  remainingByCollection: Record<Collection, number>;
 };
 
 function syncOperations(changes: SyncChange[]): ContentFileOperation[] {
@@ -195,39 +164,11 @@ export async function syncService(
     const review = preliminaryPlan.linkChecks.filter(
       ({ url }) => checked.statuses.get(url) === 'review',
     );
-    const skipped: LinkDisposition[] = preliminaryPlan.linkChecks.flatMap(
-      (entry) =>
-        checked.statuses.get(entry.url) === 'deleted'
-          ? [
-              {
-                ...entry,
-                status: 'deleted' as const,
-                reason: 'deleted' as const,
-              },
-            ]
-          : [],
-    );
     if (deferred.length || review.length) {
       const report: SyncResult = {
-        source,
-        collection,
-        feedCount: currentFeed.length,
-        changes: [],
-        kept: index.entries.length,
-        skipped: [
-          ...skipped,
-          ...[...deferred, ...review].map((entry) => ({
-            ...entry,
-            status: (checked.statuses.get(entry.url) ?? 'unchecked') as
-              | LinkStatus
-              | 'unchecked',
-            reason: 'verification-failed' as const,
-          })),
-        ],
         deferred,
         review,
         unchecked: checked.unchecked,
-        remainingByCollection: { [collection]: index.entries.length },
       };
       throw Object.assign(
         new Error(
@@ -240,23 +181,9 @@ export async function syncService(
     }
     if (checked.unchecked.length) {
       return {
-        source,
-        collection,
-        feedCount: currentFeed.length,
-        changes: [],
-        kept: index.entries.length,
-        skipped: [
-          ...skipped,
-          ...checked.unchecked.map((entry) => ({
-            ...entry,
-            status: 'unchecked' as const,
-            reason: 'execution-deadline' as const,
-          })),
-        ],
         deferred,
         review,
         unchecked: checked.unchecked,
-        remainingByCollection: { [collection]: index.entries.length },
       };
     }
     const uncheckedUrls = new Set(checked.unchecked.map(({ url }) => url));
@@ -271,22 +198,10 @@ export async function syncService(
     const operations = syncOperations(plan.changes);
     await validateFileTargets(operations, contentDirectory);
     if (!dryRun) await applyFileChanges(operations, contentDirectory);
-    const additions = plan.changes.filter(
-      ({ action }) => action === 'add',
-    ).length;
     return {
-      source,
-      collection,
-      feedCount: currentFeed.length,
-      changes: plan.changes,
-      kept: index.entries.length + additions,
-      skipped,
       deferred,
       review,
       unchecked: checked.unchecked,
-      remainingByCollection: {
-        [collection]: index.entries.length + additions,
-      },
     };
   } finally {
     if (!executionContext) context.dispose();
@@ -363,59 +278,16 @@ export async function pruneContent({
     await validateFileTargets(operations, contentDirectory);
     if (!dryRun) await applyFileChanges(operations, contentDirectory);
 
-    const removalFiles = new Set(removals.map(({ file }) => file));
-    const uncheckedUrls = new Set(checked.unchecked.map(({ url }) => url));
-    const checkedUrls = new Set(linkChecks.map(({ url }) => url));
-    const kept: KeptContent[] = [];
-    const skipped: SkippedContent[] = [];
-    for (const index of indexes.values()) {
-      for (const { entry, source, url } of index.entries) {
-        if (removalFiles.has(entry.file)) continue;
-        if (!source || !url) {
-          skipped.push({
-            file: entry.file,
-            date: formatDateInSiteTimeZone(entry.data.date),
-            title: entry.data.title,
-            ...(entry.data.url ? { url: entry.data.url } : {}),
-            reason: 'manual',
-          });
-          continue;
-        }
-        const reason = uncheckedUrls.has(url)
-          ? 'unchecked'
-          : (checked.statuses.get(url) ??
-            (checkedUrls.has(url) ? 'defer' : 'public'));
-        kept.push({
-          file: entry.file,
-          date: formatDateInSiteTimeZone(entry.data.date),
-          title: entry.data.title,
-          url,
-          reason: reason as KeptContent['reason'],
-        });
-      }
-    }
     const deferred = linkChecks.filter(
       ({ url }) => checked.statuses.get(url) === 'defer',
     );
     const review = linkChecks.filter(
       ({ url }) => checked.statuses.get(url) === 'review',
     );
-    const remainingByCollection = {
-      articles: (indexes.get('articles')?.entries ?? []).filter(
-        ({ entry }) => !removalFiles.has(entry.file),
-      ).length,
-      talks: (indexes.get('talks')?.entries ?? []).filter(
-        ({ entry }) => !removalFiles.has(entry.file),
-      ).length,
-    };
     return {
-      removals,
-      kept,
-      skipped,
       deferred,
       review,
       unchecked: checked.unchecked,
-      remainingByCollection,
     };
   } finally {
     if (!executionContext) context.dispose();

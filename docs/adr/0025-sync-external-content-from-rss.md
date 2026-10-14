@@ -30,6 +30,9 @@ PR の有無にかかわらず実行時点の main だけを対象とする。
 URL 由来の固定名にすると、公開日・タイトルの変更や他の項目の削除で改名が発生せず、再取り込み時にも同じ名前を生成できる。
 ハッシュだけでは内容を読み取りにくいため、削除や変更のレビューには公開日・タイトル・URL を dry-run と PR 本文に表示する。
 
+> **更新**: dry-run と PR 本文の報告内容は [ADR 0036](0036-report-unverified-content-urls.md) により置き換えられた。変更と削除は
+> PR diff で確認する。
+
 GitHub の公式ドキュメントでは、`GITHUB_TOKEN` で作成・更新した PR のワークフローに実行承認が必要になる場合がある。
 人の承認なしで既存 CI を実行できるよう、PR の操作には GitHub App の installation token を使う。
 根拠は [GitHub のワークフロー起動の説明](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)

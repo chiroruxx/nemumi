@@ -59,11 +59,7 @@ export type SyncChange = {
   types: string[];
 };
 export type PruneRemoval = {
-  reason: 'limit' | 'link';
   file: string;
-  date: Date;
-  title: string;
-  url: string;
 };
 export type LinkCheck = { source: Source; url: string };
 export type SyncPlan = { changes: SyncChange[]; linkChecks: LinkCheck[] };
@@ -279,21 +275,6 @@ export function createSyncPlan({
   return { changes, linkChecks };
 }
 
-function toRemoval(
-  reason: PruneRemoval['reason'],
-  indexed: IndexedEntry,
-): PruneRemoval {
-  const { entry, url } = indexed;
-  if (!url || !indexed.source) throw new Error('Cannot remove a manual entry');
-  return {
-    reason,
-    file: entry.file,
-    date: entry.data.date,
-    title: entry.data.title,
-    url,
-  };
-}
-
 export function createPrunePlan(index: CollectionIndex): PrunePlan {
   const keep = rankedKeepSet(index);
   const removals: PruneRemoval[] = [];
@@ -303,7 +284,7 @@ export function createPrunePlan(index: CollectionIndex): PrunePlan {
     const { source, url } = indexed;
     if (!source || !url) continue;
     if (!keep.has(url)) {
-      removals.push(toRemoval('limit', indexed));
+      removals.push({ file: indexed.entry.file });
       continue;
     }
     linkChecks.push({ source, url });

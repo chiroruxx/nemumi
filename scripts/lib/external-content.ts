@@ -257,15 +257,7 @@ export async function pruneContent({
           if (checked.statuses.get(url) !== 'deleted') return [];
           const entry = index.byUrl.get(url)?.entry;
           if (!entry) throw new Error(`Missing planned prune entry: ${url}`);
-          return [
-            {
-              reason: 'link' as const,
-              file: entry.file,
-              date: entry.data.date,
-              title: entry.data.title,
-              url,
-            },
-          ];
+          return [{ file: entry.file }];
         }),
       ])
       .sort((a, b) => a.file.localeCompare(b.file));

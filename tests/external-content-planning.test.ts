@@ -273,9 +273,9 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
     tiePlan.linkChecks.map(({ url }) => url),
     ['https://sizu.me/chihiroxx/posts/a'],
   );
-  assert.deepEqual(tiePlan.removals.map(({ url }) => url).sort(), [
-    'https://sizu.me/chihiroxx/posts/m',
-    'https://sizu.me/chihiroxx/posts/z',
+  assert.deepEqual(tiePlan.removals.map(({ file }) => file).sort(), [
+    '/repo/src/content/articles/tie-m.yaml',
+    '/repo/src/content/articles/tie-z.yaml',
   ]);
   const collisionUrl = 'https://sizu.me/chihiroxx/posts/collision';
   const collisionFilename = `sizu-${createHash('sha256').update(collisionUrl).digest('hex')}.yaml`;
@@ -297,10 +297,10 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
     /Filename collision while adding/,
   );
   assert.deepEqual(
-    plan.removals.map(({ reason, url }) => [reason, url]),
+    plan.removals.map(({ file }) => file),
     [
-      ['limit', 'https://sizu.me/chihiroxx/posts/post-1'],
-      ['limit', 'https://sizu.me/chihiroxx/posts/post-2'],
+      '/repo/src/content/articles/01.yaml',
+      '/repo/src/content/articles/02.yaml',
     ],
   );
   assert.deepEqual(
@@ -311,5 +311,5 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
       'https://sizu.me/chihiroxx/posts/tie-3',
     ],
   );
-  assert.ok(!plan.removals.some(({ url }) => url === manual.data.url));
+  assert.ok(!plan.removals.some(({ file }) => file.endsWith('manual.yaml')));
 });

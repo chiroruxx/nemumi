@@ -84,15 +84,15 @@ CI を確認し、手動マージします。
 content」も手動実行できます。ローカルでは [dry-run コマンド](#主なコマンド)で同期・削除予定を確認できます。GitHub Actions
 はどちらも10分で終了します。
 
-差分がなくなった bot PR は no-diff marker を付けて閉じます。後に差分が戻れば bot が閉じた PR を再利用します。人が閉じた PR
-は自動再開されません。再開時は対象 PR を手動で再 open してください。automation branch へ人が直接 commit すると guard
-が停止します。変更を通常の PR で `main` に反映するか、内容を退避して automation branch を `main` から作り直してください。
+PR の作成・更新と差分消失時のクローズは `create-pull-request` に委譲します。人が閉じた PR があっても、次回以降の差分で PR
+作成・更新を続けます。automation branch
+は自動処理専用とし、手動コミットがあっても停止せず、生成結果で上書きされる場合があります（[ADR 0034](docs/adr/0034-delegate-content-pr-management.md)）。
 
 `CONTENT_AUTO_MERGE=false` または未設定では、以後の実行で自動マージを要求しません。すでにPRで有効な auto-merge
 は残るため、必要なら各PR画面の `Disable auto-merge`（または `gh pr merge <番号> --disable-auto`
 ）で個別に解除してください。両workflowを無効化しても、すでにPRへ設定した auto-merge は解除されません。自動処理全体を止める場合は「Update
 content」と「Prune content」の両 workflow を無効にし、既存PRの auto-merge も必要に応じて解除してください。通信期限、保持方針、PR
-の復旧手順は [ADR 0025](docs/adr/0025-sync-external-content-from-rss.md)、[ADR 0027](docs/adr/0027-prune-stored-content-without-rss.md)、[ADR 0029](docs/adr/0029-bound-content-network-execution.md)、[ADR 0030](docs/adr/0030-guard-content-automation-lifecycle.md)
+の運用は [ADR 0025](docs/adr/0025-sync-external-content-from-rss.md)、[ADR 0027](docs/adr/0027-prune-stored-content-without-rss.md)、[ADR 0029](docs/adr/0029-bound-content-network-execution.md)、[ADR 0030](docs/adr/0030-guard-content-automation-lifecycle.md)、[ADR 0034](docs/adr/0034-delegate-content-pr-management.md)
 を参照してください。
 
 ## コンテンツの追加

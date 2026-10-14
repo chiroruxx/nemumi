@@ -64,22 +64,6 @@ export async function writeGitHubSummary(
   );
 }
 
-export async function writeGitHubOutput(
-  name: string,
-  value: string,
-  options: Pick<GitHubSummaryOptions, 'outputPath' | 'append'> = {},
-): Promise<void> {
-  const outputPath =
-    options.outputPath === undefined
-      ? process.env.GITHUB_OUTPUT
-      : options.outputPath;
-  if (!outputPath) return;
-  if (!/^[A-Za-z_][A-Za-z\d_-]*$/.test(name) || /[\r\n]/.test(value)) {
-    throw new Error('GitHub output name and value must be single line');
-  }
-  await (options.append ?? appendFile)(outputPath, `${name}=${value}\n`);
-}
-
 function escapeMarkdownText(value: string): string {
   return value
     .replace(/[\r\n\t]+/g, ' ')

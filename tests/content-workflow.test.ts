@@ -73,7 +73,7 @@ test('content workflows checkout trusted main before invoking the shared automat
   }
 });
 
-test('shared content action stages content, guards PR lifecycle, and gates CPR and auto-merge', async () => {
+test('shared content action delegates PR management and gates auto-merge on an open PR', async () => {
   const action = await yamlFile(
     '.github/actions/content-automation/action.yml',
   );
@@ -91,9 +91,7 @@ test('shared content action stages content, guards PR lifecycle, and gates CPR a
       String(step.run).includes('pnpm install --frozen-lockfile'),
     ),
   );
-  assert.ok(
-    steps.some((step) => String(step.run).includes('prepare-content-pr')),
-  );
+  assert.ok(steps.every((step) => step.id !== 'guard'));
   assert.ok(steps.some((step) => String(step.run).includes('sync-content')));
   assert.ok(steps.some((step) => String(step.run).includes('prune-content')));
 
@@ -102,19 +100,11 @@ test('shared content action stages content, guards PR lifecycle, and gates CPR a
     'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1',
   );
   assert.ok(pullRequest, 'the shared action must create or update a PR');
-  assert.match(String(pullRequest.if), /steps.guard.outputs.proceed == 'true'/);
-  const guard = steps.find((step) =>
-    String(step.name).includes('Guard automation pull request'),
-  );
-  assert.ok(guard);
-  const guardEnv = mapping(guard.env, 'guard.env');
-  assert.equal(guardEnv.GH_TOKEN, expression('steps.app-token.outputs.token'));
   assert.equal(
-    guardEnv.APP_SLUG,
-    expression('steps.app-token.outputs.app-slug'),
+    pullRequest.if,
+    undefined,
+    'PR management must run without a lifecycle or commit guard',
   );
-  assert.equal(guardEnv.CONTENT_BRANCH, expression('inputs.branch'));
-  assert.equal(guardEnv.GITHUB_REPOSITORY, expression('github.repository'));
   const pullRequestWith = mapping(pullRequest.with, 'create-pull-request.with');
   assert.equal(pullRequestWith.base, 'main');
   const actionInputs = mapping(action.inputs, 'action inputs');
@@ -140,9 +130,10 @@ test('shared content action stages content, guards PR lifecycle, and gates CPR a
     String(step.run).includes('gh pr merge'),
   );
   assert.ok(autoMerge, 'the shared action must support auto-merge');
-  assert.match(String(autoMerge.if), /CONTENT_AUTO_MERGE/);
-  assert.match(String(autoMerge.if), /pull-request-number/);
-  assert.match(String(autoMerge.if), /steps.guard.outputs.proceed/);
+  assert.equal(
+    autoMerge.if,
+    "vars.CONTENT_AUTO_MERGE == 'true' && steps.pull-request.outputs.pull-request-number != '' && steps.pull-request.outputs.pull-request-operation != 'closed'",
+  );
 });
 
 test('update workflow preserves scheduled and manual service matrix behavior', async () => {

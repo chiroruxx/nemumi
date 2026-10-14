@@ -23,7 +23,6 @@
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
-    "@octokit/rest": "^22.0.1",
     "astro": "^7.3.8",
     "rss-parser": "^3.13.0",
     "sharp": "0.35.5",

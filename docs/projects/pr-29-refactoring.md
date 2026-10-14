@@ -429,4 +429,4 @@
   PR 本文の「24 件成功」は PR 作成者の報告であり、今回再実行したのは上記 14 件。
 - 上記は初回レビュー時点の検証記録。6段階の実装と検証結果は追跡表に記録する。
 
-Markdown は各段階で JetBrains MCP の `reformat_file` を試行したが、実装用 worktree が IDE に開かれておらず利用できなかった。整形前の記録では Prettier CLI 3.9.9 を `--prose-wrap preserve --embedded-language-formatting off` で使用した。現在の Markdown 手順では、MCP が利用できない場合に見出し・リスト・コードブロック・リンクの構造を確認する。
+ローカル文書は Prettier CLI 3.9.9 で整形済み。現在の Markdown 手順では、JetBrains MCP の `reformat_file` が利用できない場合に見出し・リスト・コードブロック・リンクの構造を確認する。

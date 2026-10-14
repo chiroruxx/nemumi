@@ -32,7 +32,9 @@ test('the Node runner executes nested TypeScript tests and ignores TSX', async (
     writeFile(
       path.join(root, 'tests', 'nested', 'child.test.ts'),
       `import test from 'node:test';
-      test('nested executable test', () => {});`,
+      test('nested executable test', () => {
+        process.stdout.write('x'.repeat(1_100_000));
+      });`,
     ),
     writeFile(
       path.join(root, 'tests', 'ignored.test.tsx'),
@@ -43,38 +45,15 @@ test('the Node runner executes nested TypeScript tests and ignores TSX', async (
   const result = await promisify(execFile)(
     process.execPath,
     [path.resolve('scripts/cli/run-tests.ts')],
-    { cwd: root, env: { ...process.env, NODE_TEST_CONTEXT: undefined } },
-  );
-  const output = result.stdout + result.stderr;
-  assert.match(output, /nested executable test/);
-  assert.doesNotMatch(output, /TSX should not be executed/);
-});
-
-test('the Node runner streams test output larger than the default child buffer', async (t) => {
-  const root = await mkdtemp(
-    path.join(os.tmpdir(), 'nemumi-test-runner-output-'),
-  );
-  t.after(() => rm(root, { recursive: true, force: true }));
-  await mkdir(path.join(root, 'tests'), { recursive: true });
-  await writeFile(
-    path.join(root, 'tests', 'large-output.test.ts'),
-    `import test from 'node:test';
-      test('large output test', () => {
-        process.stdout.write('x'.repeat(1_100_000));
-      });`,
-  );
-
-  const result = await promisify(execFile)(
-    process.execPath,
-    [path.resolve('scripts/cli/run-tests.ts')],
     {
       cwd: root,
       env: { ...process.env, NODE_TEST_CONTEXT: undefined },
       maxBuffer: 2 * 1024 * 1024,
     },
   );
-
-  assert.match(result.stdout, /large output test/);
+  const output = result.stdout + result.stderr;
+  assert.match(output, /nested executable test/);
+  assert.doesNotMatch(output, /TSX should not be executed/);
   assert.ok(Buffer.byteLength(result.stdout) > 1024 * 1024);
 });
 

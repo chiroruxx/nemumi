@@ -1,17 +1,14 @@
 import assert from 'node:assert/strict';
 import {
   lstat,
-  mkdir,
-  mkdtemp,
   readdir,
   readFile,
   rename as renameFile,
   rm,
   writeFile,
 } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
-import test, { type TestContext } from 'node:test';
+import test from 'node:test';
 import YAML from 'yaml';
 import {
   applyFileChanges,
@@ -24,19 +21,7 @@ import {
   createSyncPlan,
   type FeedItem,
 } from '../scripts/lib/external-content-planning.ts';
-
-async function createContentDirectory(t: TestContext): Promise<string> {
-  const contentDirectory = await mkdtemp(
-    path.join(os.tmpdir(), 'nemumi-files-'),
-  );
-  await Promise.all(
-    ['articles', 'talks'].map((collection) =>
-      mkdir(path.join(contentDirectory, collection)),
-    ),
-  );
-  t.after(() => rm(contentDirectory, { recursive: true, force: true }));
-  return contentDirectory;
-}
+import { createContentDirectory } from './helpers/content-fixture.ts';
 
 const item: FeedItem = {
   date: new Date('2026-10-03'),

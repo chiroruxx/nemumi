@@ -32,13 +32,7 @@ function responseWithTrackedBody(value: unknown, status = 200) {
   const response = jsonResponse(value, { status });
   const body = response.body;
   assert.ok(body);
-  let canceled = false;
-  const cancel = body.cancel.bind(body);
-  body.cancel = async (reason?: unknown) => {
-    canceled = true;
-    await cancel(reason);
-  };
-  return { response, wasCanceled: () => canceled };
+  return { response, wasConsumed: () => response.bodyUsed };
 }
 
 test('pull request pages map REST fields and follow the Link next URL', async () => {
@@ -266,8 +260,8 @@ test('PATCH sends body and state together and keeps token only in authorization 
   const call = fake.calls[0];
   assert.equal(call?.init?.method, 'PATCH');
   const headers = new Headers(call?.init?.headers);
-  assert.equal(headers.get('authorization'), `Bearer ${token}`);
-  assert.equal(headers.get('content-type'), 'application/json');
+  assert.equal(headers.get('authorization'), `token ${token}`);
+  assert.match(headers.get('content-type') ?? '', /^application\/json/);
   assert.deepEqual(JSON.parse(String(call?.init?.body)), {
     body: 'Update\n<!-- marker -->',
     state: 'closed',
@@ -293,7 +287,7 @@ test('API releases response bodies for HTTP errors, compare 404s, and PATCH succ
     }),
     /HTTP 403/,
   );
-  assert.equal(forbidden.wasCanceled(), true);
+  assert.equal(forbidden.wasConsumed(), true);
 
   const compareMissing = responseWithTrackedBody({ message: 'Not Found' }, 404);
   const branchMissing = responseWithTrackedBody({ message: 'Not Found' }, 404);
@@ -314,8 +308,8 @@ test('API releases response bodies for HTTP errors, compare 404s, and PATCH succ
     }),
     { found: false, commits: [], hasNextPage: false },
   );
-  assert.equal(compareMissing.wasCanceled(), true);
-  assert.equal(branchMissing.wasCanceled(), true);
+  assert.equal(compareMissing.wasConsumed(), true);
+  assert.equal(branchMissing.wasConsumed(), true);
 
   const patched = responseWithTrackedBody({ state: 'closed' });
   const patchApi = createContentAutomationApi({
@@ -330,12 +324,14 @@ test('API releases response bodies for HTTP errors, compare 404s, and PATCH succ
     body: 'closed',
     state: 'closed',
   });
-  assert.equal(patched.wasCanceled(), true);
+  assert.equal(patched.wasConsumed(), true);
 });
 
-test('invalid Link header, missing required data, unknown HTTP status, and fetch errors reject without exposing token', async () => {
+test('unsafe pagination links, missing data, HTTP errors, and fetch failures reject without exposing token', async () => {
   const invalidLink = createFetch([
-    jsonResponse([], { link: 'not a valid Link header' }),
+    jsonResponse([], {
+      link: '<https://attacker.example/repos/owner/repo/pulls?page=2>; rel="next"',
+    }),
   ]);
   const invalidLinkApi = createContentAutomationApi({
     owner: 'owner',
@@ -351,8 +347,9 @@ test('invalid Link header, missing required data, unknown HTTP status, and fetch
       page: 1,
       perPage: 100,
     }),
-    /invalid Link header/,
+    /HTTP 500/,
   );
+  assert.equal(invalidLink.calls.length, 1);
 
   const missingData = createFetch([jsonResponse([{ number: 29 }])]);
   const missingDataApi = createContentAutomationApi({

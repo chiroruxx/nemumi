@@ -222,13 +222,11 @@ export function createSyncPlan({
   index,
   feed,
   contentDirectory,
-  linkStatuses = new Map(),
 }: {
   source: Source;
   index: CollectionIndex;
   feed: FeedItem[];
   contentDirectory: string;
-  linkStatuses?: ReadonlyMap<string, LinkStatus>;
 }): SyncPlan {
   const service = services[source];
   if (service.collection !== index.collection) {
@@ -266,12 +264,7 @@ export function createSyncPlan({
       throw new Error(`Filename collision while adding ${url}`);
     }
     if (!previous) {
-      const status = linkStatuses.get(url);
-      if (status === 'deleted') continue;
-      if (status === undefined) linkChecks.push({ source, url });
-      else if (status !== 'public') {
-        throw new Error(`Could not verify new item (${status}): ${url}`);
-      }
+      linkChecks.push({ source, url });
     }
     changes.push({
       action: previous ? 'update' : 'add',
@@ -301,10 +294,7 @@ function toRemoval(
   };
 }
 
-export function createPrunePlan(
-  index: CollectionIndex,
-  linkStatuses: ReadonlyMap<string, LinkStatus> = new Map(),
-): PrunePlan {
+export function createPrunePlan(index: CollectionIndex): PrunePlan {
   const keep = rankedKeepSet(index);
   const removals: PruneRemoval[] = [];
   const linkChecks: LinkCheck[] = [];
@@ -316,9 +306,7 @@ export function createPrunePlan(
       removals.push(toRemoval('limit', indexed));
       continue;
     }
-    const status = linkStatuses.get(url);
-    if (status === undefined) linkChecks.push({ source, url });
-    else if (status === 'deleted') removals.push(toRemoval('link', indexed));
+    linkChecks.push({ source, url });
   }
 
   removals.sort((a, b) => a.file.localeCompare(b.file));

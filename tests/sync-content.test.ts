@@ -74,6 +74,64 @@ test('sync updates the existing filename, keeps types, and round-trips quoted mu
   });
 });
 
+test('sync does not refill a capped slot after its selected addition is deleted', async (t) => {
+  const contentDirectory = await createContentDirectory(t);
+  const articlesDirectory = path.join(contentDirectory, 'articles');
+  for (let index = 1; index <= 19; index += 1) {
+    const id = String(index).padStart(2, '0');
+    await writeFile(
+      path.join(articlesDirectory, `manual-${id}.yaml`),
+      YAML.stringify({
+        date: '2026-10-01',
+        title: `Manual ${id}`,
+        url: `https://example.com/manual-${id}`,
+      }),
+    );
+  }
+  const feed = [
+    {
+      date: new Date('2026-10-03'),
+      title: 'Deleted',
+      url: 'https://sizu.me/chihiroxx/posts/deleted',
+    },
+    {
+      date: new Date('2026-10-02'),
+      title: 'Public',
+      url: 'https://sizu.me/chihiroxx/posts/public',
+    },
+  ];
+  const checked: string[] = [];
+
+  await syncService('sizu', {
+    contentDirectory,
+    feedLoader: async () => feed,
+    linkCheckBatchIntervalMs: 0,
+    linkVerifier: async (url) => {
+      checked.push(url);
+      return url.endsWith('/deleted') ? 'deleted' : 'public';
+    },
+  });
+
+  assert.deepEqual(checked, [feed[0].url]);
+  const savedUrls = await Promise.all(
+    (await readdir(articlesDirectory)).map(async (file) => {
+      const saved = YAML.parse(
+        await readFile(path.join(articlesDirectory, file), 'utf8'),
+      );
+      return saved.url as string;
+    }),
+  );
+  assert.deepEqual(
+    savedUrls.sort(),
+    Array.from(
+      { length: 19 },
+      (_, index) =>
+        `https://example.com/manual-${String(index + 1).padStart(2, '0')}`,
+    ),
+  );
+  assert.equal(savedUrls.includes(feed[1].url), false);
+});
+
 test('sync rejects duplicate saved URLs before feed loading and leaves both files unchanged', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');

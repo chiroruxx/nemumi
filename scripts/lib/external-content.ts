@@ -179,11 +179,11 @@ export async function syncService(
       );
     }
     if (checked.unchecked.length) return result;
-    const plan = createSyncPlan({
-      ...planInput,
-      linkStatuses: checked.statuses,
-    });
-    const operations = syncOperations(plan.changes);
+    const changes = preliminaryPlan.changes.filter(
+      ({ action, url }) =>
+        action === 'update' || checked.statuses.get(url) === 'public',
+    );
+    const operations = syncOperations(changes);
     await validateFileTargets(operations, contentDirectory);
     if (!dryRun) await applyFileChanges(operations, contentDirectory);
     return result;
@@ -215,30 +215,25 @@ export async function pruneContent({
       now,
     });
   try {
-    const indexes = new Map<
-      Collection,
-      ReturnType<typeof buildCollectionIndex>
-    >();
-    const initialPlans = new Map<
-      Collection,
-      ReturnType<typeof createPrunePlan>
-    >();
+    const collectionPlans: {
+      index: ReturnType<typeof buildCollectionIndex>;
+      plan: ReturnType<typeof createPrunePlan>;
+    }[] = [];
     for (const collection of Object.keys(limits) as Collection[]) {
       const entries = await readCollection(collection, contentDirectory);
       const index = buildCollectionIndex(collection, entries);
-      indexes.set(collection, index);
-      initialPlans.set(collection, createPrunePlan(index));
+      collectionPlans.push({ index, plan: createPrunePlan(index) });
     }
 
-    const initialRemovals = [...initialPlans.values()].flatMap(
-      ({ removals }) => removals,
+    const initialRemovals = collectionPlans.flatMap(
+      ({ plan }) => plan.removals,
     );
     await validateFileTargets(
       pruneOperations(initialRemovals),
       contentDirectory,
     );
-    const linkChecks = [...initialPlans.values()]
-      .flatMap(({ linkChecks: checks }) => checks)
+    const linkChecks = collectionPlans
+      .flatMap(({ plan }) => plan.linkChecks)
       .sort(
         (a, b) =>
           a.source.localeCompare(b.source) || a.url.localeCompare(b.url),
@@ -255,9 +250,25 @@ export async function pruneContent({
         ...(sleep ? { sleep } : {}),
       },
     );
-    const removals = [...indexes.values()].flatMap(
-      (index) => createPrunePlan(index, checked.statuses).removals,
-    );
+    const removals = collectionPlans
+      .flatMap(({ index, plan }) => [
+        ...plan.removals,
+        ...plan.linkChecks.flatMap(({ url }) => {
+          if (checked.statuses.get(url) !== 'deleted') return [];
+          const entry = index.byUrl.get(url)?.entry;
+          if (!entry) throw new Error(`Missing planned prune entry: ${url}`);
+          return [
+            {
+              reason: 'link' as const,
+              file: entry.file,
+              date: entry.data.date,
+              title: entry.data.title,
+              url,
+            },
+          ];
+        }),
+      ])
+      .sort((a, b) => a.file.localeCompare(b.file));
     const operations = pruneOperations(removals);
     await validateFileTargets(operations, contentDirectory);
     if (!dryRun) await applyFileChanges(operations, contentDirectory);

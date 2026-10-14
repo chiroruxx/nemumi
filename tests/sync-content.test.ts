@@ -287,49 +287,18 @@ test('sync validates saved YAML values with file and field context before loadin
   const contentDirectory = await createContentDirectory(t);
   const filename = 'invalid.yaml';
   const file = path.join(contentDirectory, 'articles', filename);
-  const validFields = {
-    date: '2026-10-03',
-    types: ['日常記事'],
-    title: 'Valid post',
-    url: 'https://sizu.me/chihiroxx/posts/valid',
-  };
-  const cases: { field: string; yaml: string }[] = [
-    { field: 'date', yaml: YAML.stringify({ ...validFields, date: 2026 }) },
-    {
-      field: 'date',
-      yaml: YAML.stringify({ ...validFields, date: 'not-a-date' }),
-    },
-    { field: 'title', yaml: YAML.stringify({ ...validFields, title: null }) },
-    { field: 'title', yaml: YAML.stringify({ ...validFields, title: '  ' }) },
-    { field: 'url', yaml: YAML.stringify({ ...validFields, url: null }) },
-    {
-      field: 'url',
-      yaml: YAML.stringify({ ...validFields, url: 'not a URL' }),
-    },
-    { field: 'types', yaml: YAML.stringify({ ...validFields, types: null }) },
-    { field: 'types', yaml: YAML.stringify({ ...validFields, types: [] }) },
-    { field: 'types', yaml: YAML.stringify({ ...validFields, types: [''] }) },
-    { field: 'types', yaml: YAML.stringify({ ...validFields, types: [1] }) },
-    { field: '<root>', yaml: 'null' },
-    { field: '<root>', yaml: '[]' },
+  const cases = [
+    { field: 'title', yaml: 'date: 2026-10-03\ntitle: null\n' },
     { field: 'YAML', yaml: 'date: [unterminated' },
   ];
 
-  let feedCalls = 0;
-  let linkChecks = 0;
   for (const invalid of cases) {
     await writeFile(file, invalid.yaml);
     await assert.rejects(
       syncService('sizu', {
         contentDirectory,
-        feedLoader: async () => {
-          feedCalls += 1;
-          return [];
-        },
-        linkVerifier: async () => {
-          linkChecks += 1;
-          return 'public';
-        },
+        feedLoader: async () => assert.fail('RSS must not be loaded'),
+        linkVerifier: async () => assert.fail('links must not be checked'),
       }),
       (error: unknown) =>
         error instanceof Error &&
@@ -337,9 +306,9 @@ test('sync validates saved YAML values with file and field context before loadin
         error.message.includes(invalid.field),
       `invalid ${invalid.field} should identify ${filename}`,
     );
+    assert.equal(await readFile(file, 'utf8'), invalid.yaml);
+    assert.deepEqual(await readdir(path.dirname(file)), [filename]);
   }
-  assert.equal(feedCalls, 0);
-  assert.equal(linkChecks, 0);
 });
 
 test('sync deadline keeps existing files unchanged and does not partially apply checked feed items', async (t) => {

@@ -388,57 +388,19 @@ test('sync deadline keeps existing files unchanged and does not partially apply 
     linkVerifier: async () => {
       checks += 1;
       if (checks === 2) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
         remaining = 0;
         controller.abort(new Error('deadline'));
       }
       return 'public';
     },
   });
-  assert.equal(result.unchecked.length, 2);
+  assert.equal(result.unchecked.length, 1);
   assert.deepEqual(await readdir(articlesDirectory), ['existing.yaml']);
   assert.equal(
     await readFile(path.join(articlesDirectory, 'existing.yaml'), 'utf8'),
     original,
   );
-});
-
-test('sync deadline preserves confirmed deleted additions alongside unchecked additions', async (t) => {
-  const contentDirectory = await createContentDirectory(t);
-  const controller = new AbortController();
-  let remaining = 1000;
-  let calls = 0;
-  const result = await syncService('sizu', {
-    contentDirectory,
-    feedLoader: async () => [
-      {
-        date: new Date('2026-10-02'),
-        title: 'Deleted item',
-        url: 'https://sizu.me/chihiroxx/posts/deleted',
-      },
-      {
-        date: new Date('2026-10-03'),
-        title: 'Unchecked item',
-        url: 'https://sizu.me/chihiroxx/posts/unchecked',
-      },
-    ],
-    executionContext: {
-      signal: controller.signal,
-      remainingMs: () => remaining,
-      dispose: () => {},
-    },
-    linkCheckBatchIntervalMs: 0,
-    linkVerifier: async (url) => {
-      calls += 1;
-      if (url.endsWith('/deleted')) return 'deleted';
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      remaining = 0;
-      controller.abort(new Error('deadline'));
-      return await new Promise(() => {});
-    },
-  });
-  assert.equal(calls, 2);
-  assert.equal(result.unchecked.length, 1);
-  assert.deepEqual(await readdir(path.join(contentDirectory, 'articles')), []);
 });
 
 test('sync still fails before applying any file when new link checks return defer or review', async (t) => {

@@ -71,29 +71,37 @@ test('parseFeedXml rejects RSS item URLs outside the configured service path', a
   );
 });
 
-test('fetchFeed applies bounded retries and honors Retry-After seconds for network failures and 5xx', async () => {
-  const sleeps: number[] = [];
-  const attempts: RequestInit[] = [];
-  const responses = [
-    new Response('busy', { status: 503, headers: { 'retry-after': '2' } }),
-    new Response(feedFixtures[0][3], { status: 200 }),
-  ];
-  let networkFailures = 1;
-  const result = await fetchFeed(services.sizu, {
-    fetch: async (_input, init) => {
-      attempts.push(init ?? {});
-      if (networkFailures-- > 0) throw new Error('connection reset');
-      const response = responses.shift();
-      assert.ok(response);
-      return response;
-    },
-    sleep: async (milliseconds) => {
-      sleeps.push(milliseconds);
-    },
-  });
-  assert.equal(attempts.length, 3);
-  assert.deepEqual(sleeps, [1000, 2000]);
-  assert.equal(result[0]?.title, 'Sizu & fixture');
+test('fetchFeed applies bounded retries and honors Retry-After seconds and fractions', async () => {
+  for (const [retryAfter, delay] of [
+    ['2', 2000],
+    ['0.5', 500],
+  ] as const) {
+    const sleeps: number[] = [];
+    const attempts: RequestInit[] = [];
+    const responses = [
+      new Response('busy', {
+        status: 503,
+        headers: { 'retry-after': retryAfter },
+      }),
+      new Response(feedFixtures[0][3], { status: 200 }),
+    ];
+    let networkFailures = 1;
+    const result = await fetchFeed(services.sizu, {
+      fetch: async (_input, init) => {
+        attempts.push(init ?? {});
+        if (networkFailures-- > 0) throw new Error('connection reset');
+        const response = responses.shift();
+        assert.ok(response);
+        return response;
+      },
+      sleep: async (milliseconds) => {
+        sleeps.push(milliseconds);
+      },
+    });
+    assert.equal(attempts.length, 3);
+    assert.deepEqual(sleeps, [1000, delay]);
+    assert.equal(result[0]?.title, 'Sizu & fixture');
+  }
 });
 
 test('fetchFeed stops after two retries and cancels every exhausted error response', async () => {
@@ -192,30 +200,43 @@ test('fetchFeed cancels redirect and failed response bodies and enforces the byt
 
 test('verifyLink passes the execution signal to fetch and releases response bodies', async () => {
   const controller = new AbortController();
-  let passedSignal: AbortSignal | undefined;
+  const requests: string[] = [];
+  const passedSignals: AbortSignal[] = [];
   let canceled = 0;
   const status = await verifyLink(
     'https://sizu.me/chihiroxx/posts/fixture',
     services.sizu,
     {
       context: createTestContext(() => 60_000, controller.signal),
-      fetch: async (_input, init) => {
-        passedSignal = init?.signal as AbortSignal;
+      fetch: async (input, init) => {
+        requests.push(String(input));
+        passedSignals.push(init?.signal as AbortSignal);
+        const redirected = requests.length === 1;
         return new Response(
           new ReadableStream({
             cancel() {
               canceled += 1;
             },
           }),
+          {
+            status: redirected ? 302 : 200,
+            ...(redirected
+              ? { headers: { location: '/chihiroxx/posts/redirected' } }
+              : {}),
+          },
         );
       },
       sleep: async () => {},
     },
   );
   assert.equal(status, 'public');
-  assert.ok(passedSignal);
-  assert.equal(passedSignal.aborted, false);
-  assert.equal(canceled, 1);
+  assert.deepEqual(requests, [
+    'https://sizu.me/chihiroxx/posts/fixture',
+    'https://sizu.me/chihiroxx/posts/redirected',
+  ]);
+  assert.equal(passedSignals.length, 2);
+  assert.ok(passedSignals.every((signal) => !signal.aborted));
+  assert.equal(canceled, 2);
 });
 
 test('runLinkChecks completes batches of five before waiting one second, without a final wait', async (t) => {
@@ -371,45 +392,6 @@ test('deadline abort reaches the signal passed to the active fetch', async () =>
   assert.equal(requestSignal?.aborted, true);
 });
 
-test('link batches include redirects without per-request spacing', async (t) => {
-  const context = createExecutionContext();
-  t.after(() => context.dispose());
-  const requests: string[] = [];
-  const waits: number[] = [];
-  const checks: LinkCheck[] = [
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/one' },
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/two' },
-  ];
-  const result = await runLinkChecks(
-    checks,
-    (url, service, execution) =>
-      verifyLink(url, service, {
-        context: execution,
-        fetch: async (input) => {
-          const target = String(input);
-          requests.push(target);
-          return target.endsWith('/one')
-            ? new Response(null, {
-                status: 302,
-                headers: { location: '/chihiroxx/posts/redirected' },
-              })
-            : new Response(null, { status: 200 });
-        },
-      }),
-    {
-      services,
-      context,
-      sleep: async (milliseconds) => {
-        waits.push(milliseconds);
-      },
-    },
-  );
-  assert.equal(requests.length, 3);
-  assert.ok(requests.includes('https://sizu.me/chihiroxx/posts/redirected'));
-  assert.deepEqual([...result.statuses.values()], ['public', 'public']);
-  assert.deepEqual(waits, []);
-});
-
 test('runLinkChecks returns at the deadline and ignores a verifier that settles later', async () => {
   const controller = new AbortController();
   let remaining = 10_000;
@@ -543,37 +525,6 @@ test('verifyLink reports an expired global deadline as defer and malformed targe
     }),
     'review',
   );
-});
-
-test('fetchFeed retries using Retry-After without adding a service interval', async () => {
-  let clock = 0;
-  const starts: number[] = [];
-  const context = createExecutionContext({
-    budgetMs: 10_000,
-    now: () => clock,
-    setTimer: () => 1 as unknown as ReturnType<typeof setTimeout>,
-    clearTimer: () => {},
-  });
-  let attempt = 0;
-  await fetchFeed(services.sizu, {
-    context,
-    now: () => clock,
-    sleep: async (milliseconds) => {
-      clock += milliseconds;
-    },
-    fetch: async () => {
-      starts.push(clock);
-      attempt += 1;
-      return attempt === 1
-        ? new Response('busy', {
-            status: 503,
-            headers: { 'retry-after': '0.5' },
-          })
-        : new Response(feedFixtures[0][3]);
-    },
-  });
-  context.dispose();
-  assert.deepEqual(starts, [0, 500]);
 });
 
 test('verifyLink cancels bodies for redirects and each terminal HTTP status', async () => {

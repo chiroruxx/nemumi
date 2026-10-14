@@ -388,13 +388,14 @@ test('sync deadline keeps existing files unchanged and does not partially apply 
     linkVerifier: async () => {
       checks += 1;
       if (checks === 2) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
         remaining = 0;
         controller.abort(new Error('deadline'));
       }
       return 'public';
     },
   });
-  assert.equal(result.unchecked.length, 2);
+  assert.equal(result.unchecked.length, 1);
   assert.deepEqual(await readdir(articlesDirectory), ['existing.yaml']);
   assert.equal(
     await readFile(path.join(articlesDirectory, 'existing.yaml'), 'utf8'),

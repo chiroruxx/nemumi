@@ -9,7 +9,7 @@ import { createContentDirectory } from './helpers/content-fixture.ts';
 test('sync dry-run does not write files, and a repeated sync is idempotent', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const item = {
-    date: '2026-10-03',
+    date: new Date('2026-10-03'),
     title: 'New post',
     url: 'https://sizu.me/chihiroxx/posts/new-post',
   };
@@ -56,7 +56,7 @@ test('sync updates the existing filename, keeps types, and round-trips quoted mu
   const title = 'Updated "quoted" title\nsecond line';
   const result = await syncService('sizu', {
     contentDirectory,
-    feedLoader: async () => [{ date: '2026-10-02', title, url }],
+    feedLoader: async () => [{ date: new Date('2026-10-02'), title, url }],
     linkVerifier: async () => {
       linkChecks += 1;
       return 'public';
@@ -68,7 +68,7 @@ test('sync updates the existing filename, keeps types, and round-trips quoted mu
     {
       action: 'update',
       file,
-      date: '2026-10-02',
+      date: new Date('2026-10-02'),
       title,
       url,
       types: ['手動分類', '追加カテゴリ'],
@@ -139,7 +139,7 @@ test('sync rejects duplicate saved URLs before feed loading and leaves both file
 test('sync deduplicates identical feed content after fragment normalization regardless of input order', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const item = {
-    date: '2026-10-03',
+    date: new Date('2026-10-03'),
     title: 'Repeated post',
     url: 'https://sizu.me/chihiroxx/posts/repeated?ref=rss#first',
   };
@@ -171,24 +171,24 @@ test('sync rejects conflicting duplicate feed URLs before verification or file c
   let verifications = 0;
   const items = [
     {
-      date: '2026-10-03',
+      date: new Date('2026-10-03'),
       title: 'First title',
       url: 'https://sizu.me/chihiroxx/posts/conflict#first',
     },
     {
-      date: '2026-10-03',
+      date: new Date('2026-10-03'),
       title: 'Second title',
       url: 'https://sizu.me/chihiroxx/posts/conflict#second',
     },
   ];
   const dateConflict = [
     {
-      date: '2026-10-03',
+      date: new Date('2026-10-03'),
       title: 'Same title',
       url: 'https://sizu.me/chihiroxx/posts/date-conflict#first',
     },
     {
-      date: '2026-10-02',
+      date: new Date('2026-10-02'),
       title: 'Same title',
       url: 'https://sizu.me/chihiroxx/posts/date-conflict#second',
     },
@@ -299,17 +299,17 @@ test('sync deadline keeps existing files unchanged and does not partially apply 
     contentDirectory,
     feedLoader: async () => [
       {
-        date: '2026-10-02',
+        date: new Date('2026-10-02'),
         title: 'Updated title',
         url: 'https://sizu.me/chihiroxx/posts/existing',
       },
       {
-        date: '2026-10-03',
+        date: new Date('2026-10-03'),
         title: 'New item',
         url: 'https://sizu.me/chihiroxx/posts/new',
       },
       {
-        date: '2026-10-04',
+        date: new Date('2026-10-04'),
         title: 'Another new item',
         url: 'https://sizu.me/chihiroxx/posts/another-new',
       },
@@ -348,12 +348,12 @@ test('sync deadline preserves confirmed deleted additions alongside unchecked ad
     contentDirectory,
     feedLoader: async () => [
       {
-        date: '2026-10-02',
+        date: new Date('2026-10-02'),
         title: 'Deleted item',
         url: 'https://sizu.me/chihiroxx/posts/deleted',
       },
       {
-        date: '2026-10-03',
+        date: new Date('2026-10-03'),
         title: 'Unchecked item',
         url: 'https://sizu.me/chihiroxx/posts/unchecked',
       },
@@ -422,7 +422,7 @@ test('sync still fails before applying any file when new link checks return defe
         contentDirectory,
         feedLoader: async () => [
           {
-            date: '2026-10-03',
+            date: new Date('2026-10-03'),
             title: 'New item',
             url: `https://sizu.me/chihiroxx/posts/${status}`,
           },

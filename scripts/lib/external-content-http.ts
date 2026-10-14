@@ -1,4 +1,5 @@
 import Parser from 'rss-parser';
+import { contentDateSchema } from '../../src/config/content-schema.ts';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import {
   type LinkCheck,
@@ -211,11 +212,9 @@ async function readLimitedText(response: Response): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-function publicationDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime()))
-    throw new Error(`Invalid RSS publication date: ${value}`);
-  return formatDateInSiteTimeZone(date);
+function publicationDate(value: string): Date {
+  const instant = contentDateSchema.parse(value);
+  return contentDateSchema.parse(formatDateInSiteTimeZone(instant));
 }
 
 export async function parseFeedXml(xml: string, service: Service) {

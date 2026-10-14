@@ -1,6 +1,11 @@
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
+import {
+  contentDateSchema,
+  contentRecordSchema,
+  nonBlankString,
+} from './config/content-schema.ts';
 
 // テスト用ビルドでは固定 fixture を読み、実コンテンツの変更からテストを独立させる。
 const contentBase =
@@ -8,28 +13,14 @@ const contentBase =
     ? './tests/fixtures/content'
     : './src/content';
 
-const nonBlankString = z.string().refine((value) => value.trim().length > 0, {
-  message: '空の文字列は指定できません',
-});
-
 const articles = defineCollection({
   loader: glob({ base: `${contentBase}/articles`, pattern: '**/*.yaml' }),
-  schema: z.object({
-    date: z.coerce.date(),
-    types: z.array(nonBlankString).min(1).optional(),
-    title: nonBlankString,
-    url: z.url().optional(),
-  }),
+  schema: contentRecordSchema,
 });
 
 const talks = defineCollection({
   loader: glob({ base: `${contentBase}/talks`, pattern: '**/*.yaml' }),
-  schema: z.object({
-    date: z.coerce.date(),
-    types: z.array(nonBlankString).min(1).optional(),
-    title: nonBlankString,
-    url: z.url().optional(),
-  }),
+  schema: contentRecordSchema,
 });
 
 const communities = defineCollection({
@@ -53,8 +44,8 @@ const activities = defineCollection({
   loader: glob({ base: `${contentBase}/activities`, pattern: '**/*.yaml' }),
   schema: z
     .object({
-      startDate: z.coerce.date(),
-      endDate: z.coerce.date().optional(),
+      startDate: contentDateSchema,
+      endDate: contentDateSchema.optional(),
       types: z.array(nonBlankString).min(1).optional(),
       title: nonBlankString,
       url: z.url().optional(),

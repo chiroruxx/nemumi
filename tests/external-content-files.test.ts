@@ -39,7 +39,7 @@ async function createContentDirectory(t: TestContext): Promise<string> {
 }
 
 const item: FeedItem = {
-  date: '2026-10-03',
+  date: new Date('2026-10-03'),
   title: 'A planned post',
   url: 'https://sizu.me/chihiroxx/posts/planned',
 };
@@ -61,6 +61,8 @@ test('readCollection returns parsed and validated content with file identity', a
   assert.equal(entries.length, 1);
   assert.equal(entries[0].file, file);
   assert.equal(entries[0].id, 'post.yaml');
+  assert.ok(entries[0].data.date instanceof Date);
+  assert.equal(entries[0].data.date.toISOString(), '2026-10-03T00:00:00.000Z');
   assert.equal(entries[0].data.title, 'A post');
 });
 
@@ -172,7 +174,7 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
           change.action === 'add' ? ('create' as const) : ('replace' as const),
         target: change.file,
         content: YAML.stringify({
-          date: change.date,
+          date: change.date.toISOString().slice(0, 10),
           types: change.types,
           title: change.title,
           url: change.url,
@@ -212,7 +214,7 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
         change.action === 'add' ? ('create' as const) : ('replace' as const),
       target: change.file,
       content: YAML.stringify({
-        date: change.date,
+        date: change.date.toISOString().slice(0, 10),
         types: change.types,
         title: change.title,
         url: change.url,
@@ -228,7 +230,7 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
   assert.deepEqual(
     await readFile(initialPlan.changes[0].file, 'utf8'),
     YAML.stringify({
-      date: feed[0].date,
+      date: feed[0].date.toISOString().slice(0, 10),
       types: ['日常記事'],
       title: feed[0].title,
       url: feed[0].url,
@@ -237,7 +239,7 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
   assert.deepEqual(
     await readFile(secondTarget, 'utf8'),
     YAML.stringify({
-      date: feed[1].date,
+      date: feed[1].date.toISOString().slice(0, 10),
       types: ['日常記事'],
       title: feed[1].title,
       url: feed[1].url,

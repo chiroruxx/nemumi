@@ -63,7 +63,7 @@ test('prune CLI renders the named removal fields in its existing summary and JSO
   const removal = {
     reason: 'limit' as const,
     file: '/repo/src/content/articles/post.yaml',
-    date: '2026-10-03',
+    date: new Date('2026-10-03'),
     title: 'A saved post',
     url: 'https://sizu.me/chihiroxx/posts/saved',
   };
@@ -101,7 +101,13 @@ test('prune CLI renders the named removal fields in its existing summary and JSO
     ].join('\n'),
   ]);
   assert.deepEqual(JSON.parse(output[0]), {
-    removals: [{ ...removal, file: 'src/content/articles/post.yaml' }],
+    removals: [
+      {
+        ...removal,
+        date: '2026-10-03',
+        file: 'src/content/articles/post.yaml',
+      },
+    ],
     kept: [],
     skipped: [],
     deferred: [],

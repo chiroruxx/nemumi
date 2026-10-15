@@ -4,7 +4,6 @@ import {
   createExecutionContext,
   type ExecutionContext,
   fetchFeed,
-  parseFeedXml,
   runLinkChecks,
   verifyLink,
 } from '../scripts/lib/external-content-http.ts';
@@ -43,13 +42,15 @@ function createTestContext(
   return { signal, remainingMs: remaining, dispose: () => {} };
 }
 
-test('parseFeedXml maps all service fixtures to site dates and normalized feed items without network access', async () => {
+test('fetchFeed maps all service fixtures to site dates and normalized feed items without network access', async () => {
   for (const [service, , normalizedUrl, xml] of feedFixtures) {
     const source = Object.entries(services).find(
       ([, value]) => value === service,
     )?.[0];
     assert.ok(source);
-    const parsed = await parseFeedXml(xml, service);
+    const parsed = await fetchFeed(service, {
+      fetch: async () => new Response(xml),
+    });
     assert.deepEqual(parsed, [
       {
         date: new Date('2026-10-13'),
@@ -60,13 +61,13 @@ test('parseFeedXml maps all service fixtures to site dates and normalized feed i
   }
 });
 
-test('parseFeedXml rejects RSS item URLs outside the configured service path', async () => {
+test('fetchFeed rejects RSS item URLs outside the configured service path', async () => {
   const invalidFeed = feedFixtures[0][3].replace(
     'https://sizu.me/chihiroxx/posts/fixture#fragment',
     'https://example.com/not-an-sizu-post',
   );
   await assert.rejects(
-    parseFeedXml(invalidFeed, services.sizu),
+    fetchFeed(services.sizu, { fetch: async () => new Response(invalidFeed) }),
     /Unexpected .* content URL/,
   );
 });

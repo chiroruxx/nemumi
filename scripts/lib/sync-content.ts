@@ -32,7 +32,7 @@ type FeedLoader = (
   service: Service,
   context: ExecutionContext,
 ) => Promise<FeedItem[]>;
-export type SyncOptions = CommonContentOptions & { feedLoader?: FeedLoader };
+type SyncOptions = CommonContentOptions & { feedLoader?: FeedLoader };
 export type SyncResult = ContentResult;
 
 function syncOperations(changes: SyncChange[]): ContentFileOperation[] {

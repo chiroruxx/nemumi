@@ -23,7 +23,7 @@ import {
   services,
 } from './external-content-planning.ts';
 
-export type PruneOptions = CommonContentOptions;
+type PruneOptions = CommonContentOptions;
 export type PruneResult = ContentResult;
 
 function pruneOperations(removals: PruneRemoval[]): ContentFileOperation[] {

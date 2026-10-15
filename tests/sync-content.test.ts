@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
 import type { ExecutionContext } from '../scripts/lib/external-content-http.ts';
-import { type SyncOptions, syncService } from '../scripts/lib/sync-content.ts';
+import { syncService } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
 test('sync dry-run does not write files, and a repeated sync is idempotent', async (t) => {
@@ -14,7 +14,7 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
     title: 'New post',
     url: 'https://sizu.me/chihiroxx/posts/new-post',
   };
-  const options: SyncOptions = {
+  const options: NonNullable<Parameters<typeof syncService>[1]> = {
     contentDirectory,
     feedLoader: async () => [item],
     linkVerifier: async () => 'public' as const,

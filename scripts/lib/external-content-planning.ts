@@ -35,16 +35,16 @@ export const limits = { articles: 20, talks: 10 };
 export type Source = keyof typeof services;
 export type Collection = keyof typeof limits;
 export type Service = (typeof services)[Source];
-export type ContentData = z.infer<typeof contentRecordSchema>;
+type ContentData = z.infer<typeof contentRecordSchema>;
 export type FeedItem = { date: Date; title: string; url: string };
 export type StoredEntry = { file: string; id: string; data: ContentData };
 export type LinkStatus = 'public' | 'deleted' | 'defer' | 'review';
-export type IndexedEntry = {
+type IndexedEntry = {
   entry: StoredEntry;
   url?: string;
   source?: Source;
 };
-export type CollectionIndex = {
+type CollectionIndex = {
   collection: Collection;
   entries: IndexedEntry[];
   byUrl: Map<string, IndexedEntry>;
@@ -62,8 +62,8 @@ export type PruneRemoval = {
   file: string;
 };
 export type LinkCheck = { source: Source; url: string };
-export type SyncPlan = { changes: SyncChange[]; linkChecks: LinkCheck[] };
-export type PrunePlan = { removals: PruneRemoval[]; linkChecks: LinkCheck[] };
+type SyncPlan = { changes: SyncChange[]; linkChecks: LinkCheck[] };
+type PrunePlan = { removals: PruneRemoval[]; linkChecks: LinkCheck[] };
 
 export function isSource(value: string | undefined): value is Source {
   return value !== undefined && Object.hasOwn(services, value);
@@ -90,10 +90,6 @@ function analyzeContentUrl(
       )?.[0]
     : undefined;
   return { url, canonical: url.href, source };
-}
-
-export function canonicalUrl(value: string): string {
-  return analyzeContentUrl(value).canonical;
 }
 
 export function validateContentUrl(value: string, service: Service): string {

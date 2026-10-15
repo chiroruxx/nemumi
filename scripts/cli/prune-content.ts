@@ -2,11 +2,19 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   formatUnverifiedLinks,
-  parsePruneArguments,
   writeGitHubSummary,
 } from '../lib/content-cli.ts';
 import type { PruneResult } from '../lib/prune-content.ts';
 import { pruneContent } from '../lib/prune-content.ts';
+
+function parsePruneArguments(args: string[]): { dryRun: boolean } {
+  const options = args[0] === '--' ? args.slice(1) : args;
+  if (options.length === 0) return { dryRun: false };
+  if (options.length === 1 && options[0] === '--dry-run') {
+    return { dryRun: true };
+  }
+  throw new Error('Usage: prune-content [--dry-run]');
+}
 
 type RunPruneContentOptions = {
   dryRun?: boolean;
@@ -15,7 +23,7 @@ type RunPruneContentOptions = {
   writeSummary?: (value: string) => Promise<void>;
 };
 
-export async function runPruneContent({
+async function runPruneContent({
   dryRun = false,
   prune = pruneContent,
   writeOutput = (value) => console.log(value),

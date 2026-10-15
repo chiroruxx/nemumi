@@ -9,7 +9,7 @@ import {
   validateContentUrl,
 } from './external-content-planning.ts';
 
-export const DEFAULT_EXECUTION_BUDGET_MS = 8 * 60 * 1000;
+const DEFAULT_EXECUTION_BUDGET_MS = 8 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 30_000;
 const RSS_RESPONSE_LIMIT_BYTES = 5 * 1024 * 1024;
 const MAX_RETRIES = 2;
@@ -23,7 +23,7 @@ export type ExecutionContext = {
 };
 
 type Timer = ReturnType<typeof setTimeout>;
-export type ExecutionContextOptions = {
+type ExecutionContextOptions = {
   budgetMs?: number;
   now?: () => number;
   setTimer?: (callback: () => void, delayMs: number) => Timer;
@@ -55,14 +55,11 @@ export function createExecutionContext({
   };
 }
 
-export type FetchLike = (
+type FetchLike = (
   input: string | URL | Request,
   init?: RequestInit,
 ) => Promise<Response>;
-export type Sleep = (
-  milliseconds: number,
-  signal?: AbortSignal,
-) => Promise<void>;
+type Sleep = (milliseconds: number, signal?: AbortSignal) => Promise<void>;
 export type HttpRuntime = {
   fetch?: FetchLike;
   sleep?: Sleep;
@@ -168,7 +165,7 @@ function publicationDate(value: string): Date {
   return contentDateSchema.parse(formatDateInSiteTimeZone(instant));
 }
 
-export async function parseFeedXml(xml: string, service: Service) {
+async function parseFeedXml(xml: string, service: Service) {
   const parsed = await new Parser().parseString(xml);
   if (!parsed.items.length)
     throw new Error(`${service.label} RSS feed is empty`);
@@ -322,13 +319,13 @@ export type LinkVerifier = (
   service: Service,
   context: ExecutionContext,
 ) => Promise<LinkStatus>;
-export type LinkCheckRunOptions = {
+type LinkCheckRunOptions = {
   services: typeof services;
   context: ExecutionContext;
   batchIntervalMs?: number;
   sleep?: Sleep;
 };
-export type LinkCheckRunResult = {
+type LinkCheckRunResult = {
   statuses: Map<string, LinkStatus>;
   unchecked: LinkCheck[];
 };

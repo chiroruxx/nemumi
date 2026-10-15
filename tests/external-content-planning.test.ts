@@ -301,3 +301,31 @@ test('source ownership matches host, account path, and collection while preservi
     assert.equal(index.entries[0]?.source, source);
   }
 });
+
+test('buildCollectionIndex removes fragments from comparison URLs, preserves queries, and leaves stored entries unchanged', () => {
+  const urls = [
+    'https://sizu.me/chihiroxx/posts/one?ref=first#section',
+    'https://sizu.me/chihiroxx/posts/one?ref=second#section',
+  ];
+  const entries = urls.map((url, index) =>
+    storedEntry(`${index}.yaml`, '2026-10-01', 'One', url),
+  );
+  const index = buildCollectionIndex('articles', entries);
+  const expected = [
+    'https://sizu.me/chihiroxx/posts/one?ref=first',
+    'https://sizu.me/chihiroxx/posts/one?ref=second',
+  ];
+  assert.deepEqual(
+    index.entries.map(({ url }) => url),
+    expected,
+  );
+  assert.deepEqual([...index.byUrl.keys()], expected);
+  assert.deepEqual(
+    index.entries.map(({ source }) => source),
+    ['sizu', 'sizu'],
+  );
+  assert.deepEqual(
+    entries.map(({ data }) => data.url),
+    urls,
+  );
+});

@@ -44,7 +44,6 @@ type PrunePlan = { removals: PruneRemoval[]; linkChecks: LinkCheck[] };
 
 type ParsedContentUrl = {
   url: URL;
-  canonical: string;
   source: Source | undefined;
 };
 
@@ -55,7 +54,7 @@ function analyzeContentUrl(
   const url = new URL(value);
   url.hash = '';
   const source = collection ? findSource(url, collection) : undefined;
-  return { url, canonical: url.href, source };
+  return { url, source };
 }
 
 export function buildCollectionIndex(
@@ -67,7 +66,7 @@ export function buildCollectionIndex(
   const indexedEntries = entries.map((entry) => {
     const value = entry.data.url;
     const parsed = value ? analyzeContentUrl(value, collection) : undefined;
-    const url = parsed?.canonical;
+    const url = parsed?.url.href;
     if (url) {
       const previous = seenUrls.get(url);
       if (previous) {

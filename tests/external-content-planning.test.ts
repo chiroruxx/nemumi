@@ -1,15 +1,14 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
+import { services } from '../scripts/lib/external-content.ts';
 import {
   buildCollectionIndex,
   createPrunePlan,
   createSyncPlan,
   type FeedItem,
-  isSource,
   limits,
   type StoredEntry,
-  services,
   validateContentUrl,
 } from '../scripts/lib/external-content-planning.ts';
 
@@ -31,12 +30,6 @@ const feedItem = (date: string, title: string, url: string): FeedItem => ({
   date: new Date(date),
   title,
   url,
-});
-
-test('isSource accepts configured services only', () => {
-  assert.equal(isSource('sizu'), true);
-  assert.equal(isSource('unknown'), false);
-  assert.equal(isSource(undefined), false);
 });
 
 test('validateContentUrl applies one HTTPS, account, host, and credential policy while preserving query', () => {

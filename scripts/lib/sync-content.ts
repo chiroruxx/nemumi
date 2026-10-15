@@ -4,6 +4,9 @@ import {
   type CommonContentOptions,
   type ContentResult,
   defaultContentDirectory,
+  type Service,
+  type Source,
+  services,
 } from './external-content.ts';
 import {
   applyFileChanges,
@@ -22,10 +25,7 @@ import {
   buildCollectionIndex,
   createSyncPlan,
   type FeedItem,
-  type Service,
-  type Source,
   type SyncChange,
-  services,
 } from './external-content-planning.ts';
 
 type FeedLoader = (

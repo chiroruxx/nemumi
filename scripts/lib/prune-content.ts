@@ -2,6 +2,7 @@ import {
   type CommonContentOptions,
   type ContentResult,
   defaultContentDirectory,
+  services,
 } from './external-content.ts';
 import {
   applyFileChanges,
@@ -20,7 +21,6 @@ import {
   createPrunePlan,
   limits,
   type PruneRemoval,
-  services,
 } from './external-content-planning.ts';
 
 type PruneOptions = CommonContentOptions;

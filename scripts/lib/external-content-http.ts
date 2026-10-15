@@ -1,11 +1,10 @@
 import Parser from 'rss-parser';
 import { contentDateSchema } from '../../src/config/content-schema.ts';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
+import type { Service, services } from './external-content.ts';
 import {
   type LinkCheck,
   type LinkStatus,
-  type Service,
-  type services,
   validateContentUrl,
 } from './external-content-planning.ts';
 

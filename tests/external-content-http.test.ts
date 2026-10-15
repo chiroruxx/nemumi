@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { type Service, services } from '../scripts/lib/external-content.ts';
 import {
   createExecutionContext,
   type ExecutionContext,
@@ -10,9 +11,7 @@ import {
 import type {
   LinkCheck,
   LinkStatus,
-  Service,
 } from '../scripts/lib/external-content-planning.ts';
-import { services } from '../scripts/lib/external-content-planning.ts';
 
 const feedFixtures: [Service, string, string, string][] = [
   [

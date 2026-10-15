@@ -4,7 +4,7 @@ import {
   formatUnverifiedLinks,
   writeGitHubSummary,
 } from '../lib/content-cli.ts';
-import { isSource, type Source } from '../lib/external-content-planning.ts';
+import { isSource, type Source } from '../lib/external-content.ts';
 import type { SyncResult } from '../lib/sync-content.ts';
 import { syncService } from '../lib/sync-content.ts';
 

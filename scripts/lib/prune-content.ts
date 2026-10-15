@@ -38,7 +38,10 @@ export async function pruneContent({
   now = Date.now,
   sleep,
 }: PruneOptions = {}): Promise<PruneResult> {
-  const context = createExecutionContext({ budgetMs: executionBudgetMs, now });
+  const context = createExecutionContext({
+    ...(executionBudgetMs === undefined ? {} : { budgetMs: executionBudgetMs }),
+    now,
+  });
   try {
     const collectionPlans: {
       index: ReturnType<typeof buildCollectionIndex>;

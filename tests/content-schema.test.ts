@@ -54,6 +54,7 @@ test('content record URL parsing preserves query and fragment and keeps a missin
     title: 'Manual',
   });
   assert.equal(missing.url, undefined);
+  assert.equal(Object.hasOwn(missing, 'url'), false);
 });
 
 test('contentUrlSchema turns valid strings into URL objects and rejects invalid input', () => {
@@ -64,4 +65,12 @@ test('contentUrlSchema turns valid strings into URL objects and rejects invalid 
   for (const invalid of ['not a URL', '', null, 123]) {
     assert.equal(contentUrlSchema.safeParse(invalid).success, false);
   }
+});
+
+test('content record URL can be omitted but cannot explicitly be undefined', () => {
+  const value = { date: '2026-10-03', title: 'Manual' };
+  assert.equal(contentRecordSchema.safeParse(value).success, true);
+  const result = contentRecordSchema.safeParse({ ...value, url: undefined });
+  assert.equal(result.success, false);
+  if (!result.success) assert.deepEqual(result.error.issues[0]?.path, ['url']);
 });

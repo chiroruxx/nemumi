@@ -66,7 +66,10 @@ export async function syncService(
 ): Promise<SyncResult> {
   const service = getService(source);
 
-  const context = createExecutionContext({ budgetMs: executionBudgetMs, now });
+  const context = createExecutionContext({
+    ...(executionBudgetMs === undefined ? {} : { budgetMs: executionBudgetMs }),
+    now,
+  });
   try {
     const collection = service.collection;
     const existing = await readCollection(collection, contentDirectory);

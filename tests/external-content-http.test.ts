@@ -175,7 +175,7 @@ test('fetchFeed cancels redirect and failed response bodies and enforces the byt
           canceled += 1;
         },
       }),
-      { status, headers },
+      { status, ...(headers === undefined ? {} : { headers }) },
     );
   await assert.rejects(
     fetchFeed(getService('sizu'), {
@@ -540,7 +540,7 @@ test('verifyLink cancels bodies for redirects and each terminal HTTP status', as
           canceled += 1;
         },
       }),
-      { status, headers },
+      { status, ...(headers === undefined ? {} : { headers }) },
     );
   const statuses = [302, 404, 403, 400] as const;
   const expected = ['review', 'deleted', 'defer', 'review'] as const;

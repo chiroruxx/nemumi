@@ -49,7 +49,7 @@ const activities = defineCollection({
       endDate: contentDateSchema.optional(),
       types: z.array(nonBlankString).min(1).optional(),
       title: nonBlankString,
-      url: contentUrlSchema.optional(),
+      url: contentUrlSchema.exactOptional(),
       description: nonBlankString.optional(),
     })
     .superRefine(({ startDate, endDate }, context) => {

@@ -18,8 +18,8 @@ export type StoredEntry = { file: string; id: string; data: ContentData };
 export type LinkStatus = 'public' | 'deleted' | 'defer' | 'review';
 type IndexedEntry = {
   entry: StoredEntry;
-  url?: string;
-  source?: Source;
+  url: string | undefined;
+  source: Source | undefined;
 };
 type CollectionIndex = {
   collection: Collection;

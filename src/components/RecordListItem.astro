@@ -6,7 +6,7 @@ interface Props extends ComponentProps<typeof RecordListItemContent> {
   url?: URL;
 }
 
-const { startDate, endDate, tags, title, url } = Astro.props;
+const { url, ...content } = Astro.props;
 ---
 
 {url ? (
@@ -16,24 +16,14 @@ const { startDate, endDate, tags, title, url } = Astro.props;
     target="_blank"
     rel="noopener noreferrer"
   >
-    <RecordListItemContent
-      startDate={startDate}
-      endDate={endDate}
-      tags={tags}
-      title={title}
-    />
+    <RecordListItemContent {...content} />
     <span class="row-arrow" aria-hidden="true">
       ↗
     </span>
   </a>
 ) : (
   <div class="record-row">
-    <RecordListItemContent
-      startDate={startDate}
-      endDate={endDate}
-      tags={tags}
-      title={title}
-    />
+    <RecordListItemContent {...content} />
   </div>
 )}
 

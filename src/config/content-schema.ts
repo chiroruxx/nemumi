@@ -16,5 +16,5 @@ export const contentRecordSchema = z.object({
   date: contentDateSchema,
   types: z.array(nonBlankString).min(1).optional(),
   title: nonBlankString,
-  url: contentUrlSchema.optional(),
+  url: contentUrlSchema.exactOptional(),
 });

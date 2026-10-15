@@ -4,7 +4,11 @@ import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
 import { runPruneContent } from '../scripts/cli/prune-content.ts';
-import { pruneContent } from '../scripts/lib/external-content.ts';
+import type { ExecutionContext } from '../scripts/lib/external-content-http.ts';
+import {
+  type PruneOptions,
+  pruneContent,
+} from '../scripts/lib/prune-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
 test('prune CLI reports no unverified URLs when all links are verified', async () => {
@@ -85,7 +89,7 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
     }),
   );
 
-  const options = {
+  const options: PruneOptions = {
     contentDirectory,
     linkVerifier: async (url: string) => {
       if (url.endsWith('/post-02')) return 'deleted' as const;
@@ -282,4 +286,32 @@ test('pruning applies confirmed limit and link removals while retaining unchecke
       (_, index) => `entry-${String(index + 3).padStart(2, '0')}.yaml`,
     ),
   );
+});
+
+test('prune leaves a caller-owned execution context usable after completion and failure', async (t) => {
+  const contentDirectory = await createContentDirectory(t);
+  let disposals = 0;
+  const executionContext: ExecutionContext = {
+    signal: new AbortController().signal,
+    remainingMs: () => 1000,
+    dispose: () => {
+      disposals += 1;
+    },
+  };
+
+  assert.deepEqual(await pruneContent({ contentDirectory, executionContext }), {
+    deferred: [],
+    review: [],
+    unchecked: [],
+  });
+  await writeFile(
+    path.join(contentDirectory, 'articles', 'invalid.yaml'),
+    'date: [unterminated',
+  );
+  await assert.rejects(
+    pruneContent({ contentDirectory, executionContext }),
+    /YAML/,
+  );
+  assert.equal(disposals, 0);
+  assert.equal(executionContext.signal.aborted, false);
 });

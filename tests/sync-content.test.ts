@@ -3,7 +3,8 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
-import { syncService } from '../scripts/lib/external-content.ts';
+import type { ExecutionContext } from '../scripts/lib/external-content-http.ts';
+import { type SyncOptions, syncService } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
 test('sync dry-run does not write files, and a repeated sync is idempotent', async (t) => {
@@ -13,7 +14,7 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
     title: 'New post',
     url: 'https://sizu.me/chihiroxx/posts/new-post',
   };
-  const options = {
+  const options: SyncOptions = {
     contentDirectory,
     feedLoader: async () => [item],
     linkVerifier: async () => 'public' as const,
@@ -407,4 +408,43 @@ test('sync still fails before applying any file when new link checks return defe
       [],
     );
   }
+});
+
+test('sync leaves a caller-owned execution context usable after completion and failure', async (t) => {
+  const contentDirectory = await createContentDirectory(t);
+  let disposals = 0;
+  const executionContext: ExecutionContext = {
+    signal: new AbortController().signal,
+    remainingMs: () => 1000,
+    dispose: () => {
+      disposals += 1;
+    },
+  };
+
+  assert.deepEqual(
+    await syncService('sizu', {
+      contentDirectory,
+      executionContext,
+      feedLoader: async () => [],
+    }),
+    {
+      deferred: [],
+      review: [],
+      unchecked: [],
+    },
+  );
+  await writeFile(
+    path.join(contentDirectory, 'articles', 'invalid.yaml'),
+    'date: [unterminated',
+  );
+  await assert.rejects(
+    syncService('sizu', {
+      contentDirectory,
+      executionContext,
+      feedLoader: async () => [],
+    }),
+    /YAML/,
+  );
+  assert.equal(disposals, 0);
+  assert.equal(executionContext.signal.aborted, false);
 });

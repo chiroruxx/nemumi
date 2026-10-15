@@ -5,8 +5,8 @@ import {
   parsePruneArguments,
   writeGitHubSummary,
 } from '../lib/content-cli.ts';
-import type { PruneResult } from '../lib/external-content.ts';
-import { pruneContent } from '../lib/external-content.ts';
+import type { PruneResult } from '../lib/prune-content.ts';
+import { pruneContent } from '../lib/prune-content.ts';
 
 type RunPruneContentOptions = {
   dryRun?: boolean;

@@ -60,23 +60,17 @@ test('findSource matches URL host, account path, and collection', () => {
   }
 });
 
-test('validateContentUrl applies one HTTPS, account, host, and credential policy while preserving query', () => {
+test('validateContentUrl applies HTTPS, account, host, and credential policy without changing the URL', () => {
   const accepted = [
-    [
-      'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
-      'https://sizu.me/chihiroxx/posts/one?ref=feed',
-    ],
-    [
-      'https://toyo.hatenablog.jp/entry/one?ref=feed#section',
-      'https://toyo.hatenablog.jp/entry/one?ref=feed',
-    ],
-  ] as const;
-  for (const [input, expected] of accepted) {
+    'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
+    'https://toyo.hatenablog.jp/entry/one?ref=feed#section',
+  ];
+  for (const input of accepted) {
     const service = input.includes('sizu.me')
       ? getService('sizu')
       : getService('hatena');
     const url = new URL(input);
-    assert.equal(validateContentUrl(url, service), expected);
+    assert.equal(validateContentUrl(url, service), undefined);
     assert.equal(url.href, input);
   }
 
@@ -100,7 +94,7 @@ test('validateContentUrl applies one HTTPS, account, host, and credential policy
 test('validateContentUrl rejects mismatched service settings and accepts equivalent settings', () => {
   const service = getService('sizu');
   const url = new URL('https://sizu.me/chihiroxx/posts/one');
-  assert.equal(validateContentUrl(url, { ...service }), url.href);
+  assert.doesNotThrow(() => validateContentUrl(url, { ...service }));
   for (const overrides of [
     { pathPrefix: '/chihiroxx/' },
     { collection: 'talks' },

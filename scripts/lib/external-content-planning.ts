@@ -98,7 +98,10 @@ function normalizedFeed(
   const service = getService(source);
   const normalized = new Map<string, FeedItem>();
   for (const item of feed) {
-    const url = validateContentUrl(new URL(item.url), service);
+    const parsed = new URL(item.url);
+    validateContentUrl(parsed, service);
+    parsed.hash = '';
+    const url = parsed.href;
     const value = { ...item, url };
     const previous = normalized.get(url);
     if (

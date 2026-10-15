@@ -655,3 +655,21 @@ test('verifyLink reviews redirect loops and allows five redirects but rejects a 
     assert.equal(requests, 6);
   }
 });
+
+test('verifyLink strips fragments while preserving query parameters in requests', async () => {
+  const requested: string[] = [];
+  assert.equal(
+    await verifyLink(
+      'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
+      getService('sizu'),
+      {
+        fetch: async (input) => {
+          requested.push(String(input));
+          return new Response(null, { status: 200 });
+        },
+      },
+    ),
+    'public',
+  );
+  assert.deepEqual(requested, ['https://sizu.me/chihiroxx/posts/one?ref=feed']);
+});

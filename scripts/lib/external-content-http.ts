@@ -175,11 +175,11 @@ async function parseFeedXml(xml: string, service: Service) {
         `${service.label} RSS item is missing title, pubDate, or link`,
       );
     }
-    return {
-      date: publicationDate(item.pubDate),
-      title,
-      url: validateContentUrl(new URL(item.link), service),
-    };
+    const date = publicationDate(item.pubDate);
+    const url = new URL(item.link);
+    validateContentUrl(url, service);
+    url.hash = '';
+    return { date, title, url: url.href };
   });
 }
 
@@ -274,7 +274,9 @@ export async function verifyLink(
     }
     let url: URL;
     try {
-      url = new URL(validateContentUrl(new URL(target), service));
+      url = new URL(target);
+      validateContentUrl(url, service);
+      url.hash = '';
     } catch {
       return 'review';
     }

@@ -6,7 +6,7 @@ import type {
 } from './external-content-http.ts';
 import type { LinkCheck } from './external-content-planning.ts';
 
-export const services = {
+const services = {
   sizu: {
     label: 'しずかなインターネット',
     feed: 'https://sizu.me/chihiroxx/rss',
@@ -35,6 +35,15 @@ export const services = {
 
 export type Source = keyof typeof services;
 export type Service = (typeof services)[Source];
+
+export function getSources(): Source[] {
+  return Object.keys(services) as Source[];
+}
+
+export function getService(source: Source): Service {
+  if (!isSource(source)) throw new Error(`Unknown service: ${source}`);
+  return services[source];
+}
 
 export function isSource(value: string | undefined): value is Source {
   return value !== undefined && Object.hasOwn(services, value);

@@ -4,9 +4,9 @@ import {
   type CommonContentOptions,
   type ContentResult,
   defaultContentDirectory,
+  getService,
   type Service,
   type Source,
-  services,
 } from './external-content.ts';
 import {
   applyFileChanges,
@@ -65,8 +65,7 @@ export async function syncService(
     sleep,
   }: SyncOptions = {},
 ): Promise<SyncResult> {
-  const service = services[source];
-  if (!service) throw new Error(`Unknown service: ${source}`);
+  const service = getService(source);
 
   const context =
     executionContext ??
@@ -105,7 +104,6 @@ export async function syncService(
         ((url, configured, execution) =>
           verifyLink(url, configured, { context: execution })),
       {
-        services,
         context,
         batchIntervalMs: linkCheckBatchIntervalMs,
         ...(sleep ? { sleep } : {}),

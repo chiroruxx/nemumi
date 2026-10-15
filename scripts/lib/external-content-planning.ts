@@ -2,7 +2,12 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import type { z } from 'zod';
 import type { contentRecordSchema } from '../../src/config/content-schema.ts';
-import { type Service, type Source, services } from './external-content.ts';
+import {
+  getService,
+  getSources,
+  type Service,
+  type Source,
+} from './external-content.ts';
 
 export const limits = { articles: 20, talks: 10 };
 
@@ -50,26 +55,28 @@ function analyzeContentUrl(
   const url = new URL(value);
   url.hash = '';
   const source = collection
-    ? (Object.entries(services) as [Source, Service][]).find(
-        ([, service]) =>
+    ? getSources().find((source) => {
+        const service = getService(source);
+        return (
           service.collection === collection &&
           service.host === url.hostname &&
-          url.pathname.startsWith(service.pathPrefix),
-      )?.[0]
+          url.pathname.startsWith(service.pathPrefix)
+        );
+      })
     : undefined;
   return { url, canonical: url.href, source };
 }
 
 export function validateContentUrl(value: string, service: Service): string {
   const parsed = analyzeContentUrl(value, service.collection);
-  const configuredSource = (
-    Object.entries(services) as [Source, Service][]
-  ).find(
-    ([, configured]) =>
+  const configuredSource = getSources().find((source) => {
+    const configured = getService(source);
+    return (
       configured.host === service.host &&
       configured.pathPrefix === service.pathPrefix &&
-      configured.collection === service.collection,
-  )?.[0];
+      configured.collection === service.collection
+    );
+  });
   if (
     parsed.url.protocol !== 'https:' ||
     (parsed.url.port !== '' && parsed.url.port !== '443') ||
@@ -122,7 +129,7 @@ function normalizedFeed(
   feed: FeedItem[],
   source: Source,
 ): Map<string, FeedItem> {
-  const service = services[source];
+  const service = getService(source);
   const normalized = new Map<string, FeedItem>();
   for (const item of feed) {
     const url = validateContentUrl(item.url, service);
@@ -188,7 +195,7 @@ export function createSyncPlan({
   feed: FeedItem[];
   contentDirectory: string;
 }): SyncPlan {
-  const service = services[source];
+  const service = getService(source);
   if (service.collection !== index.collection) {
     throw new Error(
       `${service.label} cannot sync the ${index.collection} collection`,

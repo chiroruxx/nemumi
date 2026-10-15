@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { services } from '../scripts/lib/external-content.ts';
+import { getService } from '../scripts/lib/external-content.ts';
 import {
   buildCollectionIndex,
   createPrunePlan,
@@ -44,7 +44,9 @@ test('validateContentUrl applies one HTTPS, account, host, and credential policy
     ],
   ] as const;
   for (const [input, expected] of accepted) {
-    const service = input.includes('sizu.me') ? services.sizu : services.hatena;
+    const service = input.includes('sizu.me')
+      ? getService('sizu')
+      : getService('hatena');
     assert.equal(validateContentUrl(input, service), expected);
   }
 
@@ -58,7 +60,10 @@ test('validateContentUrl applies one HTTPS, account, host, and credential policy
     'https://sizu.me/other-account/posts/one',
   ];
   for (const input of rejected) {
-    assert.throws(() => validateContentUrl(input, services.sizu), /Unexpected/);
+    assert.throws(
+      () => validateContentUrl(input, getService('sizu')),
+      /Unexpected/,
+    );
   }
 });
 

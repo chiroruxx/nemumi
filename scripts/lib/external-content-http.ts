@@ -1,7 +1,7 @@
 import Parser from 'rss-parser';
 import { contentDateSchema } from '../../src/config/content-schema.ts';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
-import type { Service, services } from './external-content.ts';
+import { getService, type Service } from './external-content.ts';
 import {
   type LinkCheck,
   type LinkStatus,
@@ -319,7 +319,6 @@ export type LinkVerifier = (
   context: ExecutionContext,
 ) => Promise<LinkStatus>;
 type LinkCheckRunOptions = {
-  services: typeof services;
   context: ExecutionContext;
   batchIntervalMs?: number;
   sleep?: Sleep;
@@ -332,12 +331,7 @@ type LinkCheckRunResult = {
 export async function runLinkChecks(
   entries: LinkCheck[],
   verify: LinkVerifier,
-  {
-    services: configuredServices,
-    context,
-    batchIntervalMs = 1000,
-    sleep: wait = sleep,
-  }: LinkCheckRunOptions,
+  { context, batchIntervalMs = 1000, sleep: wait = sleep }: LinkCheckRunOptions,
 ): Promise<LinkCheckRunResult> {
   const statuses = new Map<string, LinkStatus>();
   const expired = () => context.signal.aborted || context.remainingMs() <= 0;
@@ -359,11 +353,7 @@ export async function runLinkChecks(
           if (expired()) return;
           let status: LinkStatus;
           try {
-            status = await verify(
-              entry.url,
-              configuredServices[entry.source],
-              context,
-            );
+            status = await verify(entry.url, getService(entry.source), context);
           } catch {
             status = 'defer';
           }

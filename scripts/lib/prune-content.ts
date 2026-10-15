@@ -2,7 +2,6 @@ import {
   type CommonContentOptions,
   type ContentResult,
   defaultContentDirectory,
-  services,
 } from './external-content.ts';
 import {
   applyFileChanges,
@@ -78,7 +77,6 @@ export async function pruneContent({
         ((url, configured, execution) =>
           verifyLink(url, configured, { context: execution })),
       {
-        services,
         context,
         batchIntervalMs: linkCheckBatchIntervalMs,
         ...(sleep ? { sleep } : {}),

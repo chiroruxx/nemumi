@@ -66,3 +66,4 @@ jobs:
           description: RSS の内容を同期します。
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          auto-merge: ${{ vars.CONTENT_AUTO_MERGE }}

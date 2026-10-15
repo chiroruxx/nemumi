@@ -69,6 +69,7 @@ test('content workflows checkout trusted main before invoking the shared automat
     const inputs = mapping(sharedAction.with, `${file} shared action inputs`);
     assert.equal(inputs['client-id'], expression('vars.APP_CLIENT_ID'));
     assert.equal(inputs['private-key'], expression('secrets.APP_PRIVATE_KEY'));
+    assert.equal(inputs['auto-merge'], expression('vars.CONTENT_AUTO_MERGE'));
     assert.equal(inputs.mode, jobName === 'sync' ? 'sync' : 'prune');
   }
 });
@@ -108,6 +109,12 @@ test('shared content action delegates PR management and gates auto-merge on an o
   const pullRequestWith = mapping(pullRequest.with, 'create-pull-request.with');
   assert.equal(pullRequestWith.base, 'main');
   const actionInputs = mapping(action.inputs, 'action inputs');
+  const autoMergeInput = mapping(
+    actionInputs['auto-merge'],
+    'auto-merge input',
+  );
+  assert.equal(autoMergeInput.required, false);
+  assert.equal(autoMergeInput.default, 'false');
   const addPathsInput = mapping(actionInputs['add-paths'], 'add-paths input');
   assert.equal(pullRequestWith['delete-branch'], false);
   assert.match(String(pullRequestWith.committer), /github-actions\[bot\]/);
@@ -115,6 +122,7 @@ test('shared content action delegates PR management and gates auto-merge on an o
   assert.equal(pullRequestWith['add-paths'], expression('inputs.add-paths'));
   assert.match(String(pullRequestWith.body), /steps\.sync\.outputs\.summary/);
   assert.match(String(pullRequestWith.body), /steps\.prune\.outputs\.summary/);
+  assert.match(String(pullRequestWith.body), /inputs\.auto-merge == 'true'/);
   assert.match(String(pullRequestWith.body), /自動マージします。/);
   assert.match(
     String(pullRequestWith.body),
@@ -132,8 +140,26 @@ test('shared content action delegates PR management and gates auto-merge on an o
   assert.ok(autoMerge, 'the shared action must support auto-merge');
   assert.equal(
     autoMerge.if,
-    "vars.CONTENT_AUTO_MERGE == 'true' && steps.pull-request.outputs.pull-request-number != '' && steps.pull-request.outputs.pull-request-operation != 'closed'",
+    "inputs.auto-merge == 'true' && steps.pull-request.outputs.pull-request-number != '' && steps.pull-request.outputs.pull-request-operation != 'closed'",
   );
+});
+
+test('shared content action expressions do not reference repository variables directly', async () => {
+  const source = await readFile(
+    '.github/actions/content-automation/action.yml',
+    'utf8',
+  );
+  const action = await yamlFile(
+    '.github/actions/content-automation/action.yml',
+  );
+  assert.doesNotMatch(source, /\$\{\{[^}]*\bvars\s*[.[]/);
+  const steps = sequence(mapping(action.runs, 'runs').steps, 'action steps');
+  for (const step of steps) {
+    const condition = mapping(step, 'action step').if;
+    if (typeof condition === 'string') {
+      assert.doesNotMatch(condition, /\bvars\s*[.[]/);
+    }
+  }
 });
 
 test('update workflow preserves scheduled and manual service matrix behavior', async () => {

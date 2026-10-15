@@ -33,3 +33,4 @@ jobs:
           description: ディレクトリごとの保持件数を適用し、無効リンクを除去します。
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          auto-merge: ${{ vars.CONTENT_AUTO_MERGE }}

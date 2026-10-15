@@ -1,5 +1,5 @@
 name: "First"
-url: "https://example.com/first"
+url: "https://example.com/first?ref=fixture#section"
 description: "First by order."
 image: "../../../../src/assets/goconnect-icon.png"
 imageStyle: "wordmark"

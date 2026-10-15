@@ -4,6 +4,7 @@ import { z } from 'astro/zod';
 import {
   contentDateSchema,
   contentRecordSchema,
+  contentUrlSchema,
   nonBlankString,
 } from './config/content-schema.ts';
 
@@ -28,7 +29,7 @@ const communities = defineCollection({
   schema: ({ image }) =>
     z.object({
       name: nonBlankString,
-      url: z.url(),
+      url: contentUrlSchema,
       description: nonBlankString,
       image: image(),
       imageStyle: z.enum(['wordmark', 'square']),
@@ -48,7 +49,7 @@ const activities = defineCollection({
       endDate: contentDateSchema.optional(),
       types: z.array(nonBlankString).min(1).optional(),
       title: nonBlankString,
-      url: z.url().optional(),
+      url: contentUrlSchema.optional(),
       description: nonBlankString.optional(),
     })
     .superRefine(({ startDate, endDate }, context) => {

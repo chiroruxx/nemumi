@@ -48,6 +48,8 @@ test('readCollection returns parsed and validated content with file identity', a
   assert.ok(entries[0].data.date instanceof Date);
   assert.equal(entries[0].data.date.toISOString(), '2026-10-03T00:00:00.000Z');
   assert.equal(entries[0].data.title, 'A post');
+  assert.ok(entries[0].data.url instanceof URL);
+  assert.equal(entries[0].data.url.href, 'https://sizu.me/chihiroxx/posts/a');
 });
 
 test('validateFileTargets checks every target and detects escapes and collisions before changes', async (t) => {

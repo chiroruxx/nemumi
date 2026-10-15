@@ -4,6 +4,8 @@ export const contentDateSchema = z
   .union([z.string(), z.date()])
   .pipe(z.coerce.date());
 
+export const contentUrlSchema = z.url().transform((value) => new URL(value));
+
 export const nonBlankString = z
   .string()
   .refine((value) => value.trim().length > 0, {
@@ -14,5 +16,5 @@ export const contentRecordSchema = z.object({
   date: contentDateSchema,
   types: z.array(nonBlankString).min(1).optional(),
   title: nonBlankString,
-  url: z.url().optional(),
+  url: contentUrlSchema.optional(),
 });

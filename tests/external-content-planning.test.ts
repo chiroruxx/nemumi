@@ -20,7 +20,12 @@ function storedEntry(
   return {
     file: `/repo/src/content/articles/${id}`,
     id,
-    data: { date: new Date(date), title, url, ...(types ? { types } : {}) },
+    data: {
+      date: new Date(date),
+      title,
+      url: new URL(url),
+      ...(types ? { types } : {}),
+    },
   };
 }
 
@@ -325,7 +330,23 @@ test('buildCollectionIndex removes fragments from comparison URLs, preserves que
     ['sizu', 'sizu'],
   );
   assert.deepEqual(
-    entries.map(({ data }) => data.url),
+    entries.map(({ data }) => data.url?.href),
     urls,
+  );
+});
+
+test('createSyncPlan leaves unchanged saved records untouched', () => {
+  const url = 'https://sizu.me/chihiroxx/posts/unchanged?ref=rss';
+  const index = buildCollectionIndex('articles', [
+    storedEntry('unchanged.yaml', '2026-10-03', 'Unchanged', url, ['日常記事']),
+  ]);
+  assert.deepEqual(
+    createSyncPlan({
+      source: 'sizu',
+      index,
+      feed: [feedItem('2026-10-03', 'Unchanged', url)],
+      contentDirectory: '/repo/src/content',
+    }),
+    { changes: [], linkChecks: [] },
   );
 });

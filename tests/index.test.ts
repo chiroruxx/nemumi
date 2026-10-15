@@ -69,3 +69,23 @@ test('an item without types renders without a tag', () => {
 
   assert.doesNotMatch(section.slice(itemStart, itemEnd), /class="record-tag"/);
 });
+
+test('content links preserve query parameters and fragments in every collection', () => {
+  for (const [section, url] of [
+    ['records', 'https://example.com/article?ref=fixture#section'],
+    ['records', 'https://example.com/activity?ref=fixture#section'],
+    ['talks', 'https://example.com/talk?ref=fixture#section'],
+    ['communities', 'https://example.com/first?ref=fixture#section'],
+  ]) {
+    assert.ok(getSection(section).includes(`href="${url}"`));
+  }
+});
+
+test('a record without a URL renders without an anchor', () => {
+  const section = getSection('records');
+  const titleIndex = section.indexOf('>Article 07</span>');
+  assert.notEqual(titleIndex, -1);
+  const itemStart = section.lastIndexOf('<li', titleIndex);
+  const itemEnd = section.indexOf('</li>', titleIndex);
+  assert.doesNotMatch(section.slice(itemStart, itemEnd), /<a\b/);
+});

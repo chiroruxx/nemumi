@@ -4,7 +4,7 @@ import type { ImageMetadata } from 'astro';
 
 interface Props {
   title: string;
-  url: string;
+  url: URL;
   description: string;
   image: ImageMetadata;
   imageStyle: 'wordmark' | 'square';
@@ -18,7 +18,12 @@ const imageHeight = Math.round((imageSize * image.height) / image.width);
 ---
 
 <article>
-  <a class="link-card" href={url} target="_blank" rel="noopener noreferrer">
+  <a
+    class="link-card"
+    href={url.href}
+    target="_blank"
+    rel="noopener noreferrer"
+  >
     <div
       class:list={['link-card-image', imageStyle]}
       style={imageBackground &&

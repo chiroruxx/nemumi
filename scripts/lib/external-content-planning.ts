@@ -48,7 +48,7 @@ type ParsedContentUrl = {
 };
 
 function analyzeContentUrl(
-  value: string,
+  value: URL,
   collection?: Collection,
 ): ParsedContentUrl {
   const url = new URL(value);
@@ -184,7 +184,7 @@ export function createSyncPlan({
       previous &&
       previous.data.date.getTime() === item.date.getTime() &&
       previous.data.title === item.title &&
-      previous.data.url === item.url &&
+      previous.data.url?.href === item.url &&
       sameValues(previous.data.types, types)
     ) {
       continue;

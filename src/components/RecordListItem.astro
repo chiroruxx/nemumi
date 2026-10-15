@@ -3,7 +3,7 @@ import type { ComponentProps } from 'astro/types';
 import RecordListItemContent from './RecordListItemContent.astro';
 
 interface Props extends ComponentProps<typeof RecordListItemContent> {
-  url?: string;
+  url?: URL;
 }
 
 const { startDate, endDate, tags, title, url } = Astro.props;
@@ -12,7 +12,7 @@ const { startDate, endDate, tags, title, url } = Astro.props;
 {url ? (
   <a
     class="record-row record-row-link"
-    href={url}
+    href={url.href}
     target="_blank"
     rel="noopener noreferrer"
   >

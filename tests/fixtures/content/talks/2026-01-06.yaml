@@ -2,3 +2,4 @@ date: "2026-01-06"
 types:
   - "talk"
 title: "Talk 06"
+url: "https://example.com/talk?ref=fixture#section"

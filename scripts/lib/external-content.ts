@@ -37,10 +37,9 @@ export type Source = keyof typeof services;
 export type Service = (typeof services)[Source];
 
 export function findSource(
-  value: string | URL,
+  url: URL,
   collection: Service['collection'],
 ): Source | undefined {
-  const url = value instanceof URL ? value : new URL(value);
   for (const source of Object.keys(services) as Source[]) {
     const service = services[source];
     if (

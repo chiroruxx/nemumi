@@ -54,12 +54,10 @@ test('findSource matches URL host, account path, and collection', () => {
     ['https://speakerdeck.com/chiroruxx/one', 'articles', undefined],
   ] as const;
   for (const [url, collection, source] of cases) {
-    assert.equal(findSource(url, collection), source);
     const parsed = new URL(url);
     assert.equal(findSource(parsed, collection), source);
     assert.equal(parsed.href, url);
   }
-  assert.throws(() => findSource('not a URL', 'articles'), TypeError);
 });
 
 test('validateContentUrl applies one HTTPS, account, host, and credential policy while preserving query', () => {

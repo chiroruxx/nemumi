@@ -25,6 +25,11 @@ inputs:
   private-key:
     description: GitHub App private key.
     required: true
+  # Composite action 内で vars を直接参照せず、呼び出し元から渡す。未指定時は自動マージを要求しない。
+  auto-merge:
+    description: Request auto-merge only when the value is the string true.
+    required: false
+    default: 'false'
   add-paths:
     description: Content YAML paths that the pull request may stage.
     required: false
@@ -93,11 +98,11 @@ runs:
 
           ${{ steps.sync.outputs.summary || steps.prune.outputs.summary }}
 
-          ${{ vars.CONTENT_AUTO_MERGE == 'true' && '必須 CI 成功後に自動マージします。' || 'この実行では自動マージを要求しません。設定済みの場合は解除し、内容を確認して手動でマージしてください。' }}
+          ${{ inputs.auto-merge == 'true' && '必須 CI 成功後に自動マージします。' || 'この実行では自動マージを要求しません。設定済みの場合は解除し、内容を確認して手動でマージしてください。' }}
         add-paths: ${{ inputs.add-paths }}
 
     - name: Enable auto-merge
-      if: vars.CONTENT_AUTO_MERGE == 'true' && steps.pull-request.outputs.pull-request-number != '' && steps.pull-request.outputs.pull-request-operation != 'closed'
+      if: inputs.auto-merge == 'true' && steps.pull-request.outputs.pull-request-number != '' && steps.pull-request.outputs.pull-request-operation != 'closed'
       shell: bash
       env:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}

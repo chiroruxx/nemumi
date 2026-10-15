@@ -59,7 +59,6 @@ export async function syncService(
     feedLoader,
     linkVerifier,
     executionBudgetMs,
-    executionContext,
     linkCheckBatchIntervalMs = 1000,
     now = Date.now,
     sleep,
@@ -67,14 +66,7 @@ export async function syncService(
 ): Promise<SyncResult> {
   const service = getService(source);
 
-  const context =
-    executionContext ??
-    createExecutionContext({
-      ...(executionBudgetMs === undefined
-        ? {}
-        : { budgetMs: executionBudgetMs }),
-      now,
-    });
+  const context = createExecutionContext({ budgetMs: executionBudgetMs, now });
   try {
     const collection = service.collection;
     const existing = await readCollection(collection, contentDirectory);
@@ -140,6 +132,6 @@ export async function syncService(
     if (!dryRun) await applyFileChanges(operations, contentDirectory);
     return result;
   } finally {
-    if (!executionContext) context.dispose();
+    context.dispose();
   }
 }

@@ -34,19 +34,11 @@ export async function pruneContent({
   contentDirectory = defaultContentDirectory,
   linkVerifier,
   executionBudgetMs,
-  executionContext,
   linkCheckBatchIntervalMs = 1000,
   now = Date.now,
   sleep,
 }: PruneOptions = {}): Promise<PruneResult> {
-  const context =
-    executionContext ??
-    createExecutionContext({
-      ...(executionBudgetMs === undefined
-        ? {}
-        : { budgetMs: executionBudgetMs }),
-      now,
-    });
+  const context = createExecutionContext({ budgetMs: executionBudgetMs, now });
   try {
     const collectionPlans: {
       index: ReturnType<typeof buildCollectionIndex>;
@@ -109,6 +101,6 @@ export async function pruneContent({
       unchecked: checked.unchecked,
     };
   } finally {
-    if (!executionContext) context.dispose();
+    context.dispose();
   }
 }

@@ -3,7 +3,6 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
-import type { ExecutionContext } from '../scripts/lib/external-content-http.ts';
 import { syncService } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
@@ -327,8 +326,7 @@ test('sync deadline keeps existing files unchanged and does not partially apply 
     path.join(articlesDirectory, 'existing.yaml'),
     'utf8',
   );
-  const controller = new AbortController();
-  let remaining = 1000;
+  let elapsed = 0;
   let checks = 0;
   const result = await syncService('sizu', {
     contentDirectory,
@@ -349,18 +347,14 @@ test('sync deadline keeps existing files unchanged and does not partially apply 
         url: 'https://sizu.me/chihiroxx/posts/another-new',
       },
     ],
-    executionContext: {
-      signal: controller.signal,
-      remainingMs: () => remaining,
-      dispose: () => {},
-    },
+    executionBudgetMs: 1000,
+    now: () => elapsed,
     linkCheckBatchIntervalMs: 0,
     linkVerifier: async () => {
       checks += 1;
       if (checks === 2) {
         await new Promise<void>((resolve) => setImmediate(resolve));
-        remaining = 0;
-        controller.abort(new Error('deadline'));
+        elapsed = 1000;
       }
       return 'public';
     },
@@ -408,43 +402,4 @@ test('sync still fails before applying any file when new link checks return defe
       [],
     );
   }
-});
-
-test('sync leaves a caller-owned execution context usable after completion and failure', async (t) => {
-  const contentDirectory = await createContentDirectory(t);
-  let disposals = 0;
-  const executionContext: ExecutionContext = {
-    signal: new AbortController().signal,
-    remainingMs: () => 1000,
-    dispose: () => {
-      disposals += 1;
-    },
-  };
-
-  assert.deepEqual(
-    await syncService('sizu', {
-      contentDirectory,
-      executionContext,
-      feedLoader: async () => [],
-    }),
-    {
-      deferred: [],
-      review: [],
-      unchecked: [],
-    },
-  );
-  await writeFile(
-    path.join(contentDirectory, 'articles', 'invalid.yaml'),
-    'date: [unterminated',
-  );
-  await assert.rejects(
-    syncService('sizu', {
-      contentDirectory,
-      executionContext,
-      feedLoader: async () => [],
-    }),
-    /YAML/,
-  );
-  assert.equal(disposals, 0);
-  assert.equal(executionContext.signal.aborted, false);
 });

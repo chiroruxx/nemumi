@@ -3,7 +3,6 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
-import type { ExecutionContext } from '../scripts/lib/external-content-http.ts';
 import { pruneContent } from '../scripts/lib/prune-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
@@ -203,23 +202,18 @@ test('pruning applies confirmed limit and link removals while retaining unchecke
       }),
     );
   }
-  const controller = new AbortController();
-  let remaining = 1000;
+  let elapsed = 0;
   let checks = 0;
   const result = await pruneContent({
     contentDirectory,
-    executionContext: {
-      signal: controller.signal,
-      remainingMs: () => remaining,
-      dispose: () => {},
-    },
+    executionBudgetMs: 1000,
+    now: () => elapsed,
     linkCheckBatchIntervalMs: 1000,
     linkVerifier: async () => {
       checks += 1;
       if (checks === 1) return 'deleted';
       await new Promise<void>((resolve) => setImmediate(resolve));
-      remaining = 0;
-      controller.abort(new Error('deadline'));
+      elapsed = 1000;
       return 'deleted';
     },
   });
@@ -231,32 +225,4 @@ test('pruning applies confirmed limit and link removals while retaining unchecke
       (_, index) => `entry-${String(index + 3).padStart(2, '0')}.yaml`,
     ),
   );
-});
-
-test('prune leaves a caller-owned execution context usable after completion and failure', async (t) => {
-  const contentDirectory = await createContentDirectory(t);
-  let disposals = 0;
-  const executionContext: ExecutionContext = {
-    signal: new AbortController().signal,
-    remainingMs: () => 1000,
-    dispose: () => {
-      disposals += 1;
-    },
-  };
-
-  assert.deepEqual(await pruneContent({ contentDirectory, executionContext }), {
-    deferred: [],
-    review: [],
-    unchecked: [],
-  });
-  await writeFile(
-    path.join(contentDirectory, 'articles', 'invalid.yaml'),
-    'date: [unterminated',
-  );
-  await assert.rejects(
-    pruneContent({ contentDirectory, executionContext }),
-    /YAML/,
-  );
-  assert.equal(disposals, 0);
-  assert.equal(executionContext.signal.aborted, false);
 });

@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  findSource,
   getService,
-  getSources,
   isSource,
+  type Service,
+  validateContentUrl,
 } from '../scripts/lib/external-content.ts';
 
 test('isSource accepts configured services only', () => {
@@ -17,8 +19,7 @@ test('isSource accepts configured services only', () => {
   assert.equal(isSource(undefined), false);
 });
 
-test('configured sources preserve their order and service settings', () => {
-  assert.deepEqual(getSources(), ['sizu', 'hatena', 'speakerdeck']);
+test('getService returns configured service settings', () => {
   assert.deepEqual(getService('sizu'), {
     label: 'しずかなインターネット',
     feed: 'https://sizu.me/chihiroxx/rss',
@@ -31,14 +32,83 @@ test('configured sources preserve their order and service settings', () => {
   assert.equal(getService('speakerdeck').collection, 'talks');
 });
 
-test('getSources returns a fresh list and getService rejects unconfigured sources', () => {
-  const sources = getSources();
-  sources.pop();
-  assert.deepEqual(getSources(), ['sizu', 'hatena', 'speakerdeck']);
+test('getService rejects unconfigured sources', () => {
   for (const source of ['unknown', 'toString', '__proto__']) {
     assert.throws(
       () => getService(source as Parameters<typeof getService>[0]),
       /Unknown service/,
+    );
+  }
+});
+
+test('findSource matches URL host, account path, and collection', () => {
+  const cases = [
+    ['https://sizu.me/chihiroxx/posts/one?ref=rss#section', 'articles', 'sizu'],
+    ['https://toyo.hatenablog.jp/entry/one', 'articles', 'hatena'],
+    ['https://speakerdeck.com/chiroruxx/one', 'talks', 'speakerdeck'],
+    ['http://sizu.me/chihiroxx/posts/one', 'articles', 'sizu'],
+    ['https://sizu.me/other/posts/one', 'articles', undefined],
+    ['https://sizu.me/chihiroxx/', 'articles', undefined],
+    ['https://example.com/chihiroxx/posts/one', 'articles', undefined],
+    ['https://sizu.me/chihiroxx/posts/one', 'talks', undefined],
+    ['https://speakerdeck.com/chiroruxx/one', 'articles', undefined],
+  ] as const;
+  for (const [url, collection, source] of cases) {
+    assert.equal(findSource(url, collection), source);
+    const parsed = new URL(url);
+    assert.equal(findSource(parsed, collection), source);
+    assert.equal(parsed.href, url);
+  }
+  assert.throws(() => findSource('not a URL', 'articles'), TypeError);
+});
+
+test('validateContentUrl applies one HTTPS, account, host, and credential policy while preserving query', () => {
+  const accepted = [
+    [
+      'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
+      'https://sizu.me/chihiroxx/posts/one?ref=feed',
+    ],
+    [
+      'https://toyo.hatenablog.jp/entry/one?ref=feed#section',
+      'https://toyo.hatenablog.jp/entry/one?ref=feed',
+    ],
+  ] as const;
+  for (const [input, expected] of accepted) {
+    const service = input.includes('sizu.me')
+      ? getService('sizu')
+      : getService('hatena');
+    assert.equal(validateContentUrl(input, service), expected);
+  }
+
+  const rejected = [
+    'http://sizu.me/chihiroxx/posts/one',
+    'https://sizu.me:8443/chihiroxx/posts/one',
+    'https://user@sizu.me/chihiroxx/posts/one',
+    'https://sizu.me/login',
+    'https://sizu.me/chihiroxx/',
+    'https://other.example/chihiroxx/posts/one',
+    'https://sizu.me/other-account/posts/one',
+  ];
+  for (const input of rejected) {
+    assert.throws(
+      () => validateContentUrl(input, getService('sizu')),
+      /Unexpected/,
+    );
+  }
+});
+
+test('validateContentUrl rejects mismatched service settings and accepts equivalent settings', () => {
+  const service = getService('sizu');
+  const url = 'https://sizu.me/chihiroxx/posts/one';
+  assert.equal(validateContentUrl(url, { ...service }), url);
+  for (const overrides of [
+    { pathPrefix: '/chihiroxx/' },
+    { collection: 'talks' },
+    { host: 'example.com' },
+  ]) {
+    assert.throws(
+      () => validateContentUrl(url, { ...service, ...overrides } as Service),
+      /Unexpected .* content URL/,
     );
   }
 });

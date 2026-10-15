@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { getService } from '../scripts/lib/external-content.ts';
 import {
   buildCollectionIndex,
   createPrunePlan,
@@ -9,7 +8,6 @@ import {
   type FeedItem,
   limits,
   type StoredEntry,
-  validateContentUrl,
 } from '../scripts/lib/external-content-planning.ts';
 
 function storedEntry(
@@ -30,41 +28,6 @@ const feedItem = (date: string, title: string, url: string): FeedItem => ({
   date: new Date(date),
   title,
   url,
-});
-
-test('validateContentUrl applies one HTTPS, account, host, and credential policy while preserving query', () => {
-  const accepted = [
-    [
-      'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
-      'https://sizu.me/chihiroxx/posts/one?ref=feed',
-    ],
-    [
-      'https://toyo.hatenablog.jp/entry/one?ref=feed#section',
-      'https://toyo.hatenablog.jp/entry/one?ref=feed',
-    ],
-  ] as const;
-  for (const [input, expected] of accepted) {
-    const service = input.includes('sizu.me')
-      ? getService('sizu')
-      : getService('hatena');
-    assert.equal(validateContentUrl(input, service), expected);
-  }
-
-  const rejected = [
-    'http://sizu.me/chihiroxx/posts/one',
-    'https://sizu.me:8443/chihiroxx/posts/one',
-    'https://user@sizu.me/chihiroxx/posts/one',
-    'https://sizu.me/login',
-    'https://sizu.me/chihiroxx/',
-    'https://other.example/chihiroxx/posts/one',
-    'https://sizu.me/other-account/posts/one',
-  ];
-  for (const input of rejected) {
-    assert.throws(
-      () => validateContentUrl(input, getService('sizu')),
-      /Unexpected/,
-    );
-  }
 });
 
 test('collection ownership remains host and path based even when URL transport needs review', () => {
@@ -317,4 +280,24 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
     ],
   );
   assert.ok(!plan.removals.some(({ file }) => file.endsWith('manual.yaml')));
+});
+
+test('source ownership matches host, account path, and collection while preserving stored URL transport', () => {
+  const cases = [
+    ['articles', 'https://sizu.me/chihiroxx/posts/one?ref=rss#section', 'sizu'],
+    ['articles', 'https://toyo.hatenablog.jp/entry/one', 'hatena'],
+    ['talks', 'https://speakerdeck.com/chiroruxx/one', 'speakerdeck'],
+    ['articles', 'http://sizu.me/chihiroxx/posts/one', 'sizu'],
+    ['articles', 'https://sizu.me/other/posts/one', undefined],
+    ['articles', 'https://sizu.me/chihiroxx/', undefined],
+    ['articles', 'https://example.com/chihiroxx/posts/one', undefined],
+    ['talks', 'https://sizu.me/chihiroxx/posts/one', undefined],
+    ['articles', 'https://speakerdeck.com/chiroruxx/one', undefined],
+  ] as const;
+  for (const [collection, url, source] of cases) {
+    const index = buildCollectionIndex(collection, [
+      storedEntry('one.yaml', '2026-10-01', 'One', url),
+    ]);
+    assert.equal(index.entries[0]?.source, source);
+  }
 });

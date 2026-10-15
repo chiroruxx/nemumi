@@ -1,12 +1,12 @@
 import Parser from 'rss-parser';
 import { contentDateSchema } from '../../src/config/content-schema.ts';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
-import { getService, type Service } from './external-content.ts';
 import {
-  type LinkCheck,
-  type LinkStatus,
+  getService,
+  type Service,
   validateContentUrl,
-} from './external-content-planning.ts';
+} from './external-content.ts';
+import type { LinkCheck, LinkStatus } from './external-content-planning.ts';
 
 const DEFAULT_EXECUTION_BUDGET_MS = 8 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 30_000;

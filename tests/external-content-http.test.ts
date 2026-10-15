@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  findSource,
   getService,
-  getSources,
   type Service,
 } from '../scripts/lib/external-content.ts';
 import {
@@ -47,9 +47,7 @@ function createTestContext(
 
 test('fetchFeed maps all service fixtures to site dates and normalized feed items without network access', async () => {
   for (const [service, , normalizedUrl, xml] of feedFixtures) {
-    const source = getSources().find(
-      (source) => getService(source) === service,
-    );
+    const source = findSource(normalizedUrl, service.collection);
     assert.ok(source);
     const parsed = await fetchFeed(service, {
       fetch: async () => new Response(xml),

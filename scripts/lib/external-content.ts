@@ -36,8 +36,50 @@ const services = {
 export type Source = keyof typeof services;
 export type Service = (typeof services)[Source];
 
-export function getSources(): Source[] {
-  return Object.keys(services) as Source[];
+export function findSource(
+  value: string | URL,
+  collection: Service['collection'],
+): Source | undefined {
+  const url = value instanceof URL ? value : new URL(value);
+  for (const source of Object.keys(services) as Source[]) {
+    const service = services[source];
+    if (
+      service.collection === collection &&
+      service.host === url.hostname &&
+      url.pathname.startsWith(service.pathPrefix)
+    )
+      return source;
+  }
+  return undefined;
+}
+
+export function validateContentUrl(value: string, service: Service): string {
+  const url = new URL(value);
+  url.hash = '';
+  const source = findSource(url, service.collection);
+  const configuredSource = (Object.keys(services) as Source[]).find(
+    (source) => {
+      const configured = services[source];
+      return (
+        configured.host === service.host &&
+        configured.pathPrefix === service.pathPrefix &&
+        configured.collection === service.collection
+      );
+    },
+  );
+  if (
+    url.protocol !== 'https:' ||
+    (url.port !== '' && url.port !== '443') ||
+    url.hostname !== service.host ||
+    !url.pathname.startsWith(service.pathPrefix) ||
+    url.username ||
+    url.password ||
+    !configuredSource ||
+    source !== configuredSource
+  ) {
+    throw new Error(`Unexpected ${service.label} content URL: ${value}`);
+  }
+  return url.href;
 }
 
 export function getService(source: Source): Service {

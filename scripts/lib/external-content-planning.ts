@@ -3,10 +3,10 @@ import path from 'node:path';
 import type { z } from 'zod';
 import type { contentRecordSchema } from '../../src/config/content-schema.ts';
 import {
+  findSource,
   getService,
-  getSources,
-  type Service,
   type Source,
+  validateContentUrl,
 } from './external-content.ts';
 
 export const limits = { articles: 20, talks: 10 };
@@ -54,42 +54,8 @@ function analyzeContentUrl(
 ): ParsedContentUrl {
   const url = new URL(value);
   url.hash = '';
-  const source = collection
-    ? getSources().find((source) => {
-        const service = getService(source);
-        return (
-          service.collection === collection &&
-          service.host === url.hostname &&
-          url.pathname.startsWith(service.pathPrefix)
-        );
-      })
-    : undefined;
+  const source = collection ? findSource(url, collection) : undefined;
   return { url, canonical: url.href, source };
-}
-
-export function validateContentUrl(value: string, service: Service): string {
-  const parsed = analyzeContentUrl(value, service.collection);
-  const configuredSource = getSources().find((source) => {
-    const configured = getService(source);
-    return (
-      configured.host === service.host &&
-      configured.pathPrefix === service.pathPrefix &&
-      configured.collection === service.collection
-    );
-  });
-  if (
-    parsed.url.protocol !== 'https:' ||
-    (parsed.url.port !== '' && parsed.url.port !== '443') ||
-    parsed.url.hostname !== service.host ||
-    !parsed.url.pathname.startsWith(service.pathPrefix) ||
-    parsed.url.username ||
-    parsed.url.password ||
-    !configuredSource ||
-    parsed.source !== configuredSource
-  ) {
-    throw new Error(`Unexpected ${service.label} content URL: ${value}`);
-  }
-  return parsed.canonical;
 }
 
 export function buildCollectionIndex(

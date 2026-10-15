@@ -178,7 +178,7 @@ async function parseFeedXml(xml: string, service: Service) {
     return {
       date: publicationDate(item.pubDate),
       title,
-      url: validateContentUrl(item.link, service),
+      url: validateContentUrl(new URL(item.link), service),
     };
   });
 }
@@ -274,7 +274,7 @@ export async function verifyLink(
     }
     let url: URL;
     try {
-      url = new URL(validateContentUrl(target, service));
+      url = new URL(validateContentUrl(new URL(target), service));
     } catch {
       return 'review';
     }

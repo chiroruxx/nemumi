@@ -52,9 +52,7 @@ export function findSource(
   return undefined;
 }
 
-export function validateContentUrl(value: string, service: Service): string {
-  const url = new URL(value);
-  url.hash = '';
+export function validateContentUrl(url: URL, service: Service): string {
   const source = findSource(url, service.collection);
   const configuredSource = (Object.keys(services) as Source[]).find(
     (source) => {
@@ -76,9 +74,11 @@ export function validateContentUrl(value: string, service: Service): string {
     !configuredSource ||
     source !== configuredSource
   ) {
-    throw new Error(`Unexpected ${service.label} content URL: ${value}`);
+    throw new Error(`Unexpected ${service.label} content URL: ${url.href}`);
   }
-  return url.href;
+  const canonical = new URL(url);
+  canonical.hash = '';
+  return canonical.href;
 }
 
 export function getService(source: Source): Service {

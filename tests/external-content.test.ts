@@ -75,7 +75,9 @@ test('validateContentUrl applies one HTTPS, account, host, and credential policy
     const service = input.includes('sizu.me')
       ? getService('sizu')
       : getService('hatena');
-    assert.equal(validateContentUrl(input, service), expected);
+    const url = new URL(input);
+    assert.equal(validateContentUrl(url, service), expected);
+    assert.equal(url.href, input);
   }
 
   const rejected = [
@@ -89,7 +91,7 @@ test('validateContentUrl applies one HTTPS, account, host, and credential policy
   ];
   for (const input of rejected) {
     assert.throws(
-      () => validateContentUrl(input, getService('sizu')),
+      () => validateContentUrl(new URL(input), getService('sizu')),
       /Unexpected/,
     );
   }
@@ -97,8 +99,8 @@ test('validateContentUrl applies one HTTPS, account, host, and credential policy
 
 test('validateContentUrl rejects mismatched service settings and accepts equivalent settings', () => {
   const service = getService('sizu');
-  const url = 'https://sizu.me/chihiroxx/posts/one';
-  assert.equal(validateContentUrl(url, { ...service }), url);
+  const url = new URL('https://sizu.me/chihiroxx/posts/one');
+  assert.equal(validateContentUrl(url, { ...service }), url.href);
   for (const overrides of [
     { pathPrefix: '/chihiroxx/' },
     { collection: 'talks' },

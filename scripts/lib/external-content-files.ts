@@ -73,6 +73,19 @@ function assertRepositoryFile(
   }
 }
 
+function assertRegularFile(
+  target: string,
+  metadata: Awaited<ReturnType<typeof lstat>> | undefined,
+  kind: 'replace' | 'delete',
+): void {
+  if (!metadata) {
+    throw new Error(`Cannot ${kind} ${target}: file does not exist`);
+  }
+  if (metadata.isSymbolicLink() || !metadata.isFile()) {
+    throw new Error(`Refusing to modify a non-regular file: ${target}`);
+  }
+}
+
 export async function validateFileTargets(
   operations: ContentFileOperation[],
   contentDirectory: string,
@@ -91,19 +104,24 @@ export async function validateFileTargets(
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
-    if (operation.kind === 'create' && metadata) {
-      throw new Error(`Cannot create ${target}: file already exists`);
-    }
-    if (operation.kind !== 'create' && !metadata) {
-      throw new Error(
-        `Cannot ${operation.kind} ${target}: file does not exist`,
-      );
-    }
-    if (metadata && (metadata.isSymbolicLink() || !metadata.isFile())) {
-      throw new Error(`Refusing to modify a non-regular file: ${target}`);
-    }
-    if (operation.kind !== 'delete' && typeof operation.content !== 'string') {
-      throw new Error(`Missing file content for ${target}`);
+    switch (operation.kind) {
+      case 'create':
+        if (metadata) {
+          throw new Error(`Cannot create ${target}: file already exists`);
+        }
+        if (typeof operation.content !== 'string') {
+          throw new Error(`Missing file content for ${target}`);
+        }
+        break;
+      case 'replace':
+        assertRegularFile(target, metadata, operation.kind);
+        if (typeof operation.content !== 'string') {
+          throw new Error(`Missing file content for ${target}`);
+        }
+        break;
+      case 'delete':
+        assertRegularFile(target, metadata, operation.kind);
+        break;
     }
   }
 }

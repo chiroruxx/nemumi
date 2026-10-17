@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import {
   lstat,
+  mkdir,
   readdir,
   readFile,
   rename as renameFile,
   rm,
+  symlink,
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
@@ -12,6 +14,7 @@ import test from 'node:test';
 import YAML from 'yaml';
 import {
   applyFileChanges,
+  type ContentFileOperation,
   readCollection,
   validateFileTargets,
 } from '../scripts/lib/external-content-files.ts';
@@ -84,6 +87,15 @@ test('validateFileTargets checks every target and detects escapes and collisions
     ),
     /outside src\/content/,
   );
+  for (const kind of ['replace', 'delete'] as const) {
+    await assert.rejects(
+      validateFileTargets(
+        [{ kind, target: file, content: 'replacement' }],
+        contentDirectory,
+      ),
+      /file does not exist/,
+    );
+  }
   await writeFile(file, 'already exists');
   const untouched = path.join(contentDirectory, 'articles', 'untouched.yaml');
   await assert.rejects(
@@ -106,6 +118,43 @@ test('validateFileTargets checks every target and detects escapes and collisions
     ),
     /already exists/,
   );
+  const directory = path.join(contentDirectory, 'articles', 'directory');
+  const link = path.join(contentDirectory, 'articles', 'link.yaml');
+  await mkdir(directory);
+  await symlink(file, link);
+  for (const kind of ['replace', 'delete'] as const) {
+    await assert.doesNotReject(
+      validateFileTargets(
+        [{ kind, target: file, content: '' }],
+        contentDirectory,
+      ),
+    );
+    for (const target of [directory, link]) {
+      await assert.rejects(
+        validateFileTargets(
+          [{ kind, target, content: 'replacement' }],
+          contentDirectory,
+        ),
+        /non-regular file/,
+      );
+    }
+  }
+  for (const kind of ['create', 'replace'] as const) {
+    const target = kind === 'create' ? untouched : file;
+    await assert.rejects(
+      validateFileTargets(
+        [
+          {
+            kind,
+            target,
+            content: undefined,
+          } as unknown as ContentFileOperation,
+        ],
+        contentDirectory,
+      ),
+      /Missing file content/,
+    );
+  }
 });
 
 test('applyFileChanges atomically replaces an existing file', async (t) => {

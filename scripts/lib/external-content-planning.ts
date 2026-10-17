@@ -145,10 +145,17 @@ function filenameFor(source: Source, url: string): string {
   return `${source}-${createHash('sha256').update(url).digest('hex')}.yaml`;
 }
 
-function sameValues(left: string[] | undefined, right: string[]): boolean {
+function sameContent(
+  data: ContentData,
+  item: FeedItem,
+  types: string[],
+): boolean {
   return (
-    left?.length === right.length &&
-    left.every((value, index) => value === right[index])
+    data.date.getTime() === item.date.getTime() &&
+    data.title === item.title &&
+    data.url?.href === item.url &&
+    data.types?.length === types.length &&
+    data.types.every((value, index) => value === types[index])
   );
 }
 
@@ -180,14 +187,7 @@ export function createSyncPlan({
     const previous = index.byUrl.get(url)?.entry;
     if (previous) {
       const types = previous.data.types ?? [service.type];
-      if (
-        previous.data.date.getTime() === item.date.getTime() &&
-        previous.data.title === item.title &&
-        previous.data.url?.href === item.url &&
-        sameValues(previous.data.types, types)
-      ) {
-        continue;
-      }
+      if (sameContent(previous.data, item, types)) continue;
       changes.push({
         action: 'update',
         file: previous.file,

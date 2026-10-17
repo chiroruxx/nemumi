@@ -68,7 +68,7 @@ test('checkContentLinks supports dry-run without deleting confirmed invalid link
   );
 
   await checkContentLinks({
-    contentDirectory,
+    contentDirectory: path.relative(process.cwd(), contentDirectory),
     dryRun: true,
     linkVerifier: async () => 'deleted',
     linkCheckBatchIntervalMs: 0,

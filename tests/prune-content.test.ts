@@ -35,7 +35,7 @@ test('pruning applies only the directory cap, preserves manual content, and dry-
   );
 
   const options: NonNullable<Parameters<typeof pruneContent>[0]> = {
-    contentDirectory,
+    contentDirectory: path.relative(process.cwd(), contentDirectory),
   };
   await pruneContent({ ...options, dryRun: true });
   assert.deepEqual(

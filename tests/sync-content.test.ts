@@ -15,7 +15,7 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
     url: 'https://sizu.me/chihiroxx/posts/new-post',
   };
   const options: NonNullable<Parameters<typeof syncService>[1]> = {
-    contentDirectory,
+    contentDirectory: path.relative(process.cwd(), contentDirectory),
     feedLoader: async () => [item],
   };
 

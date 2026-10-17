@@ -68,7 +68,11 @@ test('validateFileTargets checks every target and detects escapes and collisions
     validateFileTargets(
       [
         { kind: 'create', target: file, content: 'first' },
-        { kind: 'create', target: file, content: 'second' },
+        {
+          kind: 'create',
+          target: `${contentDirectory}/articles/../articles/post.yaml`,
+          content: 'second',
+        },
       ],
       contentDirectory,
     ),
@@ -94,6 +98,21 @@ test('validateFileTargets checks every target and detects escapes and collisions
         contentDirectory,
       ),
       /file does not exist/,
+    );
+  }
+  for (const run of [validateFileTargets, applyFileChanges]) {
+    await assert.rejects(
+      run(
+        [
+          {
+            kind: 'create',
+            target: path.relative(process.cwd(), file),
+            content: 'new content',
+          },
+        ],
+        contentDirectory,
+      ),
+      /absolute path/,
     );
   }
   await writeFile(file, 'already exists');

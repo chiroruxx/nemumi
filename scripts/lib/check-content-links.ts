@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
   type CommonContentOptions,
   type ContentResult,
@@ -70,7 +71,7 @@ export async function checkContentLinks({
       const collection = getService(source).collection as Collection;
       const entry = indexes.get(collection)?.byUrl.get(url)?.entry;
       if (!entry) throw new Error(`Missing planned link entry: ${url}`);
-      operations.push({ kind: 'delete', target: entry.file });
+      operations.push({ kind: 'delete', target: path.resolve(entry.file) });
     }
     operations.sort((a, b) => a.target.localeCompare(b.target));
     if (dryRun) {

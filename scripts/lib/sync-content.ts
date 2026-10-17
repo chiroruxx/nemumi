@@ -1,3 +1,4 @@
+import path from 'node:path';
 import YAML from 'yaml';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import {
@@ -37,7 +38,7 @@ type SyncOptions = Omit<
 function syncOperations(changes: SyncChange[]): ContentFileOperation[] {
   return changes.map((change) => ({
     kind: change.action === 'add' ? 'create' : 'replace',
-    target: change.file,
+    target: path.resolve(change.file),
     content: YAML.stringify(
       {
         date: formatDateInSiteTimeZone(change.date),

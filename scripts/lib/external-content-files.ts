@@ -14,6 +14,7 @@ import type { Collection, StoredEntry } from './external-content-planning.ts';
 
 const defaultContentDirectory = path.resolve('src/content');
 
+// Targets must be absolute paths, resolved when operations are created.
 export type ContentFileOperation =
   | { kind: 'create' | 'replace'; target: string; content: string }
   | { kind: 'delete'; target: string };
@@ -93,6 +94,11 @@ export async function validateFileTargets(
 ): Promise<void> {
   const seen = new Set<string>();
   for (const operation of operations) {
+    if (!path.isAbsolute(operation.target)) {
+      throw new Error(
+        `File target must be an absolute path: ${operation.target}`,
+      );
+    }
     const target = path.resolve(operation.target);
     assertRepositoryFile(target, path.resolve(contentDirectory));
     if (seen.has(target)) throw new Error(`duplicate file target: ${target}`);
@@ -131,12 +137,8 @@ export async function applyFileChanges(
   contentDirectory: string,
   fileSystem: ContentFileSystem = defaultFileSystem,
 ): Promise<void> {
-  const resolvedOperations = operations.map((operation) => ({
-    ...operation,
-    target: path.resolve(operation.target),
-  }));
-  await validateFileTargets(resolvedOperations, contentDirectory, fileSystem);
-  for (const operation of resolvedOperations) {
+  await validateFileTargets(operations, contentDirectory, fileSystem);
+  for (const operation of operations) {
     if (operation.kind === 'delete') {
       await fileSystem.rm(operation.target);
       continue;

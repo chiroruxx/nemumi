@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
   type CommonContentOptions,
   defaultContentDirectory,
@@ -26,7 +27,10 @@ type PruneOptions = Omit<
 >;
 
 function pruneOperations(removals: PruneRemoval[]): ContentFileOperation[] {
-  return removals.map(({ file }) => ({ kind: 'delete', target: file }));
+  return removals.map(({ file }) => ({
+    kind: 'delete',
+    target: path.resolve(file),
+  }));
 }
 
 export async function pruneContent({

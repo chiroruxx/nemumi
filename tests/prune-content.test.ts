@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
+import { checkContentLinks } from '../scripts/lib/check-content-links.ts';
 import { pruneContent } from '../scripts/lib/prune-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
@@ -173,4 +174,47 @@ test('pruning applies the item limit without performing link checks', async (t) 
       (_, index) => `entry-${String(index + 2).padStart(2, '0')}.yaml`,
     ),
   );
+});
+
+test('prune workflow checks links before applying the cap so an invalid newest item does not displace an older valid item', async (t) => {
+  const contentDirectory = await createContentDirectory(t);
+  const articlesDirectory = path.join(contentDirectory, 'articles');
+  for (let index = 1; index <= 21; index += 1) {
+    const suffix = String(index).padStart(2, '0');
+    await writeFile(
+      path.join(articlesDirectory, `entry-${suffix}.yaml`),
+      YAML.stringify({
+        date: `2026-10-${suffix}`,
+        title: `Post ${suffix}`,
+        url: `https://sizu.me/chihiroxx/posts/post-${suffix}`,
+      }),
+    );
+  }
+
+  const workflow = YAML.parse(
+    await readFile('.github/workflows/prune-content.yml', 'utf8'),
+  ) as {
+    jobs: {
+      prune: {
+        steps: Array<{ uses?: string; run?: string }>;
+      };
+    };
+  };
+  for (const step of workflow.jobs.prune.steps) {
+    if (step.uses === './.github/actions/check-content-links') {
+      await checkContentLinks({
+        contentDirectory,
+        linkCheckBatchIntervalMs: 0,
+        linkVerifier: async (url) =>
+          url.endsWith('/post-21') ? 'deleted' : 'public',
+      });
+    } else if (step.run?.includes('mise run prune-content')) {
+      await pruneContent({ contentDirectory });
+    }
+  }
+
+  const remaining = await readdir(articlesDirectory);
+  assert.equal(remaining.length, 20);
+  assert.ok(remaining.includes('entry-01.yaml'));
+  assert.equal(remaining.includes('entry-21.yaml'), false);
 });

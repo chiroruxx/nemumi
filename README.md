@@ -67,8 +67,7 @@ mise run dev
 
 ## 外部コンテンツの自動更新
 
-GitHub Actions は毎日 JST 06:17 に3サービスを順番に同期してから、保存済みデータのリンクを確認します。JST 07:17
-には `main` の保存済みデータに保持件数を適用してから、同じリンク確認を行います。それぞれの実行で1つの PR
+GitHub Actions は毎日 JST 06:17 に3サービスを順番に同期してから、保存済みデータのリンクを確認します。JST 07:17 には、実行時点の最新 `main` にある保存済みデータのリンクを確認して無効リンクを削除し、その後で保持件数を適用します（[ADR 0041](docs/adr/0041-check-content-links-before-pruning.md)）。それぞれの実行で1つの PR
 を作成・更新します。いずれかの同期が失敗すると後続処理と PR 作成を停止します。prune
 は同期 PR のマージを待たず、実行時点の最新 `main` を対象にします。
 
@@ -83,7 +82,8 @@ CI を確認し、手動マージします。
 
 「Update content」はサービスを選択して手動実行できます。選択したサービスの同期後、全コレクションのリンク確認を行います。「Prune
 content」も手動実行できます。ローカルと自動更新 PR の本文には、公開状態を確認できなかった URL
-だけを表示します（[ADR 0036](docs/adr/0036-report-unverified-content-urls.md)）。同期 workflow は40分、prune workflow は10分で終了します。
+だけを表示します（[ADR 0036](docs/adr/0036-report-unverified-content-urls.md)）。同期 workflow は40分、prune workflow
+は10分で終了します。
 
 リンク確認はサービスを問わず最大5件を並列実行し、バッチ全件の完了後、次のバッチまで1秒待機します（[ADR 0035](docs/adr/0035-batch-link-checks.md)）。
 
@@ -95,7 +95,7 @@ PR の作成・更新と差分消失時のクローズは `create-pull-request` 
 は残るため、必要なら各PR画面の `Disable auto-merge`（または `gh pr merge <番号> --disable-auto`
 ）で個別に解除してください。両workflowを無効化しても、すでにPRへ設定した auto-merge は解除されません。自動処理全体を止める場合は「Update
 content」と「Prune content」の両 workflow を無効にし、既存PRの auto-merge も必要に応じて解除してください。通信期限、保持方針、PR
-の運用は [ADR 0025](docs/adr/0025-sync-external-content-from-rss.md)、[ADR 0027](docs/adr/0027-prune-stored-content-without-rss.md)、[ADR 0029](docs/adr/0029-bound-content-network-execution.md)、[ADR 0030](docs/adr/0030-guard-content-automation-lifecycle.md)、[ADR 0034](docs/adr/0034-delegate-content-pr-management.md)
+の運用は [ADR 0025](docs/adr/0025-sync-external-content-from-rss.md)、[ADR 0027](docs/adr/0027-prune-stored-content-without-rss.md)、[ADR 0029](docs/adr/0029-bound-content-network-execution.md)、[ADR 0030](docs/adr/0030-guard-content-automation-lifecycle.md)、[ADR 0034](docs/adr/0034-delegate-content-pr-management.md)、[ADR 0041](docs/adr/0041-check-content-links-before-pruning.md)
 を参照してください。
 
 ## コンテンツの追加

@@ -12,7 +12,7 @@ workflow に共通するが、独立した処理として再利用できる。
 ## 決定
 
 - workflow に各処理の順序を記述する。Update content は選択された sync を順番に実行してからリンク確認し、Prune content
-  は件数整理をしてから同じリンク確認を行う。
+  はリンク確認後に件数整理を行う。Prune content の順序は [ADR 0041](0041-check-content-links-before-pruning.md) に記載する。
 - sync は `sizu`、`hatena`、`speakerdeck` の順で実行する。サービス選択とその検証は Update content workflow
   に置く。通常の失敗時動作に従い、失敗後の処理を停止する。
 - リンク確認は `check-content-links` composite action にまとめ、両 workflow から直接呼び出す。

@@ -159,7 +159,7 @@ test('update workflow validates the selected service and runs syncs serially bef
   assert.equal(concurrency['cancel-in-progress'], false);
 });
 
-test('prune workflow runs item pruning before the shared link check and one PR', async () => {
+test('prune workflow checks links before applying the item cap and creating one PR', async () => {
   const workflow = await yamlFile('.github/workflows/prune-content.yml');
   const on = mapping(workflow.on, 'on');
   const schedule = sequence(on.schedule, 'prune schedule');
@@ -176,7 +176,7 @@ test('prune workflow runs item pruning before the shared link check and one PR',
   const prIndex = steps.findIndex(
     (step) => step.uses === contentPullRequestAction,
   );
-  assert.ok(pruneIndex >= 0 && checkIndex > pruneIndex && prIndex > checkIndex);
+  assert.ok(checkIndex >= 0 && pruneIndex > checkIndex && prIndex > pruneIndex);
   assert.equal(
     steps.filter((step) => step.uses === contentPullRequestAction).length,
     1,
@@ -185,9 +185,16 @@ test('prune workflow runs item pruning before the shared link check and one PR',
     steps.some((step) => step['continue-on-error'] === true),
     false,
   );
+  assert.equal(steps[checkIndex]?.if, undefined);
+  assert.equal(steps[pruneIndex]?.if, undefined);
+  assert.equal(steps[prIndex]?.if, undefined);
   assert.equal(
     steps[prIndex]?.with && mapping(steps[prIndex]?.with, 'PR inputs').summary,
     expression('steps.check-links.outputs.summary'),
+  );
+  assert.equal(
+    mapping(steps[prIndex]?.with, 'PR inputs').description,
+    '無効リンクを除去してからディレクトリごとの保持件数を適用します。',
   );
   assert.equal(
     mapping(workflow.jobs, 'jobs').prune &&

@@ -29,12 +29,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Prune saved content
-        run: mise run prune-content
-
       - name: Check saved content links
         id: check-links
         uses: ./.github/actions/check-content-links
+
+      - name: Prune saved content
+        run: mise run prune-content
 
       - name: Create or update content pull request
         uses: ./.github/actions/content-pull-request
@@ -42,7 +42,7 @@ jobs:
           branch: automation/prune-content
           commit-message: 'chore(content): prune content'
           title: コンテンツを整理
-          description: ディレクトリごとの保持件数を適用し、無効リンクを除去します。
+          description: 無効リンクを除去してからディレクトリごとの保持件数を適用します。
           summary: ${{ steps.check-links.outputs.summary }}
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}

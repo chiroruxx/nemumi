@@ -5,8 +5,9 @@ inputs:
     description: Content operation to run (sync or prune).
     required: true
   service:
-    description: Source service for sync mode.
+    description: Service to sync, or all services.
     required: false
+    default: all
   branch:
     description: Persistent automation branch name.
     required: true
@@ -38,8 +39,8 @@ inputs:
       src/content/talks/*.yaml
 outputs:
   summary:
-    description: Content report written by the sync or prune command.
-    value: ${{ steps.sync.outputs.summary || steps.prune.outputs.summary }}
+    description: Content report written by the link check command.
+    value: ${{ steps.check-links.outputs.summary }}
 runs:
   using: composite
   steps:
@@ -54,25 +55,43 @@ runs:
       shell: bash
       env:
         CONTENT_MODE: ${{ inputs.mode }}
+        CONTENT_SERVICE: ${{ inputs.service }}
       run: |
         case "$CONTENT_MODE" in
           sync|prune) ;;
           *) echo "Unsupported content automation mode" >&2; exit 1 ;;
         esac
+        if [ "$CONTENT_MODE" = "sync" ]; then
+          case "$CONTENT_SERVICE" in
+            all|sizu|hatena|speakerdeck) ;;
+            *) echo "Unsupported content service" >&2; exit 1 ;;
+          esac
+        fi
 
-    - name: Sync service content
-      id: sync
-      if: inputs.mode == 'sync'
+    - name: Sync sizu content
+      if: inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'sizu')
       shell: bash
-      env:
-        SERVICE: ${{ inputs.service }}
-      run: mise run sync-content -- "$SERVICE"
+      run: mise run sync-content -- sizu
+
+    - name: Sync hatena content
+      if: inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'hatena')
+      shell: bash
+      run: mise run sync-content -- hatena
+
+    - name: Sync speakerdeck content
+      if: inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'speakerdeck')
+      shell: bash
+      run: mise run sync-content -- speakerdeck
 
     - name: Prune saved content
-      id: prune
       if: inputs.mode == 'prune'
       shell: bash
       run: mise run prune-content
+
+    - name: Check saved content links
+      id: check-links
+      shell: bash
+      run: mise run check-content-links
 
     - name: Create GitHub App token
       id: app-token
@@ -96,7 +115,7 @@ runs:
         body: |
           ${{ inputs.description }}
 
-          ${{ steps.sync.outputs.summary || steps.prune.outputs.summary }}
+          ${{ steps.check-links.outputs.summary }}
 
           ${{ inputs.auto-merge == 'true' && '必須 CI 成功後に自動マージします。' || 'この実行では自動マージを要求しません。設定済みの場合は解除し、内容を確認して手動でマージしてください。' }}
         add-paths: ${{ inputs.add-paths }}

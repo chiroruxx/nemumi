@@ -39,8 +39,8 @@ export type PruneRemoval = {
   file: string;
 };
 export type LinkCheck = { source: Source; url: string };
-type SyncPlan = { changes: SyncChange[]; linkChecks: LinkCheck[] };
-type PrunePlan = { removals: PruneRemoval[]; linkChecks: LinkCheck[] };
+type SyncPlan = { changes: SyncChange[] };
+type PrunePlan = { removals: PruneRemoval[] };
 
 type ParsedContentUrl = {
   url: URL;
@@ -172,7 +172,6 @@ export function createSyncPlan({
   const feedByUrl = normalizedFeed(feed, source);
   const keep = rankedKeepSet(index, feedByUrl);
   const changes: SyncChange[] = [];
-  const linkChecks: LinkCheck[] = [];
 
   for (const [url, item] of [...feedByUrl].sort(([a], [b]) =>
     a.localeCompare(b),
@@ -198,9 +197,6 @@ export function createSyncPlan({
     ) {
       throw new Error(`Filename collision while adding ${url}`);
     }
-    if (!previous) {
-      linkChecks.push({ source, url });
-    }
     changes.push({
       action: previous ? 'update' : 'add',
       file,
@@ -211,27 +207,31 @@ export function createSyncPlan({
     });
   }
 
-  return { changes, linkChecks };
+  return { changes };
 }
 
 export function createPrunePlan(index: CollectionIndex): PrunePlan {
   const keep = rankedKeepSet(index);
   const removals: PruneRemoval[] = [];
-  const linkChecks: LinkCheck[] = [];
 
   for (const indexed of index.entries) {
     const { source, url } = indexed;
     if (!source || !url) continue;
     if (!keep.has(url)) {
       removals.push({ file: indexed.entry.file });
-      continue;
     }
-    linkChecks.push({ source, url });
   }
 
   removals.sort((a, b) => a.file.localeCompare(b.file));
-  linkChecks.sort(
-    (a, b) => a.source.localeCompare(b.source) || a.url.localeCompare(b.url),
-  );
-  return { removals, linkChecks };
+  return { removals };
+}
+
+export function createContentLinkCheckPlan(
+  index: CollectionIndex,
+): LinkCheck[] {
+  return index.entries
+    .flatMap(({ source, url }) => (source && url ? [{ source, url }] : []))
+    .sort(
+      (a, b) => a.source.localeCompare(b.source) || a.url.localeCompare(b.url),
+    );
 }

@@ -120,8 +120,10 @@ test('shared content action delegates PR management and gates auto-merge on an o
   assert.match(String(pullRequestWith.committer), /github-actions\[bot\]/);
   assert.match(String(pullRequestWith.author), /github\.actor_id/);
   assert.equal(pullRequestWith['add-paths'], expression('inputs.add-paths'));
-  assert.match(String(pullRequestWith.body), /steps\.sync\.outputs\.summary/);
-  assert.match(String(pullRequestWith.body), /steps\.prune\.outputs\.summary/);
+  assert.match(
+    String(pullRequestWith.body),
+    /steps\.check-links\.outputs\.summary/,
+  );
   assert.match(String(pullRequestWith.body), /inputs\.auto-merge == 'true'/);
   assert.match(String(pullRequestWith.body), /自動マージします。/);
   assert.match(
@@ -162,7 +164,7 @@ test('shared content action expressions do not reference repository variables di
   }
 });
 
-test('update workflow preserves scheduled and manual service matrix behavior', async () => {
+test('update workflow runs selected services serially in one content automation job', async () => {
   const workflow = await yamlFile('.github/workflows/update-content.yml');
   const on = mapping(workflow.on, 'on');
   const schedule = sequence(on.schedule, 'update schedule');
@@ -174,14 +176,94 @@ test('update workflow preserves scheduled and manual service matrix behavior', a
 
   const jobs = mapping(workflow.jobs, 'jobs');
   const sync = mapping(jobs.sync, 'sync job');
-  assert.equal(sync['timeout-minutes'], 10);
-  const strategy = mapping(sync.strategy, 'sync.strategy');
-  assert.equal(strategy['fail-fast'], false);
-  const matrix = mapping(strategy.matrix, 'sync.strategy.matrix');
-  assert.match(String(matrix.service), /fromJSON/);
+  assert.equal(sync['timeout-minutes'], 40);
+  assert.equal(sync.strategy, undefined);
+  const action = workflowSteps(workflow, 'sync').find((step) =>
+    String(step.uses).includes('content-automation'),
+  );
+  assert.ok(action);
+  const actionInputs = mapping(action.with, 'sync action inputs');
+  assert.equal(actionInputs.service, expression("inputs.service || 'all'"));
+  assert.equal(actionInputs.branch, 'automation/update-content');
+  assert.equal(
+    workflowSteps(workflow, 'sync').filter((step) =>
+      String(step.uses).startsWith('peter-evans/create-pull-request@'),
+    ).length,
+    0,
+    'one composite action owns the single PR operation',
+  );
   const concurrency = mapping(workflow.concurrency, 'workflow concurrency');
   assert.equal(concurrency.group, 'content-automation-main');
   assert.equal(concurrency['cancel-in-progress'], false);
+});
+
+test('shared content action runs all syncs before prune, link checks, and PR creation', async () => {
+  const action = await yamlFile(
+    '.github/actions/content-automation/action.yml',
+  );
+  const steps = sequence(
+    mapping(action.runs, 'runs').steps,
+    'action steps',
+  ).map((step, index) => mapping(step, `action.steps[${index}]`));
+  const runs = steps.flatMap((step, index) =>
+    typeof step.run === 'string' ? [[index, step.run] as const] : [],
+  );
+  const pullRequestIndex = steps.findIndex((step) =>
+    String(step.uses).startsWith('peter-evans/create-pull-request@'),
+  );
+  const syncIndexes = runs
+    .filter(([, run]) => run.includes('sync-content'))
+    .map(([index]) => index);
+  const pruneIndex = runs.find(
+    ([index, run]) => index < pullRequestIndex && run.includes('prune-content'),
+  )?.[0];
+  const linkCheckIndex = runs.find(
+    ([index, run]) =>
+      index < pullRequestIndex && run.includes('check-content-links'),
+  )?.[0];
+  assert.equal(syncIndexes.length, 3);
+  assert.deepEqual(
+    runs
+      .filter(([, run]) => run.includes('sync-content'))
+      .map(([, run]) => run),
+    [
+      'mise run sync-content -- sizu',
+      'mise run sync-content -- hatena',
+      'mise run sync-content -- speakerdeck',
+    ],
+  );
+  assert.deepEqual(
+    syncIndexes,
+    [...syncIndexes].sort((a, b) => a - b),
+  );
+  const pruneStep = pruneIndex === undefined ? undefined : steps[pruneIndex];
+  assert.equal(pruneStep?.if, "inputs.mode == 'prune'");
+  assert.ok(linkCheckIndex);
+  assert.ok(pruneIndex === undefined || pruneIndex < linkCheckIndex);
+  assert.ok(syncIndexes.every((index) => index < linkCheckIndex));
+  assert.ok(linkCheckIndex < pullRequestIndex);
+  assert.equal(
+    steps.filter((step) =>
+      String(step.uses).startsWith('peter-evans/create-pull-request@'),
+    ).length,
+    1,
+  );
+  const syncSteps = steps.filter((step) =>
+    String(step.name).startsWith('Sync '),
+  );
+  assert.deepEqual(
+    syncSteps.map((step) => step.if),
+    [
+      "inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'sizu')",
+      "inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'hatena')",
+      "inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'speakerdeck')",
+    ],
+  );
+  assert.ok(steps.every((step) => step['continue-on-error'] !== true));
+  const validation = steps.find(
+    (step) => step.name === 'Validate automation mode',
+  );
+  assert.match(String(validation?.run), /Unsupported content service/);
 });
 
 test('prune workflow keeps its schedule, manual entry point, latest-main checkout, and shared serialization', async () => {

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
+import { checkContentLinks } from '../scripts/lib/check-content-links.ts';
 import type { ContentResult } from '../scripts/lib/external-content.ts';
-import { pruneContent } from '../scripts/lib/prune-content.ts';
 import { syncService } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
@@ -21,9 +21,9 @@ const executions: [
       }),
   ],
   [
-    'prune',
+    'link check',
     (contentDirectory) =>
-      pruneContent({
+      checkContentLinks({
         contentDirectory,
         executionBudgetMs: 1000,
       }),

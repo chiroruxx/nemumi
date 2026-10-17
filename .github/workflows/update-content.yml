@@ -24,30 +24,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  select-services:
-    runs-on: ubuntu-26.04
-    outputs:
-      services: ${{ steps.set-matrix.outputs.services }}
-    steps:
-      - id: set-matrix
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          SELECTED_SERVICE: ${{ inputs.service }}
-        run: |
-          if [ "$EVENT_NAME" = "schedule" ] || [ "$SELECTED_SERVICE" = "all" ]; then
-            echo 'services=["sizu","hatena","speakerdeck"]' >> "$GITHUB_OUTPUT"
-          else
-            echo "services=[\"$SELECTED_SERVICE\"]" >> "$GITHUB_OUTPUT"
-          fi
-
   sync:
-    needs: select-services
-    strategy:
-      fail-fast: false
-      matrix:
-        service: ${{ fromJSON(needs.select-services.outputs.services) }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    # 3 syncs and the shared link check each receive an 8-minute execution budget.
+    timeout-minutes: 40
     steps:
       - name: Checkout trusted main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,10 +39,10 @@ jobs:
         uses: ./.github/actions/content-automation
         with:
           mode: sync
-          service: ${{ matrix.service }}
-          branch: automation/update-${{ matrix.service }}
-          commit-message: 'chore(content): sync ${{ matrix.service }} feed'
-          title: 'コンテンツを同期: ${{ matrix.service }}'
+          service: ${{ inputs.service || 'all' }}
+          branch: automation/update-content
+          commit-message: 'chore(content): sync external content'
+          title: コンテンツを同期
           description: RSS の内容を同期します。
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}

@@ -14,6 +14,7 @@
     "indentWidth": 2
   },
   "linter": {
+    // 無効化コメントの理由は Biome の構文で必須。追加の設定は不要。
     "enabled": true,
     "rules": {
       "preset": "recommended"
@@ -48,6 +49,7 @@
         }
       }
     },
+    // SVG は favicon などの画像として使うため、SVG 内の title 要素を必須にしない。
     {
       "includes": ["public/**/*.svg"],
       "linter": {

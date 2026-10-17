@@ -24,7 +24,7 @@ if (parsed.errors.length) {
 }
 const program = ts.createProgram(parsed.fileNames, parsed.options);
 // Check repository source modules; test helpers, dependencies and generated
-// Astro/build files are outside the production API being checked (ADR 0026).
+// Astro/build files are outside the production API being checked (docs/adr/2026-10-13-check-exported-function-tests.md).
 const sources = parsed.fileNames.filter(
   (file) =>
     /^(src|scripts)\//.test(

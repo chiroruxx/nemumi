@@ -1,0 +1,13 @@
+name: Check content links
+description: Check saved synchronized content links and remove confirmed invalid links.
+outputs:
+  summary:
+    description: URLs whose public status could not be confirmed.
+    value: ${{ steps.check.outputs.summary }}
+runs:
+  using: composite
+  steps:
+    - name: Check saved content links
+      id: check
+      shell: bash
+      run: mise run check-content-links

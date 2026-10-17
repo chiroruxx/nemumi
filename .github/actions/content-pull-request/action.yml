@@ -1,13 +1,6 @@
-name: Automate content pull requests
-description: Sync or prune content and maintain its pull request.
+name: Create content pull requests
+description: Create or update a content pull request and optionally enable auto-merge.
 inputs:
-  mode:
-    description: Content operation to run (sync or prune).
-    required: true
-  service:
-    description: Service to sync, or all services.
-    required: false
-    default: all
   branch:
     description: Persistent automation branch name.
     required: true
@@ -19,6 +12,9 @@ inputs:
     required: true
   description:
     description: Introductory pull request body text.
+    required: true
+  summary:
+    description: Summary of URLs whose public status could not be confirmed.
     required: true
   client-id:
     description: GitHub App client ID.
@@ -37,62 +33,9 @@ inputs:
     default: |
       src/content/articles/*.yaml
       src/content/talks/*.yaml
-outputs:
-  summary:
-    description: Content report written by the link check command.
-    value: ${{ steps.check-links.outputs.summary }}
 runs:
   using: composite
   steps:
-    - name: Set up mise
-      uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
-
-    - name: Install dependencies
-      shell: bash
-      run: pnpm install --frozen-lockfile
-
-    - name: Validate automation mode
-      shell: bash
-      env:
-        CONTENT_MODE: ${{ inputs.mode }}
-        CONTENT_SERVICE: ${{ inputs.service }}
-      run: |
-        case "$CONTENT_MODE" in
-          sync|prune) ;;
-          *) echo "Unsupported content automation mode" >&2; exit 1 ;;
-        esac
-        if [ "$CONTENT_MODE" = "sync" ]; then
-          case "$CONTENT_SERVICE" in
-            all|sizu|hatena|speakerdeck) ;;
-            *) echo "Unsupported content service" >&2; exit 1 ;;
-          esac
-        fi
-
-    - name: Sync sizu content
-      if: inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'sizu')
-      shell: bash
-      run: mise run sync-content -- sizu
-
-    - name: Sync hatena content
-      if: inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'hatena')
-      shell: bash
-      run: mise run sync-content -- hatena
-
-    - name: Sync speakerdeck content
-      if: inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'speakerdeck')
-      shell: bash
-      run: mise run sync-content -- speakerdeck
-
-    - name: Prune saved content
-      if: inputs.mode == 'prune'
-      shell: bash
-      run: mise run prune-content
-
-    - name: Check saved content links
-      id: check-links
-      shell: bash
-      run: mise run check-content-links
-
     - name: Create GitHub App token
       id: app-token
       uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -115,7 +58,7 @@ runs:
         body: |
           ${{ inputs.description }}
 
-          ${{ steps.check-links.outputs.summary }}
+          ${{ inputs.summary }}
 
           ${{ inputs.auto-merge == 'true' && '必須 CI 成功後に自動マージします。' || 'この実行では自動マージを要求しません。設定済みの場合は解除し、内容を確認して手動でマージしてください。' }}
         add-paths: ${{ inputs.add-paths }}

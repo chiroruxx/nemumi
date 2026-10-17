@@ -37,11 +37,10 @@ function expression(value: string): string {
   return `\${{ ${value} }}`;
 }
 
-function actionStep(steps: Mapping[], action: string): Mapping | undefined {
-  return steps.find((step) => step.uses === action);
-}
+const contentPullRequestAction = './.github/actions/content-pull-request';
+const checkContentLinksAction = './.github/actions/check-content-links';
 
-test('content workflows checkout trusted main before invoking the shared automation action', async () => {
+test('content workflows checkout trusted main and use read-only workflow permissions', async () => {
   for (const [file, jobName] of [
     ['.github/workflows/update-content.yml', 'sync'],
     ['.github/workflows/prune-content.yml', 'prune'],
@@ -53,118 +52,36 @@ test('content workflows checkout trusted main before invoking the shared automat
     const checkoutIndex = steps.findIndex((step) =>
       String(step.uses).startsWith('actions/checkout@'),
     );
-    const checkout = steps[checkoutIndex];
-    const checkoutWith = mapping(checkout?.with, `${file} checkout.with`);
+    const checkoutWith = mapping(
+      steps[checkoutIndex]?.with,
+      `${file} checkout.with`,
+    );
     assert.equal(checkoutWith.ref, 'main');
     assert.equal(checkoutWith['persist-credentials'], false);
-    const sharedActionIndex = steps.findIndex(
-      (step) => step.uses === './.github/actions/content-automation',
+    assert.ok(
+      steps.findIndex(
+        (step) =>
+          step.uses ===
+          'jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7',
+      ) > checkoutIndex,
     );
     assert.ok(
-      sharedActionIndex > checkoutIndex,
-      `${file} must load the local action after checkout`,
+      steps.findIndex((step) =>
+        String(step.run).includes('pnpm install --frozen-lockfile'),
+      ) > checkoutIndex,
     );
-    const sharedAction = steps[sharedActionIndex];
-    assert.ok(sharedAction);
-    const inputs = mapping(sharedAction.with, `${file} shared action inputs`);
-    assert.equal(inputs['client-id'], expression('vars.APP_CLIENT_ID'));
-    assert.equal(inputs['private-key'], expression('secrets.APP_PRIVATE_KEY'));
-    assert.equal(inputs['auto-merge'], expression('vars.CONTENT_AUTO_MERGE'));
-    assert.equal(inputs.mode, jobName === 'sync' ? 'sync' : 'prune');
+    const prStep = steps.find((step) => step.uses === contentPullRequestAction);
+    const prInputs = mapping(prStep?.with, `${file} PR action inputs`);
+    assert.equal(prInputs['client-id'], expression('vars.APP_CLIENT_ID'));
+    assert.equal(
+      prInputs['private-key'],
+      expression('secrets.APP_PRIVATE_KEY'),
+    );
+    assert.equal(prInputs['auto-merge'], expression('vars.CONTENT_AUTO_MERGE'));
   }
 });
 
-test('shared content action delegates PR management and gates auto-merge on an open PR', async () => {
-  const action = await yamlFile(
-    '.github/actions/content-automation/action.yml',
-  );
-  assert.equal(action.runs && mapping(action.runs, 'runs').using, 'composite');
-  const steps = sequence(
-    mapping(action.runs, 'runs').steps,
-    'action steps',
-  ).map((step, index) => mapping(step, `action.steps[${index}]`));
-  const ids = steps.flatMap((step) =>
-    typeof step.id === 'string' ? [step.id] : [],
-  );
-  assert.equal(new Set(ids).size, ids.length, 'action step ids must be unique');
-  assert.ok(
-    steps.some((step) =>
-      String(step.run).includes('pnpm install --frozen-lockfile'),
-    ),
-  );
-  assert.ok(steps.every((step) => step.id !== 'guard'));
-  assert.ok(steps.some((step) => String(step.run).includes('sync-content')));
-  assert.ok(steps.some((step) => String(step.run).includes('prune-content')));
-
-  const pullRequest = actionStep(
-    steps,
-    'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1',
-  );
-  assert.ok(pullRequest, 'the shared action must create or update a PR');
-  assert.equal(
-    pullRequest.if,
-    undefined,
-    'PR management must run without a lifecycle or commit guard',
-  );
-  const pullRequestWith = mapping(pullRequest.with, 'create-pull-request.with');
-  assert.equal(pullRequestWith.base, 'main');
-  const actionInputs = mapping(action.inputs, 'action inputs');
-  const autoMergeInput = mapping(
-    actionInputs['auto-merge'],
-    'auto-merge input',
-  );
-  assert.equal(autoMergeInput.required, false);
-  assert.equal(autoMergeInput.default, 'false');
-  const addPathsInput = mapping(actionInputs['add-paths'], 'add-paths input');
-  assert.equal(pullRequestWith['delete-branch'], false);
-  assert.match(String(pullRequestWith.committer), /github-actions\[bot\]/);
-  assert.match(String(pullRequestWith.author), /github\.actor_id/);
-  assert.equal(pullRequestWith['add-paths'], expression('inputs.add-paths'));
-  assert.match(
-    String(pullRequestWith.body),
-    /steps\.check-links\.outputs\.summary/,
-  );
-  assert.match(String(pullRequestWith.body), /inputs\.auto-merge == 'true'/);
-  assert.match(String(pullRequestWith.body), /自動マージします。/);
-  assert.match(
-    String(pullRequestWith.body),
-    /この実行では自動マージを要求しません。/,
-  );
-  assert.match(
-    String(addPathsInput.default),
-    /src\/content\/articles\/\*\.yaml/,
-  );
-  assert.match(String(addPathsInput.default), /src\/content\/talks\/\*\.yaml/);
-
-  const autoMerge = steps.find((step) =>
-    String(step.run).includes('gh pr merge'),
-  );
-  assert.ok(autoMerge, 'the shared action must support auto-merge');
-  assert.equal(
-    autoMerge.if,
-    "inputs.auto-merge == 'true' && steps.pull-request.outputs.pull-request-number != '' && steps.pull-request.outputs.pull-request-operation != 'closed'",
-  );
-});
-
-test('shared content action expressions do not reference repository variables directly', async () => {
-  const source = await readFile(
-    '.github/actions/content-automation/action.yml',
-    'utf8',
-  );
-  const action = await yamlFile(
-    '.github/actions/content-automation/action.yml',
-  );
-  assert.doesNotMatch(source, /\$\{\{[^}]*\bvars\s*[.[]/);
-  const steps = sequence(mapping(action.runs, 'runs').steps, 'action steps');
-  for (const step of steps) {
-    const condition = mapping(step, 'action step').if;
-    if (typeof condition === 'string') {
-      assert.doesNotMatch(condition, /\bvars\s*[.[]/);
-    }
-  }
-});
-
-test('update workflow runs selected services serially in one content automation job', async () => {
+test('update workflow validates the selected service and runs syncs serially before shared link check and one PR', async () => {
   const workflow = await yamlFile('.github/workflows/update-content.yml');
   const on = mapping(workflow.on, 'on');
   const schedule = sequence(on.schedule, 'update schedule');
@@ -174,58 +91,19 @@ test('update workflow runs selected services serially in one content automation 
   const service = mapping(inputs.service, 'service input');
   assert.deepEqual(service.options, ['all', 'sizu', 'hatena', 'speakerdeck']);
 
-  const jobs = mapping(workflow.jobs, 'jobs');
-  const sync = mapping(jobs.sync, 'sync job');
-  assert.equal(sync['timeout-minutes'], 40);
-  assert.equal(sync.strategy, undefined);
-  const action = workflowSteps(workflow, 'sync').find((step) =>
-    String(step.uses).includes('content-automation'),
+  const steps = workflowSteps(workflow, 'sync');
+  const commands = steps.map((step) => String(step.run ?? ''));
+  const validateIndex = commands.findIndex((command) =>
+    command.includes('Unsupported content service'),
   );
-  assert.ok(action);
-  const actionInputs = mapping(action.with, 'sync action inputs');
-  assert.equal(actionInputs.service, expression("inputs.service || 'all'"));
-  assert.equal(actionInputs.branch, 'automation/update-content');
-  assert.equal(
-    workflowSteps(workflow, 'sync').filter((step) =>
-      String(step.uses).startsWith('peter-evans/create-pull-request@'),
-    ).length,
-    0,
-    'one composite action owns the single PR operation',
+  const syncIndexes = commands.flatMap((command, index) =>
+    command.includes('mise run sync-content') ? [index] : [],
   );
-  const concurrency = mapping(workflow.concurrency, 'workflow concurrency');
-  assert.equal(concurrency.group, 'content-automation-main');
-  assert.equal(concurrency['cancel-in-progress'], false);
-});
-
-test('shared content action runs all syncs before prune, link checks, and PR creation', async () => {
-  const action = await yamlFile(
-    '.github/actions/content-automation/action.yml',
-  );
-  const steps = sequence(
-    mapping(action.runs, 'runs').steps,
-    'action steps',
-  ).map((step, index) => mapping(step, `action.steps[${index}]`));
-  const runs = steps.flatMap((step, index) =>
-    typeof step.run === 'string' ? [[index, step.run] as const] : [],
-  );
-  const pullRequestIndex = steps.findIndex((step) =>
-    String(step.uses).startsWith('peter-evans/create-pull-request@'),
-  );
-  const syncIndexes = runs
-    .filter(([, run]) => run.includes('sync-content'))
-    .map(([index]) => index);
-  const pruneIndex = runs.find(
-    ([index, run]) => index < pullRequestIndex && run.includes('prune-content'),
-  )?.[0];
-  const linkCheckIndex = runs.find(
-    ([index, run]) =>
-      index < pullRequestIndex && run.includes('check-content-links'),
-  )?.[0];
+  assert.ok(validateIndex >= 0);
   assert.equal(syncIndexes.length, 3);
+  assert.ok(syncIndexes.every((index) => index > validateIndex));
   assert.deepEqual(
-    runs
-      .filter(([, run]) => run.includes('sync-content'))
-      .map(([, run]) => run),
+    syncIndexes.map((index) => commands[index]),
     [
       'mise run sync-content -- sizu',
       'mise run sync-content -- hatena',
@@ -233,48 +111,189 @@ test('shared content action runs all syncs before prune, link checks, and PR cre
     ],
   );
   assert.deepEqual(
-    syncIndexes,
-    [...syncIndexes].sort((a, b) => a - b),
-  );
-  const pruneStep = pruneIndex === undefined ? undefined : steps[pruneIndex];
-  assert.equal(pruneStep?.if, "inputs.mode == 'prune'");
-  assert.ok(linkCheckIndex);
-  assert.ok(pruneIndex === undefined || pruneIndex < linkCheckIndex);
-  assert.ok(syncIndexes.every((index) => index < linkCheckIndex));
-  assert.ok(linkCheckIndex < pullRequestIndex);
-  assert.equal(
-    steps.filter((step) =>
-      String(step.uses).startsWith('peter-evans/create-pull-request@'),
-    ).length,
-    1,
-  );
-  const syncSteps = steps.filter((step) =>
-    String(step.name).startsWith('Sync '),
-  );
-  assert.deepEqual(
-    syncSteps.map((step) => step.if),
+    syncIndexes.map((index) => steps[index]?.if),
     [
-      "inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'sizu')",
-      "inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'hatena')",
-      "inputs.mode == 'sync' && (inputs.service == 'all' || inputs.service == 'speakerdeck')",
+      "inputs.service == 'all' || inputs.service == 'sizu' || github.event_name == 'schedule'",
+      "inputs.service == 'all' || inputs.service == 'hatena' || github.event_name == 'schedule'",
+      "inputs.service == 'all' || inputs.service == 'speakerdeck' || github.event_name == 'schedule'",
     ],
   );
-  assert.ok(steps.every((step) => step['continue-on-error'] !== true));
-  const validation = steps.find(
-    (step) => step.name === 'Validate automation mode',
+
+  const checkIndex = steps.findIndex(
+    (step) => step.uses === checkContentLinksAction,
   );
-  assert.match(String(validation?.run), /Unsupported content service/);
+  const prIndex = steps.findIndex(
+    (step) => step.uses === contentPullRequestAction,
+  );
+  assert.ok(checkIndex > Math.max(...syncIndexes));
+  assert.ok(prIndex > checkIndex);
+  assert.equal(
+    steps.filter((step) => step.uses === contentPullRequestAction).length,
+    1,
+  );
+  assert.equal(
+    steps.some((step) => step['continue-on-error'] === true),
+    false,
+  );
+  assert.equal(
+    steps[prIndex]?.if,
+    undefined,
+    'PR creation should use the default success condition',
+  );
+
+  const prInputs = mapping(steps[prIndex]?.with, 'PR action inputs');
+  const linkCheck = steps[checkIndex];
+  assert.equal(
+    prInputs.summary,
+    expression('steps.check-links.outputs.summary'),
+  );
+  assert.equal(prInputs.branch, 'automation/update-content');
+  assert.equal(linkCheck?.id, 'check-links');
+
+  const jobs = mapping(workflow.jobs, 'jobs');
+  assert.deepEqual(Object.keys(jobs), ['sync']);
+  const sync = mapping(jobs.sync, 'sync job');
+  assert.equal(sync['timeout-minutes'], 40);
+  const concurrency = mapping(workflow.concurrency, 'workflow concurrency');
+  assert.equal(concurrency.group, 'content-automation-main');
+  assert.equal(concurrency['cancel-in-progress'], false);
 });
 
-test('prune workflow keeps its schedule, manual entry point, latest-main checkout, and shared serialization', async () => {
+test('prune workflow runs item pruning before the shared link check and one PR', async () => {
   const workflow = await yamlFile('.github/workflows/prune-content.yml');
   const on = mapping(workflow.on, 'on');
   const schedule = sequence(on.schedule, 'prune schedule');
   assert.equal(mapping(schedule[0], 'prune cron').cron, '17 22 * * *');
   assert.ok(Object.hasOwn(on, 'workflow_dispatch'));
-  const prune = mapping(mapping(workflow.jobs, 'jobs').prune, 'prune job');
-  assert.equal(prune['timeout-minutes'], 10);
+
+  const steps = workflowSteps(workflow, 'prune');
+  const pruneIndex = steps.findIndex((step) =>
+    String(step.run).includes('mise run prune-content'),
+  );
+  const checkIndex = steps.findIndex(
+    (step) => step.uses === checkContentLinksAction,
+  );
+  const prIndex = steps.findIndex(
+    (step) => step.uses === contentPullRequestAction,
+  );
+  assert.ok(pruneIndex >= 0 && checkIndex > pruneIndex && prIndex > checkIndex);
+  assert.equal(
+    steps.filter((step) => step.uses === contentPullRequestAction).length,
+    1,
+  );
+  assert.equal(
+    steps.some((step) => step['continue-on-error'] === true),
+    false,
+  );
+  assert.equal(
+    steps[prIndex]?.with && mapping(steps[prIndex]?.with, 'PR inputs').summary,
+    expression('steps.check-links.outputs.summary'),
+  );
+  assert.equal(
+    mapping(workflow.jobs, 'jobs').prune &&
+      mapping(mapping(workflow.jobs, 'jobs').prune, 'prune job')[
+        'timeout-minutes'
+      ],
+    10,
+  );
   const concurrency = mapping(workflow.concurrency, 'workflow concurrency');
   assert.equal(concurrency.group, 'content-automation-main');
   assert.equal(concurrency['cancel-in-progress'], false);
+});
+
+test('link check action exposes its CLI summary without a mode input', async () => {
+  const action = await yamlFile(
+    '.github/actions/check-content-links/action.yml',
+  );
+  assert.ok(
+    action.inputs === undefined ||
+      Object.keys(mapping(action.inputs, 'link check action inputs')).length ===
+        0,
+  );
+  const steps = sequence(
+    mapping(action.runs, 'runs').steps,
+    'link check steps',
+  ).map((step, index) => mapping(step, `link check steps[${index}]`));
+  assert.deepEqual(
+    steps.map((step) => step.run),
+    ['mise run check-content-links'],
+  );
+  assert.equal(
+    mapping(
+      mapping(action.outputs, 'link check outputs').summary,
+      'summary output',
+    ).value,
+    expression('steps.check.outputs.summary'),
+  );
+  assert.equal(steps[0]?.id, 'check');
+  assert.equal(steps[0]?.shell, 'bash');
+});
+
+test('pull request action only creates the PR and optionally enables auto-merge', async () => {
+  const action = await yamlFile(
+    '.github/actions/content-pull-request/action.yml',
+  );
+  const actionInputs = mapping(action.inputs, 'PR action inputs');
+  assert.equal(Object.hasOwn(actionInputs, 'mode'), false);
+  assert.equal(Object.hasOwn(actionInputs, 'service'), false);
+  assert.ok(Object.hasOwn(actionInputs, 'summary'));
+  assert.ok(Object.hasOwn(actionInputs, 'client-id'));
+  assert.ok(Object.hasOwn(actionInputs, 'private-key'));
+  assert.ok(Object.hasOwn(actionInputs, 'auto-merge'));
+  const steps = sequence(
+    mapping(action.runs, 'runs').steps,
+    'PR action steps',
+  ).map((step, index) => mapping(step, `PR action steps[${index}]`));
+  assert.equal(mapping(action.runs, 'PR action runs').using, 'composite');
+  assert.equal(
+    steps.some(
+      (step) =>
+        step.run &&
+        /sync-content|prune-content|check-content-links/.test(String(step.run)),
+    ),
+    false,
+  );
+  assert.equal(
+    steps.some((step) => String(step.run).includes('pnpm install')),
+    false,
+  );
+  const pullRequest = steps.find((step) =>
+    String(step.uses).startsWith('peter-evans/create-pull-request@'),
+  );
+  assert.ok(pullRequest);
+  assert.equal(pullRequest.if, undefined);
+  const pullRequestWith = mapping(pullRequest.with, 'create-pull-request.with');
+  assert.equal(pullRequestWith.base, 'main');
+  assert.equal(pullRequestWith['delete-branch'], false);
+  assert.equal(pullRequestWith['add-paths'], expression('inputs.add-paths'));
+  assert.match(String(pullRequestWith.body), /inputs.summary/);
+  assert.match(String(pullRequestWith.author), /github\.actor_id/);
+  assert.match(String(pullRequestWith.committer), /github-actions\[bot\]/);
+  const autoMerge = steps.find((step) =>
+    String(step.run).includes('gh pr merge'),
+  );
+  assert.ok(autoMerge);
+  assert.equal(autoMerge.shell, 'bash');
+  assert.equal(
+    autoMerge.if,
+    "inputs.auto-merge == 'true' && steps.pull-request.outputs.pull-request-number != '' && steps.pull-request.outputs.pull-request-operation != 'closed'",
+  );
+  const autoMergeInput = mapping(
+    actionInputs['auto-merge'],
+    'auto-merge input',
+  );
+  assert.equal(autoMergeInput.required, false);
+  assert.equal(autoMergeInput.default, 'false');
+  const addPathsInput = mapping(actionInputs['add-paths'], 'add-paths input');
+  assert.match(
+    String(addPathsInput.default),
+    /src\/content\/articles\/\*\.yaml/,
+  );
+  assert.match(String(addPathsInput.default), /src\/content\/talks\/\*\.yaml/);
+
+  const source = await readFile(
+    '.github/actions/content-pull-request/action.yml',
+    'utf8',
+  );
+  assert.doesNotMatch(source, /\$\{\{[^}]*\bvars\s*[.[]/);
 });

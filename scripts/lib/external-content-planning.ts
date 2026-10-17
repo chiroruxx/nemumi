@@ -39,8 +39,6 @@ export type PruneRemoval = {
   file: string;
 };
 export type LinkCheck = { source: Source; url: string };
-type SyncPlan = { changes: SyncChange[] };
-type PrunePlan = { removals: PruneRemoval[] };
 
 type ParsedContentUrl = {
   url: URL;
@@ -169,7 +167,7 @@ export function createSyncPlan({
   index: CollectionIndex;
   feed: FeedItem[];
   contentDirectory: string;
-}): SyncPlan {
+}): SyncChange[] {
   const service = getService(source);
   if (service.collection !== index.collection) {
     throw new Error(
@@ -217,10 +215,10 @@ export function createSyncPlan({
     });
   }
 
-  return { changes };
+  return changes;
 }
 
-export function createPrunePlan(index: CollectionIndex): PrunePlan {
+export function createPrunePlan(index: CollectionIndex): PruneRemoval[] {
   const keep = rankedKeepSet(index);
   const removals: PruneRemoval[] = [];
 
@@ -233,7 +231,7 @@ export function createPrunePlan(index: CollectionIndex): PrunePlan {
   }
 
   removals.sort((a, b) => a.file.localeCompare(b.file));
-  return { removals };
+  return removals;
 }
 
 export function createContentLinkCheckPlan(

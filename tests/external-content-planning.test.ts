@@ -114,9 +114,8 @@ test('createSyncPlan is deterministic and keeps existing types', () => {
     };
     const initial = createSyncPlan(options);
 
-    assert.equal(Object.hasOwn(initial, 'linkChecks'), false);
     assert.deepEqual(
-      initial.changes.map(({ action, date, title, url, types }) => ({
+      initial.map(({ action, date, title, url, types }) => ({
         action,
         date,
         title,
@@ -148,14 +147,14 @@ test('createSyncPlan is deterministic and keeps existing types', () => {
       ],
     );
     assert.deepEqual(
-      initial.changes.map(({ url }) => url),
+      initial.map(({ url }) => url),
       [
         'https://sizu.me/chihiroxx/posts/a',
         'https://sizu.me/chihiroxx/posts/b',
         'https://sizu.me/chihiroxx/posts/existing?ref=feed',
       ],
     );
-    assert.equal(initial.changes[2]?.file, existing[0]?.file);
+    assert.equal(initial[2]?.file, existing[0]?.file);
   }
 });
 
@@ -184,7 +183,7 @@ test('sync ranks one source against saved entries from another source under the 
     contentDirectory: '/repo/src/content',
   });
 
-  assert.deepEqual(plan, { changes: [] });
+  assert.deepEqual(plan, []);
 });
 
 test('createPrunePlan ranks saved entries by date and URL and preserves manual slots', () => {
@@ -253,7 +252,7 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
       'https://sizu.me/chihiroxx/posts/z',
     ],
   );
-  assert.deepEqual(tiePlan.removals.map(({ file }) => file).sort(), [
+  assert.deepEqual(tiePlan.map(({ file }) => file).sort(), [
     '/repo/src/content/articles/tie-m.yaml',
     '/repo/src/content/articles/tie-z.yaml',
   ]);
@@ -277,7 +276,7 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
     /Filename collision while adding/,
   );
   assert.deepEqual(
-    plan.removals.map(({ file }) => file),
+    plan.map(({ file }) => file),
     [
       '/repo/src/content/articles/01.yaml',
       '/repo/src/content/articles/02.yaml',
@@ -293,7 +292,7 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
       'https://sizu.me/chihiroxx/posts/tie-3',
     ],
   );
-  assert.ok(!plan.removals.some(({ file }) => file.endsWith('manual.yaml')));
+  assert.ok(!plan.some(({ file }) => file.endsWith('manual.yaml')));
 });
 
 test('source ownership matches host, account path, and collection while preserving stored URL transport', () => {
@@ -356,6 +355,6 @@ test('createSyncPlan leaves unchanged saved records untouched', () => {
       feed: [feedItem('2026-10-03', 'Unchanged', url)],
       contentDirectory: '/repo/src/content',
     }),
-    { changes: [] },
+    [],
   );
 });

@@ -37,7 +37,7 @@ export async function pruneContent({
   for (const collection of Object.keys(limits) as Collection[]) {
     const entries = await readCollection(collection, contentDirectory);
     const index = buildCollectionIndex(collection, entries);
-    removals.push(...createPrunePlan(index).removals);
+    removals.push(...createPrunePlan(index));
   }
 
   const operations = pruneOperations(removals);

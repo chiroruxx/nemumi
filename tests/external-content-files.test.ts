@@ -141,12 +141,12 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
     feed,
     contentDirectory,
   });
-  const secondTarget = initialPlan.changes[1].file;
+  const secondTarget = initialPlan[1].file;
   let failOnce = true;
 
   await assert.rejects(
     applyFileChanges(
-      initialPlan.changes.map((change) => ({
+      initialPlan.map((change) => ({
         kind:
           change.action === 'add' ? ('create' as const) : ('replace' as const),
         target: change.file,
@@ -182,10 +182,10 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
     feed,
     contentDirectory,
   });
-  assert.equal(retryPlan.changes.length, 1);
-  assert.equal(retryPlan.changes[0].url, feed[1].url);
+  assert.equal(retryPlan.length, 1);
+  assert.equal(retryPlan[0].url, feed[1].url);
   await applyFileChanges(
-    retryPlan.changes.map((change) => ({
+    retryPlan.map((change) => ({
       kind:
         change.action === 'add' ? ('create' as const) : ('replace' as const),
       target: change.file,
@@ -204,7 +204,7 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
     2,
   );
   assert.deepEqual(
-    await readFile(initialPlan.changes[0].file, 'utf8'),
+    await readFile(initialPlan[0].file, 'utf8'),
     YAML.stringify({
       date: feed[0].date.toISOString().slice(0, 10),
       types: ['日常記事'],

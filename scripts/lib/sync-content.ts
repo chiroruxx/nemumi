@@ -83,8 +83,8 @@ export async function syncService(
       feed: currentFeed,
       contentDirectory,
     };
-    const plan = createSyncPlan(planInput);
-    const operations = syncOperations(plan.changes);
+    const changes = createSyncPlan(planInput);
+    const operations = syncOperations(changes);
     await validateFileTargets(operations, contentDirectory);
     if (!dryRun) await applyFileChanges(operations, contentDirectory);
   } finally {

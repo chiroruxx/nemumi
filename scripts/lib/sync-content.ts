@@ -85,11 +85,8 @@ export async function syncService(
       contentDirectory,
     });
     const operations = syncOperations(changes);
-    if (dryRun) {
-      await validateFileTargets(operations, contentDirectory);
-    } else {
-      await applyFileChanges(operations, contentDirectory);
-    }
+    await validateFileTargets(operations, contentDirectory);
+    if (!dryRun) await applyFileChanges(operations);
   } finally {
     context.dispose();
   }

@@ -45,9 +45,6 @@ export async function pruneContent({
   }
 
   const operations = pruneOperations(removals);
-  if (dryRun) {
-    await validateFileTargets(operations, contentDirectory);
-  } else {
-    await applyFileChanges(operations, contentDirectory);
-  }
+  await validateFileTargets(operations, contentDirectory);
+  if (!dryRun) await applyFileChanges(operations);
 }

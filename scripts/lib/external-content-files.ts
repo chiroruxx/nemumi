@@ -132,12 +132,11 @@ export async function validateFileTargets(
   }
 }
 
+// Callers must validate all operations before applying changes.
 export async function applyFileChanges(
   operations: ContentFileOperation[],
-  contentDirectory: string,
   fileSystem: ContentFileSystem = defaultFileSystem,
 ): Promise<void> {
-  await validateFileTargets(operations, contentDirectory, fileSystem);
   for (const operation of operations) {
     if (operation.kind === 'delete') {
       await fileSystem.rm(operation.target);

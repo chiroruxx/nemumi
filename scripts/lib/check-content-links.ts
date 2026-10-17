@@ -74,11 +74,8 @@ export async function checkContentLinks({
       operations.push({ kind: 'delete', target: path.resolve(entry.file) });
     }
     operations.sort((a, b) => a.target.localeCompare(b.target));
-    if (dryRun) {
-      await validateFileTargets(operations, contentDirectory);
-    } else {
-      await applyFileChanges(operations, contentDirectory);
-    }
+    await validateFileTargets(operations, contentDirectory);
+    if (!dryRun) await applyFileChanges(operations);
 
     return {
       deferred: linkChecks.filter(

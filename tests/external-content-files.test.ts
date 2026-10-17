@@ -100,25 +100,23 @@ test('validateFileTargets checks every target and detects escapes and collisions
       /file does not exist/,
     );
   }
-  for (const run of [validateFileTargets, applyFileChanges]) {
-    await assert.rejects(
-      run(
-        [
-          {
-            kind: 'create',
-            target: path.relative(process.cwd(), file),
-            content: 'new content',
-          },
-        ],
-        contentDirectory,
-      ),
-      /absolute path/,
-    );
-  }
+  await assert.rejects(
+    validateFileTargets(
+      [
+        {
+          kind: 'create',
+          target: path.relative(process.cwd(), file),
+          content: 'new content',
+        },
+      ],
+      contentDirectory,
+    ),
+    /absolute path/,
+  );
   await writeFile(file, 'already exists');
   const untouched = path.join(contentDirectory, 'articles', 'untouched.yaml');
   await assert.rejects(
-    applyFileChanges(
+    validateFileTargets(
       [
         { kind: 'create', target: untouched, content: 'new content' },
         { kind: 'create', target: file, content: 'collision' },
@@ -181,10 +179,9 @@ test('applyFileChanges atomically replaces an existing file', async (t) => {
   const file = path.join(contentDirectory, 'articles', 'replace.yaml');
   await writeFile(file, 'old content');
 
-  await applyFileChanges(
-    [{ kind: 'replace', target: file, content: 'new content' }],
-    contentDirectory,
-  );
+  await applyFileChanges([
+    { kind: 'replace', target: file, content: 'new content' },
+  ]);
 
   assert.equal(await readFile(file, 'utf8'), 'new content');
   assert.deepEqual(await readdir(path.join(contentDirectory, 'articles')), [
@@ -225,7 +222,6 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
           url: change.url,
         }),
       })),
-      contentDirectory,
       {
         lstat,
         writeFile,
@@ -264,7 +260,6 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
         url: change.url,
       }),
     })),
-    contentDirectory,
   );
 
   assert.equal(

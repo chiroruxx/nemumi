@@ -39,6 +39,6 @@
     "stylelint-config-standard": "^40.0.0",
     "stylelint-use-nesting": "^6.0.2",
     "typescript": "^6.0.3",
-    "wrangler": "^4.150.0"
+    "wrangler": "^4.151.0"
   }
 }

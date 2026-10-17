@@ -20,7 +20,7 @@ import {
 } from './external-content-http.ts';
 import {
   buildCollectionIndex,
-  createSyncPlan,
+  createSyncChanges,
   type FeedItem,
   type SyncChange,
 } from './external-content-planning.ts';
@@ -77,13 +77,12 @@ export async function syncService(
       ((configured, execution) =>
         fetchFeed(configured, { context: execution }));
     const currentFeed = await loadFeed(service, context);
-    const planInput = {
+    const changes = createSyncChanges({
       source,
       index,
       feed: currentFeed,
       contentDirectory,
-    };
-    const changes = createSyncPlan(planInput);
+    });
     const operations = syncOperations(changes);
     await validateFileTargets(operations, contentDirectory);
     if (!dryRun) await applyFileChanges(operations, contentDirectory);

@@ -17,7 +17,7 @@ import {
 } from '../scripts/lib/external-content-files.ts';
 import {
   buildCollectionIndex,
-  createSyncPlan,
+  createSyncChanges,
   type FeedItem,
 } from '../scripts/lib/external-content-planning.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
@@ -135,18 +135,18 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
     },
   ];
   const initialIndex = buildCollectionIndex('articles', []);
-  const initialPlan = createSyncPlan({
+  const initialChanges = createSyncChanges({
     source: 'sizu',
     index: initialIndex,
     feed,
     contentDirectory,
   });
-  const secondTarget = initialPlan[1].file;
+  const secondTarget = initialChanges[1].file;
   let failOnce = true;
 
   await assert.rejects(
     applyFileChanges(
-      initialPlan.map((change) => ({
+      initialChanges.map((change) => ({
         kind:
           change.action === 'add' ? ('create' as const) : ('replace' as const),
         target: change.file,
@@ -176,16 +176,16 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
 
   const afterFailure = await readCollection('articles', contentDirectory);
   assert.equal(afterFailure.length, 1);
-  const retryPlan = createSyncPlan({
+  const retryChanges = createSyncChanges({
     source: 'sizu',
     index: buildCollectionIndex('articles', afterFailure),
     feed,
     contentDirectory,
   });
-  assert.equal(retryPlan.length, 1);
-  assert.equal(retryPlan[0].url, feed[1].url);
+  assert.equal(retryChanges.length, 1);
+  assert.equal(retryChanges[0].url, feed[1].url);
   await applyFileChanges(
-    retryPlan.map((change) => ({
+    retryChanges.map((change) => ({
       kind:
         change.action === 'add' ? ('create' as const) : ('replace' as const),
       target: change.file,
@@ -204,7 +204,7 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
     2,
   );
   assert.deepEqual(
-    await readFile(initialPlan[0].file, 'utf8'),
+    await readFile(initialChanges[0].file, 'utf8'),
     YAML.stringify({
       date: feed[0].date.toISOString().slice(0, 10),
       types: ['日常記事'],

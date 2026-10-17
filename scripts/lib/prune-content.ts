@@ -11,7 +11,7 @@ import {
 import {
   buildCollectionIndex,
   type Collection,
-  createPrunePlan,
+  createPruneRemovals,
   limits,
   type PruneRemoval,
 } from './external-content-planning.ts';
@@ -37,7 +37,7 @@ export async function pruneContent({
   for (const collection of Object.keys(limits) as Collection[]) {
     const entries = await readCollection(collection, contentDirectory);
     const index = buildCollectionIndex(collection, entries);
-    removals.push(...createPrunePlan(index));
+    removals.push(...createPruneRemovals(index));
   }
 
   const operations = pruneOperations(removals);

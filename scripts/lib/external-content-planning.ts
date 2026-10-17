@@ -157,7 +157,7 @@ function sameContent(
   );
 }
 
-export function createSyncPlan({
+export function createSyncChanges({
   source,
   index,
   feed,
@@ -218,7 +218,7 @@ export function createSyncPlan({
   return changes;
 }
 
-export function createPrunePlan(index: CollectionIndex): PruneRemoval[] {
+export function createPruneRemovals(index: CollectionIndex): PruneRemoval[] {
   const keep = rankedKeepSet(index);
   const removals: PruneRemoval[] = [];
 

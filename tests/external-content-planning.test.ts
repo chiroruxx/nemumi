@@ -4,8 +4,8 @@ import test from 'node:test';
 import {
   buildCollectionIndex,
   createContentLinkCheckPlan,
-  createPrunePlan,
-  createSyncPlan,
+  createPruneRemovals,
+  createSyncChanges,
   type FeedItem,
   limits,
   type StoredEntry,
@@ -85,7 +85,7 @@ test('buildCollectionIndex normalizes URLs, counts manual entries, and rejects s
   );
 });
 
-test('createSyncPlan is deterministic and keeps existing types', () => {
+test('createSyncChanges is deterministic and keeps existing types', () => {
   for (const types of [['手動分類'], undefined, []]) {
     const existing = [
       storedEntry(
@@ -112,7 +112,7 @@ test('createSyncPlan is deterministic and keeps existing types', () => {
       feed,
       contentDirectory: '/repo/src/content',
     };
-    const initial = createSyncPlan(options);
+    const initial = createSyncChanges(options);
 
     assert.deepEqual(
       initial.map(({ action, date, title, url, types }) => ({
@@ -170,7 +170,7 @@ test('sync ranks one source against saved entries from another source under the 
   });
   const index = buildCollectionIndex('articles', hatenaEntries);
 
-  const plan = createSyncPlan({
+  const changes = createSyncChanges({
     source: 'sizu',
     index,
     feed: [
@@ -183,10 +183,10 @@ test('sync ranks one source against saved entries from another source under the 
     contentDirectory: '/repo/src/content',
   });
 
-  assert.deepEqual(plan, []);
+  assert.deepEqual(changes, []);
 });
 
-test('createPrunePlan ranks saved entries by date and URL and preserves manual slots', () => {
+test('createPruneRemovals ranks saved entries by date and URL and preserves manual slots', () => {
   const saved = Array.from({ length: limits.articles + 1 }, (_, index) => {
     const day = index + 1;
     const date =
@@ -206,7 +206,7 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
     'https://example.com/manual',
   );
   const index = buildCollectionIndex('articles', [...saved, manual]);
-  const plan = createPrunePlan(index);
+  const removals = createPruneRemovals(index);
 
   assert.equal(index.manualCount, 1);
   const tieEntries = [
@@ -239,7 +239,7 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
         `https://example.com/manual-${index}`,
       ),
   );
-  const tiePlan = createPrunePlan(
+  const tieRemovals = createPruneRemovals(
     buildCollectionIndex('articles', [...tieEntries, ...manualEntries]),
   );
   assert.deepEqual(
@@ -252,7 +252,7 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
       'https://sizu.me/chihiroxx/posts/z',
     ],
   );
-  assert.deepEqual(tiePlan.map(({ file }) => file).sort(), [
+  assert.deepEqual(tieRemovals.map(({ file }) => file).sort(), [
     '/repo/src/content/articles/tie-m.yaml',
     '/repo/src/content/articles/tie-z.yaml',
   ]);
@@ -260,7 +260,7 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
   const collisionFilename = `sizu-${createHash('sha256').update(collisionUrl).digest('hex')}.yaml`;
   assert.throws(
     () =>
-      createSyncPlan({
+      createSyncChanges({
         source: 'sizu',
         index: buildCollectionIndex('articles', [
           storedEntry(
@@ -276,7 +276,7 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
     /Filename collision while adding/,
   );
   assert.deepEqual(
-    plan.map(({ file }) => file),
+    removals.map(({ file }) => file),
     [
       '/repo/src/content/articles/01.yaml',
       '/repo/src/content/articles/02.yaml',
@@ -292,7 +292,7 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
       'https://sizu.me/chihiroxx/posts/tie-3',
     ],
   );
-  assert.ok(!plan.some(({ file }) => file.endsWith('manual.yaml')));
+  assert.ok(!removals.some(({ file }) => file.endsWith('manual.yaml')));
 });
 
 test('source ownership matches host, account path, and collection while preserving stored URL transport', () => {
@@ -343,13 +343,13 @@ test('buildCollectionIndex removes fragments from comparison URLs, preserves que
   );
 });
 
-test('createSyncPlan leaves unchanged saved records untouched', () => {
+test('createSyncChanges leaves unchanged saved records untouched', () => {
   const url = 'https://sizu.me/chihiroxx/posts/unchanged?ref=rss';
   const index = buildCollectionIndex('articles', [
     storedEntry('unchanged.yaml', '2026-10-03', 'Unchanged', url, ['日常記事']),
   ]);
   assert.deepEqual(
-    createSyncPlan({
+    createSyncChanges({
       source: 'sizu',
       index,
       feed: [feedItem('2026-10-03', 'Unchanged', url)],

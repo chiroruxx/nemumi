@@ -24,30 +24,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  select-services:
-    runs-on: ubuntu-26.04
-    outputs:
-      services: ${{ steps.set-matrix.outputs.services }}
-    steps:
-      - id: set-matrix
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          SELECTED_SERVICE: ${{ inputs.service }}
-        run: |
-          if [ "$EVENT_NAME" = "schedule" ] || [ "$SELECTED_SERVICE" = "all" ]; then
-            echo 'services=["sizu","hatena","speakerdeck"]' >> "$GITHUB_OUTPUT"
-          else
-            echo "services=[\"$SELECTED_SERVICE\"]" >> "$GITHUB_OUTPUT"
-          fi
-
   sync:
-    needs: select-services
-    strategy:
-      fail-fast: false
-      matrix:
-        service: ${{ fromJSON(needs.select-services.outputs.services) }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    # 3 syncs and the shared link check each receive an 8-minute execution budget.
+    timeout-minutes: 40
     steps:
       - name: Checkout trusted main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -55,15 +35,45 @@ jobs:
           ref: main
           persist-credentials: false
 
-      - name: Run content automation
-        uses: ./.github/actions/content-automation
+      - name: Set up mise
+        uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate sync service
+        env:
+          SYNC_SERVICE: ${{ inputs.service || 'all' }}
+        run: |
+          case "$SYNC_SERVICE" in
+            all|sizu|hatena|speakerdeck) ;;
+            *) echo "Unsupported content service" >&2; exit 1 ;;
+          esac
+
+      - name: Sync sizu content
+        if: inputs.service == 'all' || inputs.service == 'sizu' || github.event_name == 'schedule'
+        run: mise run sync-content -- sizu
+
+      - name: Sync hatena content
+        if: inputs.service == 'all' || inputs.service == 'hatena' || github.event_name == 'schedule'
+        run: mise run sync-content -- hatena
+
+      - name: Sync speakerdeck content
+        if: inputs.service == 'all' || inputs.service == 'speakerdeck' || github.event_name == 'schedule'
+        run: mise run sync-content -- speakerdeck
+
+      - name: Check saved content links
+        id: check-links
+        uses: ./.github/actions/check-content-links
+
+      - name: Create or update content pull request
+        uses: ./.github/actions/content-pull-request
         with:
-          mode: sync
-          service: ${{ matrix.service }}
-          branch: automation/update-${{ matrix.service }}
-          commit-message: 'chore(content): sync ${{ matrix.service }} feed'
-          title: 'コンテンツを同期: ${{ matrix.service }}'
+          branch: automation/update-content
+          commit-message: 'chore(content): sync external content'
+          title: コンテンツを同期
           description: RSS の内容を同期します。
+          summary: ${{ steps.check-links.outputs.summary }}
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           auto-merge: ${{ vars.CONTENT_AUTO_MERGE }}

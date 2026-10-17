@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import {
   buildCollectionIndex,
+  createContentLinkCheckPlan,
   createPrunePlan,
   createSyncPlan,
   type FeedItem,
@@ -84,7 +85,7 @@ test('buildCollectionIndex normalizes URLs, counts manual entries, and rejects s
   );
 });
 
-test('createSyncPlan is deterministic, keeps existing types, and reports links to verify', () => {
+test('createSyncPlan is deterministic and keeps existing types', () => {
   const existing = [
     storedEntry(
       'sizu.yaml',
@@ -112,10 +113,7 @@ test('createSyncPlan is deterministic, keeps existing types, and reports links t
   };
   const initial = createSyncPlan(options);
 
-  assert.deepEqual(initial.linkChecks, [
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/a' },
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/b' },
-  ]);
+  assert.equal(Object.hasOwn(initial, 'linkChecks'), false);
   assert.deepEqual(
     initial.changes.map(({ action, date, title, url, types }) => ({
       action,
@@ -183,7 +181,7 @@ test('sync ranks one source against saved entries from another source under the 
     contentDirectory: '/repo/src/content',
   });
 
-  assert.deepEqual(plan, { changes: [], linkChecks: [] });
+  assert.deepEqual(plan, { changes: [] });
 });
 
 test('createPrunePlan ranks saved entries by date and URL and preserves manual slots', () => {
@@ -243,8 +241,14 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
     buildCollectionIndex('articles', [...tieEntries, ...manualEntries]),
   );
   assert.deepEqual(
-    tiePlan.linkChecks.map(({ url }) => url),
-    ['https://sizu.me/chihiroxx/posts/a'],
+    createContentLinkCheckPlan(
+      buildCollectionIndex('articles', [...tieEntries, ...manualEntries]),
+    ).map(({ url }) => url),
+    [
+      'https://sizu.me/chihiroxx/posts/a',
+      'https://sizu.me/chihiroxx/posts/m',
+      'https://sizu.me/chihiroxx/posts/z',
+    ],
   );
   assert.deepEqual(tiePlan.removals.map(({ file }) => file).sort(), [
     '/repo/src/content/articles/tie-m.yaml',
@@ -277,7 +281,9 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
     ],
   );
   assert.deepEqual(
-    plan.linkChecks.map(({ url }) => url).filter((url) => url.includes('tie-')),
+    createContentLinkCheckPlan(index)
+      .map(({ url }) => url)
+      .filter((url) => url.includes('tie-')),
     [
       'https://sizu.me/chihiroxx/posts/tie-1',
       'https://sizu.me/chihiroxx/posts/tie-2',
@@ -347,6 +353,6 @@ test('createSyncPlan leaves unchanged saved records untouched', () => {
       feed: [feedItem('2026-10-03', 'Unchanged', url)],
       contentDirectory: '/repo/src/content',
     }),
-    { changes: [], linkChecks: [] },
+    { changes: [] },
   );
 });

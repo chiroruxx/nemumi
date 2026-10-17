@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
+import { checkContentLinks } from '../scripts/lib/check-content-links.ts';
 import { syncService } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
@@ -16,7 +17,6 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
   const options: NonNullable<Parameters<typeof syncService>[1]> = {
     contentDirectory,
     feedLoader: async () => [item],
-    linkVerifier: async () => 'public' as const,
   };
 
   await syncService('sizu', { ...options, dryRun: true });
@@ -52,19 +52,12 @@ test('sync updates the existing filename, keeps types, and round-trips quoted mu
       url,
     }),
   );
-  let linkChecks = 0;
   const title = 'Updated "quoted" title\nsecond line';
   await syncService('sizu', {
     contentDirectory,
     feedLoader: async () => [{ date: new Date('2026-10-02'), title, url }],
-    linkVerifier: async () => {
-      linkChecks += 1;
-      return 'public';
-    },
-    linkCheckBatchIntervalMs: 0,
   });
 
-  assert.equal(linkChecks, 0);
   assert.deepEqual(await readdir(articlesDirectory), ['legacy-name.yaml']);
   assert.deepEqual(YAML.parse(await readFile(file, 'utf8')), {
     date: '2026-10-02',
@@ -74,7 +67,7 @@ test('sync updates the existing filename, keeps types, and round-trips quoted mu
   });
 });
 
-test('sync does not refill a capped slot after its selected addition is deleted', async (t) => {
+test('sync adds selected candidates and the shared link check removes invalid additions', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
   for (let index = 1; index <= 19; index += 1) {
@@ -100,18 +93,21 @@ test('sync does not refill a capped slot after its selected addition is deleted'
       url: 'https://sizu.me/chihiroxx/posts/public',
     },
   ];
-  const checked: string[] = [];
-
   await syncService('sizu', {
     contentDirectory,
     feedLoader: async () => feed,
+  });
+
+  assert.ok((await readdir(articlesDirectory)).length > 19);
+  const checked: string[] = [];
+  await checkContentLinks({
+    contentDirectory,
     linkCheckBatchIntervalMs: 0,
     linkVerifier: async (url) => {
       checked.push(url);
       return url.endsWith('/deleted') ? 'deleted' : 'public';
     },
   });
-
   assert.deepEqual(checked, [feed[0].url]);
   const savedUrls = await Promise.all(
     (await readdir(articlesDirectory)).map(async (file) => {
@@ -151,7 +147,6 @@ test('sync rejects duplicate saved URLs before feed loading and leaves both file
     ),
   );
   let feedCalls = 0;
-  let linkChecks = 0;
 
   await assert.rejects(
     syncService('sizu', {
@@ -160,16 +155,11 @@ test('sync rejects duplicate saved URLs before feed loading and leaves both file
         feedCalls += 1;
         return [];
       },
-      linkVerifier: async () => {
-        linkChecks += 1;
-        return 'public';
-      },
     }),
     /articles URL is duplicated/,
   );
 
   assert.equal(feedCalls, 0);
-  assert.equal(linkChecks, 0);
   assert.deepEqual(await readdir(articlesDirectory), [
     'first.yaml',
     'second.yaml',
@@ -207,7 +197,6 @@ test('sync deduplicates identical feed content after fragment normalization rega
     syncService('sizu', {
       contentDirectory,
       feedLoader: async () => items,
-      linkVerifier: async () => 'public',
     });
 
   await run(forwardDirectory, [item, duplicate]);
@@ -231,9 +220,8 @@ test('sync deduplicates identical feed content after fragment normalization rega
   );
 });
 
-test('sync rejects conflicting duplicate feed URLs before verification or file changes', async (t) => {
+test('sync rejects conflicting duplicate feed URLs before file changes', async (t) => {
   const contentDirectory = await createContentDirectory(t);
-  let verifications = 0;
   const items = [
     {
       date: new Date('2026-10-03'),
@@ -268,10 +256,6 @@ test('sync rejects conflicting duplicate feed URLs before verification or file c
       syncService('sizu', {
         contentDirectory,
         feedLoader: async () => feedItems,
-        linkVerifier: async () => {
-          verifications += 1;
-          return 'public';
-        },
       }),
       /Conflicting RSS items for URL/,
     );
@@ -280,7 +264,6 @@ test('sync rejects conflicting duplicate feed URLs before verification or file c
       [],
     );
   }
-  assert.equal(verifications, 0);
 });
 
 test('sync validates saved YAML values with file and field context before loading RSS', async (t) => {
@@ -298,7 +281,6 @@ test('sync validates saved YAML values with file and field context before loadin
       syncService('sizu', {
         contentDirectory,
         feedLoader: async () => assert.fail('RSS must not be loaded'),
-        linkVerifier: async () => assert.fail('links must not be checked'),
       }),
       (error: unknown) =>
         error instanceof Error &&
@@ -311,7 +293,7 @@ test('sync validates saved YAML values with file and field context before loadin
   }
 });
 
-test('sync deadline keeps existing files unchanged and does not partially apply checked feed items', async (t) => {
+test('sync applies feed changes without checking item links', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
   await writeFile(
@@ -322,12 +304,6 @@ test('sync deadline keeps existing files unchanged and does not partially apply 
       url: 'https://sizu.me/chihiroxx/posts/existing',
     }),
   );
-  const original = await readFile(
-    path.join(articlesDirectory, 'existing.yaml'),
-    'utf8',
-  );
-  let elapsed = 0;
-  let checks = 0;
   const result = await syncService('sizu', {
     contentDirectory,
     feedLoader: async () => [
@@ -347,59 +323,11 @@ test('sync deadline keeps existing files unchanged and does not partially apply 
         url: 'https://sizu.me/chihiroxx/posts/another-new',
       },
     ],
-    executionBudgetMs: 1000,
-    now: () => elapsed,
-    linkCheckBatchIntervalMs: 0,
-    linkVerifier: async () => {
-      checks += 1;
-      if (checks === 2) {
-        await new Promise<void>((resolve) => setImmediate(resolve));
-        elapsed = 1000;
-      }
-      return 'public';
-    },
   });
-  assert.equal(result.unchecked.length, 1);
-  assert.deepEqual(await readdir(articlesDirectory), ['existing.yaml']);
-  assert.equal(
+  assert.deepEqual(result, { deferred: [], review: [], unchecked: [] });
+  assert.equal((await readdir(articlesDirectory)).length, 3);
+  const saved = YAML.parse(
     await readFile(path.join(articlesDirectory, 'existing.yaml'), 'utf8'),
-    original,
   );
-});
-
-test('sync still fails before applying any file when new link checks return defer or review', async (t) => {
-  const contentDirectory = await createContentDirectory(t);
-  for (const status of ['defer', 'review'] as const) {
-    let failure: Error & {
-      report?: { deferred: unknown[]; review: unknown[] };
-    };
-    try {
-      await syncService('sizu', {
-        contentDirectory,
-        feedLoader: async () => [
-          {
-            date: new Date('2026-10-03'),
-            title: 'New item',
-            url: `https://sizu.me/chihiroxx/posts/${status}`,
-          },
-        ],
-        linkVerifier: async () => status,
-        linkCheckBatchIntervalMs: 0,
-      });
-      throw new Error('sync unexpectedly succeeded');
-    } catch (error) {
-      failure = error as Error & {
-        report?: { deferred: unknown[]; review: unknown[] };
-      };
-    }
-    assert.match(failure.message, /Could not verify new items/);
-    assert.equal(
-      failure.report?.[status === 'defer' ? 'deferred' : 'review'].length,
-      1,
-    );
-    assert.deepEqual(
-      await readdir(path.join(contentDirectory, 'articles')),
-      [],
-    );
-  }
+  assert.equal(saved.title, 'Updated title');
 });

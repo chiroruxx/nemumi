@@ -47,28 +47,29 @@ mise run dev
 
 ### 主なコマンド
 
-| コマンド                                  | 内容                                                                                                                                                          |
-|-------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `mise run dev`                            | 開発サーバを起動する                                                                                                                                          |
-| `mise run sync-content -- sizu`           | しずかなインターネットの記事を同期する                                                                                                                        |
-| `mise run sync-content -- hatena`         | はてなブログの記事を同期する                                                                                                                                  |
-| `mise run sync-content -- speakerdeck`    | Speaker Deck の登壇資料を同期する                                                                                                                             |
-| `mise run prune-content`                  | 保持件数を適用し、無効リンクを除去する                                                                                                                        |
-| `mise run sync-content -- sizu --dry-run` | 公開状態を確認できない URL を表示する（書き込みなし）                                                                                                         |
-| `mise run prune-content -- --dry-run`     | 公開状態を確認できない URL を表示する（書き込みなし）                                                                                                         |
-| `mise run build`                          | 本番用にビルドする（出力先は `dist/`）                                                                                                                        |
-| `mise run preview`                        | ビルド結果をローカルで確認する                                                                                                                                |
-| `mise run lint`                           | Biome、Stylelint と export 関数のテスト確認を実行する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)）                                           |
-| `mise run check-exported-function-tests`  | export 関数のテスト対応だけを確認する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)、[ADR 0038](docs/adr/0038-use-native-node-test-runner.md)） |
-| `mise run format`                         | Biome でファイルを整形する                                                                                                                                    |
-| `mise run check`                          | `astro check` で型チェックする                                                                                                                                |
-| `mise run test`                           | Astro をビルドし、Node.js 26 の glob test runner で `tests/**/*.test.ts` を実行する（[ADR 0038](docs/adr/0038-use-native-node-test-runner.md)）               |
-| `mise run lighthouse-ci`                  | Lighthouse CI でビルド成果物を検査する                                                                                                                        |
+| コマンド                                    | 内容                                                                                                                                                          |
+|---------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `mise run dev`                              | 開発サーバを起動する                                                                                                                                          |
+| `mise run sync-content -- sizu`             | しずかなインターネットの記事を同期する                                                                                                                        |
+| `mise run sync-content -- hatena`           | はてなブログの記事を同期する                                                                                                                                  |
+| `mise run sync-content -- speakerdeck`      | Speaker Deck の登壇資料を同期する                                                                                                                             |
+| `mise run prune-content`                    | 保存済みコンテンツに保持件数を適用する                                                                                                                        |
+| `mise run check-content-links`              | 保存済みの同期管理コンテンツのリンクを確認し、無効リンクを除去する                                                                                            |
+| `mise run check-content-links -- --dry-run` | 公開状態を確認できない URL を表示する（書き込みなし）                                                                                                         |
+| `mise run build`                            | 本番用にビルドする（出力先は `dist/`）                                                                                                                        |
+| `mise run preview`                          | ビルド結果をローカルで確認する                                                                                                                                |
+| `mise run lint`                             | Biome、Stylelint と export 関数のテスト確認を実行する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)）                                           |
+| `mise run check-exported-function-tests`    | export 関数のテスト対応だけを確認する（[ADR 0026](docs/adr/0026-check-exported-function-tests.md)、[ADR 0038](docs/adr/0038-use-native-node-test-runner.md)） |
+| `mise run format`                           | Biome でファイルを整形する                                                                                                                                    |
+| `mise run check`                            | `astro check` で型チェックする                                                                                                                                |
+| `mise run test`                             | Astro をビルドし、Node.js 26 の glob test runner で `tests/**/*.test.ts` を実行する（[ADR 0038](docs/adr/0038-use-native-node-test-runner.md)）               |
+| `mise run lighthouse-ci`                    | Lighthouse CI でビルド成果物を検査する                                                                                                                        |
 
 ## 外部コンテンツの自動更新
 
-GitHub Actions は毎日 JST 06:17 に3サービスを並列で同期し、JST 07:17 に `main` の保存済みデータを対象に prune
-します。同期はサービス別 PR、prune は共通 PR を作成・更新します。同期が失敗したサービスは差分を適用せず、他サービスの同期は継続します。prune
+GitHub Actions は毎日 JST 06:17 に3サービスを順番に同期してから、保存済みデータのリンクを確認します。JST 07:17 には、実行時点の最新
+`main` にある保存済みデータのリンクを確認して無効リンクを削除し、その後で保持件数を適用します。それぞれの実行で1つの PR
+を作成・更新します。いずれかの同期が失敗すると後続処理と PR 作成を停止します。prune
 は同期 PR のマージを待たず、実行時点の最新 `main` を対象にします。
 
 PR 作成には、この repository にインストールした GitHub App を使います。`APP_CLIENT_ID` を
@@ -80,10 +81,10 @@ protection の bypass 権限は不要です。workflow の `GITHUB_TOKEN` は re
 の確認・マージは手動です。自動マージを使う場合は repository 設定で Auto-merge と必須チェックも有効にしてください。初回は自動マージを無効にして差分と
 CI を確認し、手動マージします。
 
-「Update content」はサービスを選択して手動実行できます。「Prune
+「Update content」はサービスを選択して手動実行できます。選択したサービスの同期後、全コレクションのリンク確認を行います。「Prune
 content」も手動実行できます。ローカルと自動更新 PR の本文には、公開状態を確認できなかった URL
-だけを表示します（[ADR 0036](docs/adr/0036-report-unverified-content-urls.md)）。GitHub Actions
-はどちらも10分で終了します。
+だけを表示します（[ADR 0036](docs/adr/0036-report-unverified-content-urls.md)）。同期 workflow は40分、prune workflow
+は10分で終了します。
 
 リンク確認はサービスを問わず最大5件を並列実行し、バッチ全件の完了後、次のバッチまで1秒待機します（[ADR 0035](docs/adr/0035-batch-link-checks.md)）。
 

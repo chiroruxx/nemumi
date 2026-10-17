@@ -18,8 +18,6 @@ import {
   createExecutionContext,
   type ExecutionContext,
   fetchFeed,
-  runLinkChecks,
-  verifyLink,
 } from './external-content-http.ts';
 import {
   buildCollectionIndex,
@@ -32,7 +30,10 @@ type FeedLoader = (
   service: Service,
   context: ExecutionContext,
 ) => Promise<FeedItem[]>;
-type SyncOptions = CommonContentOptions & { feedLoader?: FeedLoader };
+type SyncOptions = Omit<
+  CommonContentOptions,
+  'linkVerifier' | 'linkCheckBatchIntervalMs' | 'sleep'
+> & { feedLoader?: FeedLoader };
 export type SyncResult = ContentResult;
 
 function syncOperations(changes: SyncChange[]): ContentFileOperation[] {
@@ -57,11 +58,8 @@ export async function syncService(
     dryRun = false,
     contentDirectory = defaultContentDirectory,
     feedLoader,
-    linkVerifier,
     executionBudgetMs,
-    linkCheckBatchIntervalMs = 1000,
     now = Date.now,
-    sleep,
   }: SyncOptions = {},
 ): Promise<SyncResult> {
   const service = getService(source);
@@ -87,53 +85,11 @@ export async function syncService(
       feed: currentFeed,
       contentDirectory,
     };
-    const preliminaryPlan = createSyncPlan(planInput);
-    await validateFileTargets(
-      syncOperations(preliminaryPlan.changes),
-      contentDirectory,
-    );
-
-    const checked = await runLinkChecks(
-      preliminaryPlan.linkChecks,
-      linkVerifier ??
-        ((url, configured, execution) =>
-          verifyLink(url, configured, { context: execution })),
-      {
-        context,
-        batchIntervalMs: linkCheckBatchIntervalMs,
-        ...(sleep ? { sleep } : {}),
-      },
-    );
-    const deferred = preliminaryPlan.linkChecks.filter(
-      ({ url }) => checked.statuses.get(url) === 'defer',
-    );
-    const review = preliminaryPlan.linkChecks.filter(
-      ({ url }) => checked.statuses.get(url) === 'review',
-    );
-    const result: SyncResult = {
-      deferred,
-      review,
-      unchecked: checked.unchecked,
-    };
-    if (deferred.length || review.length) {
-      throw Object.assign(
-        new Error(
-          `Could not verify new items: ${[...deferred, ...review]
-            .map(({ url }) => url)
-            .join(', ')}`,
-        ),
-        { report: result },
-      );
-    }
-    if (checked.unchecked.length) return result;
-    const changes = preliminaryPlan.changes.filter(
-      ({ action, url }) =>
-        action === 'update' || checked.statuses.get(url) === 'public',
-    );
-    const operations = syncOperations(changes);
+    const plan = createSyncPlan(planInput);
+    const operations = syncOperations(plan.changes);
     await validateFileTargets(operations, contentDirectory);
     if (!dryRun) await applyFileChanges(operations, contentDirectory);
-    return result;
+    return { deferred: [], review: [], unchecked: [] };
   } finally {
     context.dispose();
   }

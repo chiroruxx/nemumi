@@ -23,14 +23,27 @@ jobs:
           ref: main
           persist-credentials: false
 
-      - name: Run content automation
-        uses: ./.github/actions/content-automation
+      - name: Set up mise
+        uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check saved content links
+        id: check-links
+        uses: ./.github/actions/check-content-links
+
+      - name: Prune saved content
+        run: mise run prune-content
+
+      - name: Create or update content pull request
+        uses: ./.github/actions/content-pull-request
         with:
-          mode: prune
           branch: automation/prune-content
           commit-message: 'chore(content): prune content'
           title: コンテンツを整理
-          description: ディレクトリごとの保持件数を適用し、無効リンクを除去します。
+          description: 無効リンクを除去してからディレクトリごとの保持件数を適用します。
+          summary: ${{ steps.check-links.outputs.summary }}
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           auto-merge: ${{ vars.CONTENT_AUTO_MERGE }}

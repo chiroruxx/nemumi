@@ -65,6 +65,11 @@ test('sync and prune invalid CLI arguments exit nonzero before changing content 
     ['prune-content.ts', ['--dryrun']],
     ['prune-content.ts', ['--dry-run', '--dry-run']],
     ['prune-content.ts', ['--', '--', '--dry-run']],
+    ['check-content-links.ts', ['--dry-run', 'unexpected']],
+    ['check-content-links.ts', ['unexpected']],
+    ['check-content-links.ts', ['--dryrun']],
+    ['check-content-links.ts', ['--dry-run', '--dry-run']],
+    ['check-content-links.ts', ['--', '--', '--dry-run']],
   ] as const) {
     const cliPath = new URL(`../scripts/cli/${script}`, import.meta.url);
     await assert.rejects(
@@ -95,6 +100,37 @@ test('prune CLI accepts empty arguments and an optional pnpm separator before dr
     ),
   );
   const cliPath = new URL('../scripts/cli/prune-content.ts', import.meta.url);
+  for (const args of [[], ['--'], ['--dry-run'], ['--', '--dry-run']]) {
+    const { stdout, stderr } = await runFile(
+      process.execPath,
+      [cliPath.pathname, ...args],
+      {
+        cwd: fixtureRoot,
+        env: { ...process.env, GITHUB_OUTPUT: '' },
+      },
+    );
+    assert.equal(stderr, '');
+    assert.equal(
+      stdout.trim(),
+      '公開状態を確認できなかった URL はありません。',
+    );
+  }
+});
+
+test('link check CLI accepts empty arguments and an optional pnpm separator before dry-run', async (t) => {
+  const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), 'check-links-cli-'));
+  t.after(() => rm(fixtureRoot, { recursive: true, force: true }));
+  await Promise.all(
+    ['articles', 'talks'].map((collection) =>
+      mkdir(path.join(fixtureRoot, 'src/content', collection), {
+        recursive: true,
+      }),
+    ),
+  );
+  const cliPath = new URL(
+    '../scripts/cli/check-content-links.ts',
+    import.meta.url,
+  );
   for (const args of [[], ['--'], ['--dry-run'], ['--', '--dry-run']]) {
     const { stdout, stderr } = await runFile(
       process.execPath,
@@ -197,34 +233,34 @@ test('sync CLI accepts each service, honors dry-run, and writes its report to Gi
   }
 });
 
-test('sync CLI reports unverified URLs before exiting nonzero without applying changes', async (t) => {
+test('sync CLI saves candidates without checking links; shared checker reports and preserves unverified links', async (t) => {
   const { contentDirectory, outputFile, run } = await createCliFixture(t);
   for (const status of ['400', '503']) {
     await writeFile(outputFile, '');
-    await assert.rejects(
-      run('sync-content', ['sizu'], status),
-      (error: NodeJS.ErrnoException & { stdout?: string; stderr?: string }) => {
-        assert.notEqual(error.code, 0);
-        assert.equal(
-          error.stdout?.trim(),
-          '公開状態を確認できなかった URL:\n- https://sizu.me/chihiroxx/posts/fixture',
-        );
-        assert.match(error.stderr ?? '', /Could not verify new items/);
-        return true;
-      },
+    await run('sync-content', ['sizu'], status);
+    assert.equal(
+      (await readdir(path.join(contentDirectory, 'articles'))).length,
+      1,
+    );
+    const checked = await run('check-content-links', [], status);
+    assert.equal(
+      checked.stdout.trim(),
+      '公開状態を確認できなかった URL:\n- https://sizu.me/chihiroxx/posts/fixture',
     );
     assert.match(
       await readFile(outputFile, 'utf8'),
-      /公開状態を確認できなかった URL:\n- https:\/\/sizu.me\/chihiroxx\/posts\/fixture\n/,
+      /公開状態を確認できなかった URL:/,
     );
-    assert.deepEqual(
-      await readdir(path.join(contentDirectory, 'articles')),
-      [],
+    assert.equal(
+      (await readdir(path.join(contentDirectory, 'articles'))).length,
+      1,
     );
+    await rm(path.join(contentDirectory, 'articles'), { recursive: true });
+    await mkdir(path.join(contentDirectory, 'articles'), { recursive: true });
   }
 });
 
-test('prune CLI reports only unverified URLs and honors dry-run before deleting confirmed links', async (t) => {
+test('link check CLI reports unverified URLs and honors dry-run before deleting confirmed links', async (t) => {
   const { contentDirectory, outputFile, run } = await createCliFixture(t);
   const directory = path.join(contentDirectory, 'articles');
   for (const slug of ['public', 'deferred', 'review', 'deleted']) {
@@ -239,18 +275,42 @@ test('prune CLI reports only unverified URLs and honors dry-run before deleting 
   }
   const expected =
     '公開状態を確認できなかった URL:\n- https://sizu.me/chihiroxx/posts/deferred\n- https://sizu.me/chihiroxx/posts/review';
-  const { stdout, stderr } = await run('prune-content', ['--dry-run'], '');
+  const { stdout, stderr } = await run(
+    'check-content-links',
+    ['--dry-run'],
+    '',
+  );
   assert.equal(stderr, '');
   assert.equal(stdout.trim(), expected);
   assert.equal((await readdir(directory)).length, 4);
   assert.ok((await readFile(outputFile, 'utf8')).includes(expected));
-  const applied = await run('prune-content', [], '');
+  const applied = await run('check-content-links', [], '');
   assert.equal(applied.stdout.trim(), expected);
   assert.deepEqual((await readdir(directory)).sort(), [
     'deferred.yaml',
     'public.yaml',
     'review.yaml',
   ]);
+});
+
+test('link check CLI reports invalid saved content and exits without writing a summary', async (t) => {
+  const { contentDirectory, outputFile, run } = await createCliFixture(t);
+  await writeFile(
+    path.join(contentDirectory, 'articles', 'invalid.yaml'),
+    'date: [unterminated',
+  );
+  await writeFile(outputFile, 'unchanged\n');
+
+  await assert.rejects(
+    run('check-content-links', []),
+    (error: NodeJS.ErrnoException & { stderr?: string }) => {
+      assert.notEqual(error.code, 0);
+      assert.match(error.stderr ?? '', /invalid YAML/);
+      return true;
+    },
+  );
+
+  assert.equal(await readFile(outputFile, 'utf8'), 'unchanged\n');
 });
 
 test('sync CLI rejects unknown services before loading content', async (t) => {

@@ -178,33 +178,42 @@ export function createSyncPlan({
   )) {
     if (!keep.has(url)) continue;
     const previous = index.byUrl.get(url)?.entry;
-    const types = previous?.data.types ?? [service.type];
-    if (
-      previous &&
-      previous.data.date.getTime() === item.date.getTime() &&
-      previous.data.title === item.title &&
-      previous.data.url?.href === item.url &&
-      sameValues(previous.data.types, types)
-    ) {
-      continue;
+    if (previous) {
+      const types = previous.data.types ?? [service.type];
+      if (
+        previous.data.date.getTime() === item.date.getTime() &&
+        previous.data.title === item.title &&
+        previous.data.url?.href === item.url &&
+        sameValues(previous.data.types, types)
+      ) {
+        continue;
+      }
+      changes.push({
+        action: 'update',
+        file: previous.file,
+        date: item.date,
+        title: item.title,
+        url: item.url,
+        types,
+      });
+    } else {
+      const file = path.join(
+        contentDirectory,
+        index.collection,
+        filenameFor(source, url),
+      );
+      if (index.entries.some(({ entry }) => entry.id === path.basename(file))) {
+        throw new Error(`Filename collision while adding ${url}`);
+      }
+      changes.push({
+        action: 'add',
+        file,
+        date: item.date,
+        title: item.title,
+        url: item.url,
+        types: [service.type],
+      });
     }
-    const file =
-      previous?.file ??
-      path.join(contentDirectory, index.collection, filenameFor(source, url));
-    if (
-      !previous &&
-      index.entries.some(({ entry }) => entry.id === path.basename(file))
-    ) {
-      throw new Error(`Filename collision while adding ${url}`);
-    }
-    changes.push({
-      action: previous ? 'update' : 'add',
-      file,
-      date: item.date,
-      title: item.title,
-      url: item.url,
-      types,
-    });
   }
 
   return { changes };

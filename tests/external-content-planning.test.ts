@@ -86,74 +86,77 @@ test('buildCollectionIndex normalizes URLs, counts manual entries, and rejects s
 });
 
 test('createSyncPlan is deterministic and keeps existing types', () => {
-  const existing = [
-    storedEntry(
-      'sizu.yaml',
-      '2026-10-01',
-      'Old title',
-      'https://sizu.me/chihiroxx/posts/existing?ref=feed',
-      ['手動分類'],
-    ),
-  ];
-  const index = buildCollectionIndex('articles', existing);
-  const feed = [
-    feedItem('2026-10-03', 'New B', 'https://sizu.me/chihiroxx/posts/b#feed'),
-    feedItem(
-      '2026-10-02',
-      'Updated title',
-      'https://sizu.me/chihiroxx/posts/existing?ref=feed',
-    ),
-    feedItem('2026-10-03', 'New A', 'https://sizu.me/chihiroxx/posts/a'),
-  ];
-  const options = {
-    source: 'sizu' as const,
-    index,
-    feed,
-    contentDirectory: '/repo/src/content',
-  };
-  const initial = createSyncPlan(options);
+  for (const types of [['手動分類'], undefined, []]) {
+    const existing = [
+      storedEntry(
+        'sizu.yaml',
+        '2026-10-01',
+        'Old title',
+        'https://sizu.me/chihiroxx/posts/existing?ref=feed',
+        types,
+      ),
+    ];
+    const index = buildCollectionIndex('articles', existing);
+    const feed = [
+      feedItem('2026-10-03', 'New B', 'https://sizu.me/chihiroxx/posts/b#feed'),
+      feedItem(
+        '2026-10-02',
+        'Updated title',
+        'https://sizu.me/chihiroxx/posts/existing?ref=feed',
+      ),
+      feedItem('2026-10-03', 'New A', 'https://sizu.me/chihiroxx/posts/a'),
+    ];
+    const options = {
+      source: 'sizu' as const,
+      index,
+      feed,
+      contentDirectory: '/repo/src/content',
+    };
+    const initial = createSyncPlan(options);
 
-  assert.equal(Object.hasOwn(initial, 'linkChecks'), false);
-  assert.deepEqual(
-    initial.changes.map(({ action, date, title, url, types }) => ({
-      action,
-      date,
-      title,
-      url,
-      types,
-    })),
-    [
-      {
-        action: 'add',
-        date: new Date('2026-10-03'),
-        title: 'New A',
-        url: 'https://sizu.me/chihiroxx/posts/a',
-        types: ['日常記事'],
-      },
-      {
-        action: 'add',
-        date: new Date('2026-10-03'),
-        title: 'New B',
-        url: 'https://sizu.me/chihiroxx/posts/b',
-        types: ['日常記事'],
-      },
-      {
-        action: 'update',
-        date: new Date('2026-10-02'),
-        title: 'Updated title',
-        url: 'https://sizu.me/chihiroxx/posts/existing?ref=feed',
-        types: ['手動分類'],
-      },
-    ],
-  );
-  assert.deepEqual(
-    initial.changes.map(({ url }) => url),
-    [
-      'https://sizu.me/chihiroxx/posts/a',
-      'https://sizu.me/chihiroxx/posts/b',
-      'https://sizu.me/chihiroxx/posts/existing?ref=feed',
-    ],
-  );
+    assert.equal(Object.hasOwn(initial, 'linkChecks'), false);
+    assert.deepEqual(
+      initial.changes.map(({ action, date, title, url, types }) => ({
+        action,
+        date,
+        title,
+        url,
+        types,
+      })),
+      [
+        {
+          action: 'add',
+          date: new Date('2026-10-03'),
+          title: 'New A',
+          url: 'https://sizu.me/chihiroxx/posts/a',
+          types: ['日常記事'],
+        },
+        {
+          action: 'add',
+          date: new Date('2026-10-03'),
+          title: 'New B',
+          url: 'https://sizu.me/chihiroxx/posts/b',
+          types: ['日常記事'],
+        },
+        {
+          action: 'update',
+          date: new Date('2026-10-02'),
+          title: 'Updated title',
+          url: 'https://sizu.me/chihiroxx/posts/existing?ref=feed',
+          types: types ?? ['日常記事'],
+        },
+      ],
+    );
+    assert.deepEqual(
+      initial.changes.map(({ url }) => url),
+      [
+        'https://sizu.me/chihiroxx/posts/a',
+        'https://sizu.me/chihiroxx/posts/b',
+        'https://sizu.me/chihiroxx/posts/existing?ref=feed',
+      ],
+    );
+    assert.equal(initial.changes[2]?.file, existing[0]?.file);
+  }
 });
 
 test('sync ranks one source against saved entries from another source under the shared collection cap', () => {
@@ -355,35 +358,4 @@ test('createSyncPlan leaves unchanged saved records untouched', () => {
     }),
     { changes: [] },
   );
-});
-
-test('createSyncPlan fills missing types and preserves empty types when updating', () => {
-  for (const types of [undefined, []]) {
-    const url = 'https://sizu.me/chihiroxx/posts/existing';
-    const existing = storedEntry(
-      'custom-name.yaml',
-      '2026-10-01',
-      'Old title',
-      url,
-      types,
-    );
-    const plan = createSyncPlan({
-      source: 'sizu',
-      index: buildCollectionIndex('articles', [existing]),
-      feed: [feedItem('2026-10-02', 'New title', url)],
-      contentDirectory: '/another/content',
-    });
-    assert.deepEqual(plan, {
-      changes: [
-        {
-          action: 'update',
-          file: existing.file,
-          date: new Date('2026-10-02'),
-          title: 'New title',
-          url,
-          types: types ?? ['日常記事'],
-        },
-      ],
-    });
-  }
 });

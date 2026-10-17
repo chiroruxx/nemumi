@@ -37,20 +37,20 @@
 ### 作り方・技術スタック
 
 - フレームワーク: Astro（SSG）
-- コンテンツ管理: Astro Content Collections（YAML / Markdown + スキーマ）（[ADR 0009](../adr/0009-content-collections.md)）
-- ホスティング: Cloudflare Workers（Static Assets）（[ADR 0001](../adr/0001-hosting-cloudflare-workers.md)）
-- ドメイン: nemumi.dev（Cloudflare Registrar）（[ADR 0008](../adr/0008-domain-nemumi-dev.md)）
-- スタイリング: Astro のスコープ付き CSS（[ADR 0010](../adr/0010-astro-scoped-css.md)）
-- CSS の記述形式: ネイティブ CSS Nesting（[ADR 0013](../adr/0013-native-css-nesting.md)）
-- 画像最適化: `astro:assets` と Sharp（[ADR 0012](../adr/0012-optimize-images-with-astro-assets.md)）
+- コンテンツ管理: Astro Content Collections（YAML / Markdown + スキーマ）（[Astro Content Collections によるコンテンツデータの管理](../adr/2026-09-25-content-collections.md)）
+- ホスティング: Cloudflare Workers（Static Assets）（[ホスティングに Cloudflare Workers（Static Assets）を採用する](../adr/2026-09-24-hosting-cloudflare-workers.md)）
+- ドメイン: nemumi.dev（Cloudflare Registrar）（[独自ドメインに nemumi.dev を採用する](../adr/2026-09-24-domain-nemumi-dev.md)）
+- スタイリング: Astro のスコープ付き CSS（[Astro のスコープ付き CSS を使う](../adr/2026-09-26-astro-scoped-css.md)）
+- CSS の記述形式: ネイティブ CSS Nesting（[Astro のスコープ付き CSS でネイティブ CSS Nesting を使う](../adr/2026-09-26-native-css-nesting.md)）
+- 画像最適化: `astro:assets` と Sharp（[astro:assets で画像を最適化する](../adr/2026-09-26-optimize-images-with-astro-assets.md)）
 - ツールのバージョン管理: mise（Node.js は `.node-version`、その他は
-  `mise.toml`）（[ADR 0002](../adr/0002-tool-version-management-mise.md)）
-- ランタイム: Node.js 26（[ADR 0003](../adr/0003-nodejs-26.md)）
-- パッケージマネージャ: pnpm（[ADR 0004](../adr/0004-package-manager-pnpm.md)）
-- 整形: Biome（[ADR 0005](../adr/0005-formatter-linter-biome.md)）。Lint は Astro 内の CSS 以外を Biome、Astro 内の CSS 全般を
+  `mise.toml`）（[ツールのバージョン管理に mise を採用し、mise.toml で固定する](../adr/2026-09-24-tool-version-management-mise.md)）
+- ランタイム: Node.js 26（[Node.js 26 を採用する](../adr/2026-09-24-nodejs-26.md)）
+- パッケージマネージャ: pnpm（[パッケージマネージャに pnpm を採用する](../adr/2026-09-24-package-manager-pnpm.md)）
+- 整形: Biome（[Formatter / Linter に Biome を採用する](../adr/2026-09-24-formatter-linter-biome.md)）。Lint は Astro 内の CSS 以外を Biome、Astro 内の CSS 全般を
   Stylelint が担当する。
-- 型チェック: astro check + TypeScript 6（[ADR 0006](../adr/0006-type-check-astro-check.md)）
-- CI: GitHub Actions（[ADR 0007](../adr/0007-ci-github-actions.md)）
+- 型チェック: astro check + TypeScript 6（[型チェックに astro check と TypeScript 6 を採用する](../adr/2026-09-24-type-check-astro-check.md)）
+- CI: GitHub Actions（[CI に GitHub Actions を採用する](../adr/2026-09-24-ci-github-actions.md)）
 
 ## ロードマップ
 
@@ -94,15 +94,15 @@
     - 初回公開はトップページだけで完結させる。
     - セクションはプロフィール、「日々のこと」、「お話ししたこと」、「コミュニティのこと」の順に並べる。
     - Articles と Activities
-      は別々のコレクションで管理し、トップページでは「日々のこと」の一覧にまとめて表示する（[ADR 0009](../adr/0009-content-collections.md)）。
-    - Communities は各項目に表示順の数字を設定し、その順に並べる（[ADR 0009](../adr/0009-content-collections.md)）。
-    - Communities は各項目にアイコン画像を持たせ（[ADR 0009](../adr/0009-content-collections.md)）、一覧ではアイコンを主役として表示する。
+      は別々のコレクションで管理し、トップページでは「日々のこと」の一覧にまとめて表示する（[Astro Content Collections によるコンテンツデータの管理](../adr/2026-09-25-content-collections.md)）。
+    - Communities は各項目に表示順の数字を設定し、その順に並べる（[Astro Content Collections によるコンテンツデータの管理](../adr/2026-09-25-content-collections.md)）。
+    - Communities は各項目にアイコン画像を持たせ（[Astro Content Collections によるコンテンツデータの管理](../adr/2026-09-25-content-collections.md)）、一覧ではアイコンを主役として表示する。
     - Talks / Slides はトップページに一覧を載せ、外部のスライドへ直接リンクする。初回は個別ページを作らない。
     - 初回はトップページのみとし、将来のブログ用 URL（`/blog/`）は予約しない。
     - Articles、Talks / Slides、Communities、Activities
-      は1件につき1ファイルで管理する（[ADR 0009](../adr/0009-content-collections.md)）。
+      は1件につき1ファイルで管理する（[Astro Content Collections によるコンテンツデータの管理](../adr/2026-09-25-content-collections.md)）。
     - プロフィールや各コンテンツのリンクは、それぞれの内容に含め、独立した Links
-      一覧は設けない（[ADR 0009](../adr/0009-content-collections.md)）。
+      一覧は設けない（[Astro Content Collections によるコンテンツデータの管理](../adr/2026-09-25-content-collections.md)）。
     - 「日々のこと」では Articles と Activities を日付の新しい順にまとめて表示する。
     - Articles には公開日と掲載サービス名、Activities には開始日と活動種別を表示する。Activities の活動種別は複数設定できる。複数日開催の
       Activities は開始日と終了日を表示する。
@@ -131,24 +131,24 @@
 
 - **やること**:
     - Astro Content Collections を実装し、記事・登壇・コミュニティ・活動のデータを1件1ファイルで管理 ✅
-      （[ADR 0009](../adr/0009-content-collections.md)）
-    - スタイリング手法の決定 ✅ Astro のスコープ付き CSS（[ADR 0010](../adr/0010-astro-scoped-css.md)）
+      （[Astro Content Collections によるコンテンツデータの管理](../adr/2026-09-25-content-collections.md)）
+    - スタイリング手法の決定 ✅ Astro のスコープ付き CSS（[Astro のスコープ付き CSS を使う](../adr/2026-09-26-astro-scoped-css.md)）
     - UI パーツ単位で Astro コンポーネントに分ける ✅
-      ヒーロー、カード、ロゴ、リストを分離（[ADR 0011](../adr/0011-astro-components-by-ui-part.md)）
+      ヒーロー、カード、ロゴ、リストを分離（[UI パーツ単位で Astro コンポーネントに分ける](../adr/2026-09-26-astro-components-by-ui-part.md)）
     - スタイリングの適用とレスポンシブ対応 ✅ 各コンポーネントに CSS とブレークポイントを設定
     - 404 ページの作成 ✅ 夜空のデザインとトップページへのリンクを追加
-    - 画像の最適化 ✅ `astro:assets` で WebP に変換（[ADR 0012](../adr/0012-optimize-images-with-astro-assets.md)）
+    - 画像の最適化 ✅ `astro:assets` で WebP に変換（[astro:assets で画像を最適化する](../adr/2026-09-26-optimize-images-with-astro-assets.md)）
 
 ### Step 6: SEO・メタ情報・OGP の最適化
 
 - **やること**:
     - タイトル、メタディスクリプション、canonical の設定 ✅
     - SNS シェア時の OGP（画像・説明文）の設定 ✅ Open Graph 用の正方形画像と Twitter Card
-      用の横長画像（[ADR 0020](../adr/0020-static-ogp-image.md)）
+      用の横長画像（[OGP 画像に固定画像を使う](../adr/2026-10-10-static-ogp-image.md)）
     - favicon の設定 ✅ 完了
     - サイトマップ（`@astrojs/sitemap`）と `robots.txt` の生成 ✅
-      ([ADR 0021](../adr/0021-generate-sitemap-and-robots-txt.md))
-    - 構造化データ（JSON-LD の `Person`）の追加 ✅ ([ADR 0022](../adr/0022-use-json-ld-for-structured-data.md))
+      ([サイトマップと robots.txt を生成する](../adr/2026-10-10-generate-sitemap-and-robots-txt.md))
+    - 構造化データ（JSON-LD の `Person`）の追加 ✅ ([構造化データに JSON-LD を使う](../adr/2026-10-10-use-json-ld-for-structured-data.md))
 
 ### Step 7: 品質チェック & リリース
 
@@ -157,14 +157,13 @@
     - 主要ブラウザとスマートフォンでの表示確認 ✅ Chrome の主要ビューポートと Android 実機で確認（Safari は iPhone
       を所有していないため対象外）
     - デプロイ後に OGP プレビューを確認し、画像・タイトル・説明文の表示を確認する ✅ X・Slack で確認済み
-    - Cloudflare Web Analytics を使う ✅ ([ADR 0024](../adr/0024-use-cloudflare-web-analytics.md))
+    - Cloudflare Web Analytics を使う ✅ ([アクセス解析に Cloudflare Web Analytics を使う](../adr/2026-10-10-use-cloudflare-web-analytics.md))
     - SNS のプロフィール欄などにサイト URL を掲載する ✅ 完了
 
 ### Step 8: 運用
 
 - **やること**:
     - 依存パッケージの自動更新（Renovate）の設定 ✅ 完了
-    - コンテンツ追加手順（登壇・活動の追加方法）を README に記載 ✅ 完了
 
 ## 将来の検討事項
 

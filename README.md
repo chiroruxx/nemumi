@@ -83,8 +83,7 @@ CI を確認し、手動マージします。
 
 「Update content」はサービスを選択して手動実行できます。選択したサービスの同期後、全コレクションのリンク確認を行います。「Prune
 content」も手動実行できます。ローカルと自動更新 PR の本文には、公開状態を確認できなかった URL
-だけを表示します（[ADR 0036](docs/adr/0036-report-unverified-content-urls.md)、[ADR 0039](docs/adr/0039-sequence-content-automation.md)
-）。同期 workflow は40分、prune workflow は10分で終了します。
+だけを表示します（[ADR 0036](docs/adr/0036-report-unverified-content-urls.md)）。同期 workflow は40分、prune workflow は10分で終了します。
 
 リンク確認はサービスを問わず最大5件を並列実行し、バッチ全件の完了後、次のバッチまで1秒待機します（[ADR 0035](docs/adr/0035-batch-link-checks.md)）。
 

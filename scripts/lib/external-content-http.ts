@@ -2,14 +2,13 @@ import Parser from 'rss-parser';
 import { contentDateSchema } from '../../src/config/content-schema.ts';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import {
-  type LinkCheck,
-  type LinkStatus,
+  getService,
   type Service,
-  type services,
   validateContentUrl,
-} from './external-content-planning.ts';
+} from './external-content.ts';
+import type { LinkCheck, LinkStatus } from './external-content-planning.ts';
 
-export const DEFAULT_EXECUTION_BUDGET_MS = 8 * 60 * 1000;
+const DEFAULT_EXECUTION_BUDGET_MS = 8 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 30_000;
 const RSS_RESPONSE_LIMIT_BYTES = 5 * 1024 * 1024;
 const MAX_RETRIES = 2;
@@ -23,7 +22,7 @@ export type ExecutionContext = {
 };
 
 type Timer = ReturnType<typeof setTimeout>;
-export type ExecutionContextOptions = {
+type ExecutionContextOptions = {
   budgetMs?: number;
   now?: () => number;
   setTimer?: (callback: () => void, delayMs: number) => Timer;
@@ -55,14 +54,11 @@ export function createExecutionContext({
   };
 }
 
-export type FetchLike = (
+type FetchLike = (
   input: string | URL | Request,
   init?: RequestInit,
 ) => Promise<Response>;
-export type Sleep = (
-  milliseconds: number,
-  signal?: AbortSignal,
-) => Promise<void>;
+type Sleep = (milliseconds: number, signal?: AbortSignal) => Promise<void>;
 export type HttpRuntime = {
   fetch?: FetchLike;
   sleep?: Sleep;
@@ -168,7 +164,7 @@ function publicationDate(value: string): Date {
   return contentDateSchema.parse(formatDateInSiteTimeZone(instant));
 }
 
-export async function parseFeedXml(xml: string, service: Service) {
+async function parseFeedXml(xml: string, service: Service) {
   const parsed = await new Parser().parseString(xml);
   if (!parsed.items.length)
     throw new Error(`${service.label} RSS feed is empty`);
@@ -179,11 +175,11 @@ export async function parseFeedXml(xml: string, service: Service) {
         `${service.label} RSS item is missing title, pubDate, or link`,
       );
     }
-    return {
-      date: publicationDate(item.pubDate),
-      title,
-      url: validateContentUrl(item.link, service),
-    };
+    const date = publicationDate(item.pubDate);
+    const url = new URL(item.link);
+    validateContentUrl(url, service);
+    url.hash = '';
+    return { date, title, url: url.href };
   });
 }
 
@@ -278,7 +274,9 @@ export async function verifyLink(
     }
     let url: URL;
     try {
-      url = new URL(validateContentUrl(target, service));
+      url = new URL(target);
+      validateContentUrl(url, service);
+      url.hash = '';
     } catch {
       return 'review';
     }
@@ -322,13 +320,12 @@ export type LinkVerifier = (
   service: Service,
   context: ExecutionContext,
 ) => Promise<LinkStatus>;
-export type LinkCheckRunOptions = {
-  services: typeof services;
+type LinkCheckRunOptions = {
   context: ExecutionContext;
   batchIntervalMs?: number;
   sleep?: Sleep;
 };
-export type LinkCheckRunResult = {
+type LinkCheckRunResult = {
   statuses: Map<string, LinkStatus>;
   unchecked: LinkCheck[];
 };
@@ -336,12 +333,7 @@ export type LinkCheckRunResult = {
 export async function runLinkChecks(
   entries: LinkCheck[],
   verify: LinkVerifier,
-  {
-    services: configuredServices,
-    context,
-    batchIntervalMs = 1000,
-    sleep: wait = sleep,
-  }: LinkCheckRunOptions,
+  { context, batchIntervalMs = 1000, sleep: wait = sleep }: LinkCheckRunOptions,
 ): Promise<LinkCheckRunResult> {
   const statuses = new Map<string, LinkStatus>();
   const expired = () => context.signal.aborted || context.remainingMs() <= 0;
@@ -363,11 +355,7 @@ export async function runLinkChecks(
           if (expired()) return;
           let status: LinkStatus;
           try {
-            status = await verify(
-              entry.url,
-              configuredServices[entry.source],
-              context,
-            );
+            status = await verify(entry.url, getService(entry.source), context);
           } catch {
             status = 'defer';
           }

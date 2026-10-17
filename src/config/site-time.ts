@@ -1,4 +1,4 @@
-export function getSiteTimeZone(): string {
+function getSiteTimeZone(): string {
   return process.env.TZ || import.meta.env?.TZ || 'Asia/Tokyo';
 }
 

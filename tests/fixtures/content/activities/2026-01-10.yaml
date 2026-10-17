@@ -2,3 +2,4 @@ startDate: "2026-01-10"
 types:
   - "activity"
 title: "Activity 10"
+url: "https://example.com/activity?ref=fixture#section"

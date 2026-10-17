@@ -2,12 +2,30 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   formatUnverifiedLinks,
-  parseSyncArguments,
   writeGitHubSummary,
 } from '../lib/content-cli.ts';
-import type { SyncResult } from '../lib/external-content.ts';
-import { syncService } from '../lib/external-content.ts';
-import type { Source } from '../lib/external-content-planning.ts';
+import { isSource, type Source } from '../lib/external-content.ts';
+import type { SyncResult } from '../lib/sync-content.ts';
+import { syncService } from '../lib/sync-content.ts';
+
+function parseSyncArguments(args: string[]): {
+  source: Source;
+  dryRun: boolean;
+} {
+  const [source, ...options] = args[0] === '--' ? args.slice(1) : args;
+  if (
+    !source ||
+    source.startsWith('-') ||
+    options.some((option) => option !== '--dry-run') ||
+    options.length > 1
+  ) {
+    throw new Error(
+      'Usage: sync-content <sizu|hatena|speakerdeck> [--dry-run]',
+    );
+  }
+  if (!isSource(source)) throw new Error(`Unknown service: ${source}`);
+  return { source, dryRun: options.includes('--dry-run') };
+}
 
 type RunSyncOptions = {
   source: Source;
@@ -42,7 +60,7 @@ function hasSyncReport(
   );
 }
 
-export async function runSyncContent({
+async function runSyncContent({
   source,
   dryRun = false,
   sync = syncService,

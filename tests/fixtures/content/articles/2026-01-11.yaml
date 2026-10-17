@@ -2,3 +2,4 @@ date: "2026-01-11"
 types:
   - "article"
 title: "Article 11"
+url: "https://example.com/article?ref=fixture#section"

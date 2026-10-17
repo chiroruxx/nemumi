@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
-import { syncService } from '../scripts/lib/external-content.ts';
+import { syncService } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
 test('sync dry-run does not write files, and a repeated sync is idempotent', async (t) => {
@@ -13,7 +13,7 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
     title: 'New post',
     url: 'https://sizu.me/chihiroxx/posts/new-post',
   };
-  const options = {
+  const options: NonNullable<Parameters<typeof syncService>[1]> = {
     contentDirectory,
     feedLoader: async () => [item],
     linkVerifier: async () => 'public' as const,
@@ -326,8 +326,7 @@ test('sync deadline keeps existing files unchanged and does not partially apply 
     path.join(articlesDirectory, 'existing.yaml'),
     'utf8',
   );
-  const controller = new AbortController();
-  let remaining = 1000;
+  let elapsed = 0;
   let checks = 0;
   const result = await syncService('sizu', {
     contentDirectory,
@@ -348,18 +347,14 @@ test('sync deadline keeps existing files unchanged and does not partially apply 
         url: 'https://sizu.me/chihiroxx/posts/another-new',
       },
     ],
-    executionContext: {
-      signal: controller.signal,
-      remainingMs: () => remaining,
-      dispose: () => {},
-    },
+    executionBudgetMs: 1000,
+    now: () => elapsed,
     linkCheckBatchIntervalMs: 0,
     linkVerifier: async () => {
       checks += 1;
       if (checks === 2) {
         await new Promise<void>((resolve) => setImmediate(resolve));
-        remaining = 0;
-        controller.abort(new Error('deadline'));
+        elapsed = 1000;
       }
       return 'public';
     },

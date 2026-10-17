@@ -2,49 +2,26 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import type { z } from 'zod';
 import type { contentRecordSchema } from '../../src/config/content-schema.ts';
-
-export const services = {
-  sizu: {
-    label: 'しずかなインターネット',
-    feed: 'https://sizu.me/chihiroxx/rss',
-    collection: 'articles',
-    type: '日常記事',
-    host: 'sizu.me',
-    pathPrefix: '/chihiroxx/posts/',
-  },
-  hatena: {
-    label: 'はてなブログ',
-    feed: 'https://toyo.hatenablog.jp/rss',
-    collection: 'articles',
-    type: 'テック記事',
-    host: 'toyo.hatenablog.jp',
-    pathPrefix: '/entry/',
-  },
-  speakerdeck: {
-    label: 'Speaker Deck',
-    feed: 'https://speakerdeck.com/chiroruxx.rss',
-    collection: 'talks',
-    type: '登壇資料',
-    host: 'speakerdeck.com',
-    pathPrefix: '/chiroruxx/',
-  },
-} as const;
+import {
+  findSource,
+  getService,
+  type Source,
+  validateContentUrl,
+} from './external-content.ts';
 
 export const limits = { articles: 20, talks: 10 };
 
-export type Source = keyof typeof services;
 export type Collection = keyof typeof limits;
-export type Service = (typeof services)[Source];
-export type ContentData = z.infer<typeof contentRecordSchema>;
+type ContentData = z.infer<typeof contentRecordSchema>;
 export type FeedItem = { date: Date; title: string; url: string };
 export type StoredEntry = { file: string; id: string; data: ContentData };
 export type LinkStatus = 'public' | 'deleted' | 'defer' | 'review';
-export type IndexedEntry = {
+type IndexedEntry = {
   entry: StoredEntry;
-  url?: string;
-  source?: Source;
+  url: string | undefined;
+  source: Source | undefined;
 };
-export type CollectionIndex = {
+type CollectionIndex = {
   collection: Collection;
   entries: IndexedEntry[];
   byUrl: Map<string, IndexedEntry>;
@@ -62,63 +39,22 @@ export type PruneRemoval = {
   file: string;
 };
 export type LinkCheck = { source: Source; url: string };
-export type SyncPlan = { changes: SyncChange[]; linkChecks: LinkCheck[] };
-export type PrunePlan = { removals: PruneRemoval[]; linkChecks: LinkCheck[] };
-
-export function isSource(value: string | undefined): value is Source {
-  return value !== undefined && Object.hasOwn(services, value);
-}
+type SyncPlan = { changes: SyncChange[]; linkChecks: LinkCheck[] };
+type PrunePlan = { removals: PruneRemoval[]; linkChecks: LinkCheck[] };
 
 type ParsedContentUrl = {
   url: URL;
-  canonical: string;
   source: Source | undefined;
 };
 
 function analyzeContentUrl(
-  value: string,
+  value: URL,
   collection?: Collection,
 ): ParsedContentUrl {
   const url = new URL(value);
   url.hash = '';
-  const source = collection
-    ? (Object.entries(services) as [Source, Service][]).find(
-        ([, service]) =>
-          service.collection === collection &&
-          service.host === url.hostname &&
-          url.pathname.startsWith(service.pathPrefix),
-      )?.[0]
-    : undefined;
-  return { url, canonical: url.href, source };
-}
-
-export function canonicalUrl(value: string): string {
-  return analyzeContentUrl(value).canonical;
-}
-
-export function validateContentUrl(value: string, service: Service): string {
-  const parsed = analyzeContentUrl(value, service.collection);
-  const configuredSource = (
-    Object.entries(services) as [Source, Service][]
-  ).find(
-    ([, configured]) =>
-      configured.host === service.host &&
-      configured.pathPrefix === service.pathPrefix &&
-      configured.collection === service.collection,
-  )?.[0];
-  if (
-    parsed.url.protocol !== 'https:' ||
-    (parsed.url.port !== '' && parsed.url.port !== '443') ||
-    parsed.url.hostname !== service.host ||
-    !parsed.url.pathname.startsWith(service.pathPrefix) ||
-    parsed.url.username ||
-    parsed.url.password ||
-    !configuredSource ||
-    parsed.source !== configuredSource
-  ) {
-    throw new Error(`Unexpected ${service.label} content URL: ${value}`);
-  }
-  return parsed.canonical;
+  const source = collection ? findSource(url, collection) : undefined;
+  return { url, source };
 }
 
 export function buildCollectionIndex(
@@ -130,7 +66,7 @@ export function buildCollectionIndex(
   const indexedEntries = entries.map((entry) => {
     const value = entry.data.url;
     const parsed = value ? analyzeContentUrl(value, collection) : undefined;
-    const url = parsed?.canonical;
+    const url = parsed?.url.href;
     if (url) {
       const previous = seenUrls.get(url);
       if (previous) {
@@ -158,10 +94,13 @@ function normalizedFeed(
   feed: FeedItem[],
   source: Source,
 ): Map<string, FeedItem> {
-  const service = services[source];
+  const service = getService(source);
   const normalized = new Map<string, FeedItem>();
   for (const item of feed) {
-    const url = validateContentUrl(item.url, service);
+    const parsed = new URL(item.url);
+    validateContentUrl(parsed, service);
+    parsed.hash = '';
+    const url = parsed.href;
     const value = { ...item, url };
     const previous = normalized.get(url);
     if (
@@ -224,7 +163,7 @@ export function createSyncPlan({
   feed: FeedItem[];
   contentDirectory: string;
 }): SyncPlan {
-  const service = services[source];
+  const service = getService(source);
   if (service.collection !== index.collection) {
     throw new Error(
       `${service.label} cannot sync the ${index.collection} collection`,
@@ -245,7 +184,7 @@ export function createSyncPlan({
       previous &&
       previous.data.date.getTime() === item.date.getTime() &&
       previous.data.title === item.title &&
-      previous.data.url === item.url &&
+      previous.data.url?.href === item.url &&
       sameValues(previous.data.types, types)
     ) {
       continue;

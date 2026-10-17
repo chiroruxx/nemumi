@@ -3,15 +3,11 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import {
   buildCollectionIndex,
-  canonicalUrl,
   createPrunePlan,
   createSyncPlan,
   type FeedItem,
-  isSource,
   limits,
   type StoredEntry,
-  services,
-  validateContentUrl,
 } from '../scripts/lib/external-content-planning.ts';
 
 function storedEntry(
@@ -24,7 +20,12 @@ function storedEntry(
   return {
     file: `/repo/src/content/articles/${id}`,
     id,
-    data: { date: new Date(date), title, url, ...(types ? { types } : {}) },
+    data: {
+      date: new Date(date),
+      title,
+      url: new URL(url),
+      ...(types ? { types } : {}),
+    },
   };
 }
 
@@ -32,49 +33,6 @@ const feedItem = (date: string, title: string, url: string): FeedItem => ({
   date: new Date(date),
   title,
   url,
-});
-
-test('canonicalUrl drops fragments while preserving query strings', () => {
-  assert.equal(
-    canonicalUrl('https://example.com/article?ref=feed#section'),
-    'https://example.com/article?ref=feed',
-  );
-});
-
-test('isSource accepts configured services only', () => {
-  assert.equal(isSource('sizu'), true);
-  assert.equal(isSource('unknown'), false);
-  assert.equal(isSource(undefined), false);
-});
-
-test('validateContentUrl applies one HTTPS, account, host, and credential policy while preserving query', () => {
-  const accepted = [
-    [
-      'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
-      'https://sizu.me/chihiroxx/posts/one?ref=feed',
-    ],
-    [
-      'https://toyo.hatenablog.jp/entry/one?ref=feed#section',
-      'https://toyo.hatenablog.jp/entry/one?ref=feed',
-    ],
-  ] as const;
-  for (const [input, expected] of accepted) {
-    const service = input.includes('sizu.me') ? services.sizu : services.hatena;
-    assert.equal(validateContentUrl(input, service), expected);
-  }
-
-  const rejected = [
-    'http://sizu.me/chihiroxx/posts/one',
-    'https://sizu.me:8443/chihiroxx/posts/one',
-    'https://user@sizu.me/chihiroxx/posts/one',
-    'https://sizu.me/login',
-    'https://sizu.me/chihiroxx/',
-    'https://other.example/chihiroxx/posts/one',
-    'https://sizu.me/other-account/posts/one',
-  ];
-  for (const input of rejected) {
-    assert.throws(() => validateContentUrl(input, services.sizu), /Unexpected/);
-  }
 });
 
 test('collection ownership remains host and path based even when URL transport needs review', () => {
@@ -327,4 +285,68 @@ test('createPrunePlan ranks saved entries by date and URL and preserves manual s
     ],
   );
   assert.ok(!plan.removals.some(({ file }) => file.endsWith('manual.yaml')));
+});
+
+test('source ownership matches host, account path, and collection while preserving stored URL transport', () => {
+  const cases = [
+    ['articles', 'https://sizu.me/chihiroxx/posts/one?ref=rss#section', 'sizu'],
+    ['articles', 'https://toyo.hatenablog.jp/entry/one', 'hatena'],
+    ['talks', 'https://speakerdeck.com/chiroruxx/one', 'speakerdeck'],
+    ['articles', 'http://sizu.me/chihiroxx/posts/one', 'sizu'],
+    ['articles', 'https://sizu.me/other/posts/one', undefined],
+    ['articles', 'https://sizu.me/chihiroxx/', undefined],
+    ['articles', 'https://example.com/chihiroxx/posts/one', undefined],
+    ['talks', 'https://sizu.me/chihiroxx/posts/one', undefined],
+    ['articles', 'https://speakerdeck.com/chiroruxx/one', undefined],
+  ] as const;
+  for (const [collection, url, source] of cases) {
+    const index = buildCollectionIndex(collection, [
+      storedEntry('one.yaml', '2026-10-01', 'One', url),
+    ]);
+    assert.equal(index.entries[0]?.source, source);
+  }
+});
+
+test('buildCollectionIndex removes fragments from comparison URLs, preserves queries, and leaves stored entries unchanged', () => {
+  const urls = [
+    'https://sizu.me/chihiroxx/posts/one?ref=first#section',
+    'https://sizu.me/chihiroxx/posts/one?ref=second#section',
+  ];
+  const entries = urls.map((url, index) =>
+    storedEntry(`${index}.yaml`, '2026-10-01', 'One', url),
+  );
+  const index = buildCollectionIndex('articles', entries);
+  const expected = [
+    'https://sizu.me/chihiroxx/posts/one?ref=first',
+    'https://sizu.me/chihiroxx/posts/one?ref=second',
+  ];
+  assert.deepEqual(
+    index.entries.map(({ url }) => url),
+    expected,
+  );
+  assert.deepEqual([...index.byUrl.keys()], expected);
+  assert.deepEqual(
+    index.entries.map(({ source }) => source),
+    ['sizu', 'sizu'],
+  );
+  assert.deepEqual(
+    entries.map(({ data }) => data.url?.href),
+    urls,
+  );
+});
+
+test('createSyncPlan leaves unchanged saved records untouched', () => {
+  const url = 'https://sizu.me/chihiroxx/posts/unchanged?ref=rss';
+  const index = buildCollectionIndex('articles', [
+    storedEntry('unchanged.yaml', '2026-10-03', 'Unchanged', url, ['日常記事']),
+  ]);
+  assert.deepEqual(
+    createSyncPlan({
+      source: 'sizu',
+      index,
+      feed: [feedItem('2026-10-03', 'Unchanged', url)],
+      contentDirectory: '/repo/src/content',
+    }),
+    { changes: [], linkChecks: [] },
+  );
 });

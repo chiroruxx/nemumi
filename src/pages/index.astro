@@ -33,7 +33,7 @@ const articles = articleEntries.map(({ data }) => ({
   startDate: data.date,
   tags: data.types ?? [],
   title: data.title,
-  url: data.url,
+  ...(data.url === undefined ? {} : { url: data.url }),
 }));
 
 const talkRecords = talkEntries
@@ -41,7 +41,7 @@ const talkRecords = talkEntries
     startDate: data.date,
     tags: data.types ?? [],
     title: data.title,
-    url: data.url,
+    ...(data.url === undefined ? {} : { url: data.url }),
   }))
   .sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
   .slice(0, 5);
@@ -54,10 +54,10 @@ const records = [
   ...articles,
   ...activityEntries.map(({ data }) => ({
     startDate: data.startDate,
-    endDate: data.endDate,
+    ...(data.endDate === undefined ? {} : { endDate: data.endDate }),
     tags: data.types ?? [],
     title: data.title,
-    url: data.url,
+    ...(data.url === undefined ? {} : { url: data.url }),
   })),
 ]
   .sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
@@ -171,7 +171,9 @@ const personStructuredData = {
             description={community.description}
             image={community.image}
             imageStyle={community.imageStyle}
-            imageBackground={community.imageBackground}
+            {...(community.imageBackground === undefined
+              ? {}
+              : { imageBackground: community.imageBackground })}
           />
         ))}
       </div>

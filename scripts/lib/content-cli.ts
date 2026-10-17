@@ -1,41 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { appendFile } from 'node:fs/promises';
-import { isSource } from './external-content-planning.ts';
 
 type GitHubSummaryOptions = {
   outputPath?: string | null;
   append?: (path: string, content: string) => Promise<void>;
   createDelimiter?: () => string;
 };
-
-function removeScriptSeparator(args: string[]): string[] {
-  return args[0] === '--' ? args.slice(1) : args;
-}
-
-export function parseSyncArguments(args: string[]) {
-  const [source, ...options] = removeScriptSeparator(args);
-  if (
-    !source ||
-    source.startsWith('-') ||
-    options.some((option) => option !== '--dry-run') ||
-    options.length > 1
-  ) {
-    throw new Error(
-      'Usage: sync-content <sizu|hatena|speakerdeck> [--dry-run]',
-    );
-  }
-  if (!isSource(source)) throw new Error(`Unknown service: ${source}`);
-  return { source, dryRun: options.includes('--dry-run') };
-}
-
-export function parsePruneArguments(args: string[]) {
-  const options = removeScriptSeparator(args);
-  if (options.length === 0) return { dryRun: false };
-  if (options.length === 1 && options[0] === '--dry-run') {
-    return { dryRun: true };
-  }
-  throw new Error('Usage: prune-content [--dry-run]');
-}
 
 export async function writeGitHubSummary(
   summary: string,

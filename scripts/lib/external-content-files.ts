@@ -18,7 +18,7 @@ export type ContentFileOperation =
   | { kind: 'create' | 'replace'; target: string; content: string }
   | { kind: 'delete'; target: string };
 
-export type ContentFileSystem = {
+type ContentFileSystem = {
   lstat: typeof lstat;
   writeFile: typeof writeFile;
   rename: typeof rename;
@@ -63,7 +63,7 @@ export async function readCollection(
   );
 }
 
-export function assertRepositoryFile(
+function assertRepositoryFile(
   file: string,
   contentDirectory = defaultContentDirectory,
 ): void {

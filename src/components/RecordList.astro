@@ -12,13 +12,7 @@ const { items } = Astro.props;
 <ol class="record-list">
   {items.map((item) => (
     <li>
-      <RecordListItem
-        startDate={item.startDate}
-        endDate={item.endDate}
-        tags={item.tags}
-        title={item.title}
-        url={item.url}
-      />
+      <RecordListItem {...item} />
     </li>
   ))}
 </ol>

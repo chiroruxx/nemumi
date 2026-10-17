@@ -3,60 +3,8 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
-import { runPruneContent } from '../scripts/cli/prune-content.ts';
-import { pruneContent } from '../scripts/lib/external-content.ts';
+import { pruneContent } from '../scripts/lib/prune-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
-
-test('prune CLI reports no unverified URLs when all links are verified', async () => {
-  const output: string[] = [];
-  const summaries: string[] = [];
-  let receivedDryRun = false;
-
-  await runPruneContent({
-    dryRun: true,
-    prune: async (options) => {
-      receivedDryRun = options?.dryRun ?? false;
-      return {
-        deferred: [],
-        review: [],
-        unchecked: [],
-      };
-    },
-    writeOutput: (value) => output.push(value),
-    writeSummary: async (value) => {
-      summaries.push(value);
-    },
-  });
-
-  assert.equal(receivedDryRun, true);
-  assert.deepEqual(output, ['公開状態を確認できなかった URL はありません。']);
-  assert.deepEqual(summaries, output);
-});
-
-test('prune CLI reports only unverified URLs', async () => {
-  const output: string[] = [];
-  const summaries: string[] = [];
-  await runPruneContent({
-    prune: async () => ({
-      deferred: [{ source: 'sizu', url: 'https://sizu.me/deferred' }],
-      review: [{ source: 'hatena', url: 'https://sizu.me/review' }],
-      unchecked: [{ source: 'speakerdeck', url: 'https://sizu.me/unchecked' }],
-    }),
-    writeOutput: (value) => output.push(value),
-    writeSummary: async (value) => {
-      summaries.push(value);
-    },
-  });
-
-  const expected = [
-    '公開状態を確認できなかった URL:',
-    '- https://sizu.me/deferred',
-    '- https://sizu.me/review',
-    '- https://sizu.me/unchecked',
-  ].join('\n');
-  assert.deepEqual(summaries, [expected]);
-  assert.deepEqual(output, summaries);
-});
 
 test('pruning honors the directory cap, preserves manual content, and dry-run leaves files intact', async (t) => {
   const contentDirectory = await createContentDirectory(t);
@@ -85,7 +33,7 @@ test('pruning honors the directory cap, preserves manual content, and dry-run le
     }),
   );
 
-  const options = {
+  const options: NonNullable<Parameters<typeof pruneContent>[0]> = {
     contentDirectory,
     linkVerifier: async (url: string) => {
       if (url.endsWith('/post-02')) return 'deleted' as const;
@@ -254,23 +202,18 @@ test('pruning applies confirmed limit and link removals while retaining unchecke
       }),
     );
   }
-  const controller = new AbortController();
-  let remaining = 1000;
+  let elapsed = 0;
   let checks = 0;
   const result = await pruneContent({
     contentDirectory,
-    executionContext: {
-      signal: controller.signal,
-      remainingMs: () => remaining,
-      dispose: () => {},
-    },
+    executionBudgetMs: 1000,
+    now: () => elapsed,
     linkCheckBatchIntervalMs: 1000,
     linkVerifier: async () => {
       checks += 1;
       if (checks === 1) return 'deleted';
       await new Promise<void>((resolve) => setImmediate(resolve));
-      remaining = 0;
-      controller.abort(new Error('deadline'));
+      elapsed = 1000;
       return 'deleted';
     },
   });

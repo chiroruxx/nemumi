@@ -4,6 +4,7 @@
   "exclude": ["dist"],
   "compilerOptions": {
     "allowImportingTsExtensions": true,
-    "erasableSyntaxOnly": true
+    "erasableSyntaxOnly": true,
+    "exactOptionalPropertyTypes": true
   }
 }

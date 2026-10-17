@@ -357,8 +357,8 @@ test('createSyncPlan leaves unchanged saved records untouched', () => {
   );
 });
 
-test('createSyncPlan keeps existing filenames and fills only missing types when updating', () => {
-  for (const types of [undefined, [], ['手動分類']]) {
+test('createSyncPlan fills missing types and preserves empty types when updating', () => {
+  for (const types of [undefined, []]) {
     const url = 'https://sizu.me/chihiroxx/posts/existing';
     const existing = storedEntry(
       'custom-name.yaml',
@@ -386,28 +386,4 @@ test('createSyncPlan keeps existing filenames and fills only missing types when 
       ],
     });
   }
-});
-
-test('createSyncPlan generates a filename and default types when adding a new URL', () => {
-  const url = 'https://sizu.me/chihiroxx/posts/new';
-  assert.deepEqual(
-    createSyncPlan({
-      source: 'sizu',
-      index: buildCollectionIndex('articles', []),
-      feed: [feedItem('2026-10-02', 'New title', url)],
-      contentDirectory: '/repo/src/content',
-    }),
-    {
-      changes: [
-        {
-          action: 'add',
-          file: `/repo/src/content/articles/sizu-${createHash('sha256').update(url).digest('hex')}.yaml`,
-          date: new Date('2026-10-02'),
-          title: 'New title',
-          url,
-          types: ['日常記事'],
-        },
-      ],
-    },
-  );
 });

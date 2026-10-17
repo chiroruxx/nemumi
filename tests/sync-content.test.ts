@@ -304,7 +304,7 @@ test('sync applies feed changes without checking item links', async (t) => {
       url: 'https://sizu.me/chihiroxx/posts/existing',
     }),
   );
-  const result = await syncService('sizu', {
+  await syncService('sizu', {
     contentDirectory,
     feedLoader: async () => [
       {
@@ -324,7 +324,6 @@ test('sync applies feed changes without checking item links', async (t) => {
       },
     ],
   });
-  assert.deepEqual(result, { deferred: [], review: [], unchecked: [] });
   assert.equal((await readdir(articlesDirectory)).length, 3);
   const saved = YAML.parse(
     await readFile(path.join(articlesDirectory, 'existing.yaml'), 'utf8'),

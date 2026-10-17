@@ -37,8 +37,7 @@ test('pruning applies only the directory cap, preserves manual content, and dry-
   const options: NonNullable<Parameters<typeof pruneContent>[0]> = {
     contentDirectory,
   };
-  const dryRun = await pruneContent({ ...options, dryRun: true });
-  assert.deepEqual(dryRun, { deferred: [], review: [], unchecked: [] });
+  await pruneContent({ ...options, dryRun: true });
   assert.deepEqual(
     (await readdir(articlesDirectory)).sort(),
     [
@@ -51,8 +50,7 @@ test('pruning applies only the directory cap, preserves manual content, and dry-
   );
   assert.equal((await readdir(articlesDirectory)).length, 21);
 
-  const result = await pruneContent(options);
-  assert.deepEqual(result, { deferred: [], review: [], unchecked: [] });
+  await pruneContent(options);
   const remainingFiles = await readdir(articlesDirectory);
   assert.equal(remainingFiles.length, 20);
   assert.ok(remainingFiles.includes(manualFilename));
@@ -165,8 +163,7 @@ test('pruning applies the item limit without performing link checks', async (t) 
       }),
     );
   }
-  const result = await pruneContent({ contentDirectory });
-  assert.deepEqual(result, { deferred: [], review: [], unchecked: [] });
+  await pruneContent({ contentDirectory });
   assert.deepEqual(
     (await readdir(articlesDirectory)).sort(),
     Array.from(

@@ -2,7 +2,6 @@ import YAML from 'yaml';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import {
   type CommonContentOptions,
-  type ContentResult,
   defaultContentDirectory,
   getService,
   type Service,
@@ -34,7 +33,6 @@ type SyncOptions = Omit<
   CommonContentOptions,
   'linkVerifier' | 'linkCheckBatchIntervalMs' | 'sleep'
 > & { feedLoader?: FeedLoader };
-export type SyncResult = ContentResult;
 
 function syncOperations(changes: SyncChange[]): ContentFileOperation[] {
   return changes.map((change) => ({
@@ -61,7 +59,7 @@ export async function syncService(
     executionBudgetMs,
     now = Date.now,
   }: SyncOptions = {},
-): Promise<SyncResult> {
+): Promise<void> {
   const service = getService(source);
 
   const context = createExecutionContext({
@@ -89,7 +87,6 @@ export async function syncService(
     const operations = syncOperations(plan.changes);
     await validateFileTargets(operations, contentDirectory);
     if (!dryRun) await applyFileChanges(operations, contentDirectory);
-    return { deferred: [], review: [], unchecked: [] };
   } finally {
     context.dispose();
   }

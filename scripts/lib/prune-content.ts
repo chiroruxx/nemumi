@@ -1,6 +1,5 @@
 import {
   type CommonContentOptions,
-  type ContentResult,
   defaultContentDirectory,
 } from './external-content.ts';
 import {
@@ -25,7 +24,6 @@ type PruneOptions = Omit<
   | 'now'
   | 'sleep'
 >;
-export type PruneResult = ContentResult;
 
 function pruneOperations(removals: PruneRemoval[]): ContentFileOperation[] {
   return removals.map(({ file }) => ({ kind: 'delete', target: file }));
@@ -34,7 +32,7 @@ function pruneOperations(removals: PruneRemoval[]): ContentFileOperation[] {
 export async function pruneContent({
   dryRun = false,
   contentDirectory = defaultContentDirectory,
-}: PruneOptions = {}): Promise<PruneResult> {
+}: PruneOptions = {}): Promise<void> {
   const removals: PruneRemoval[] = [];
   for (const collection of Object.keys(limits) as Collection[]) {
     const entries = await readCollection(collection, contentDirectory);
@@ -45,5 +43,4 @@ export async function pruneContent({
   const operations = pruneOperations(removals);
   await validateFileTargets(operations, contentDirectory);
   if (!dryRun) await applyFileChanges(operations, contentDirectory);
-  return { deferred: [], review: [], unchecked: [] };
 }

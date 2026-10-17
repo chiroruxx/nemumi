@@ -1,10 +1,7 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { checkContentLinks } from '../lib/check-content-links.ts';
-import {
-  formatUnverifiedLinks,
-  writeGitHubSummary,
-} from '../lib/content-cli.ts';
+import { writeGitHubSummary } from '../lib/content-cli.ts';
 
 function parseArguments(args: string[]): { dryRun: boolean } {
   const options = args[0] === '--' ? args.slice(1) : args;
@@ -12,6 +9,20 @@ function parseArguments(args: string[]): { dryRun: boolean } {
   if (options.length === 1 && options[0] === '--dry-run')
     return { dryRun: true };
   throw new Error('Usage: check-content-links [--dry-run]');
+}
+
+function formatUnverifiedLinks(result: {
+  deferred: Array<{ url: string }>;
+  review: Array<{ url: string }>;
+  unchecked: Array<{ url: string }>;
+}): string {
+  const urls = new Set(
+    [...result.deferred, ...result.review, ...result.unchecked].map(
+      ({ url }) => url,
+    ),
+  );
+  if (urls.size === 0) return '公開状態を確認できなかった URL はありません。';
+  return `公開状態を確認できなかった URL:\n${[...urls].map((url) => `- ${url}`).join('\n')}`;
 }
 
 async function main(): Promise<void> {

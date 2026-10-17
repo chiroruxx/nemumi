@@ -8,8 +8,7 @@
 はそれぞれ1つの PR を作成・更新する。同期はRSSを読み、pruneはRSSを取得しない。`articles` は最大20件、
 `talks` は最大10件とし、手動管理データは件数枠を使うが自動削除しない。
 
-コンテンツ同期の構成は [外部コンテンツを RSS から同期する](../adr/2026-10-13-sync-external-content-from-rss.md)、PR 管理と automation branch
-の運用は [コンテンツ自動 PR の管理を create-pull-request に委譲する](../adr/2026-10-14-delegate-content-pr-management.md) に従う。
+コンテンツ同期の構成は [外部コンテンツを RSS から同期する](../adr/2026-10-13-sync-external-content-from-rss.md) に従う。
 
 同期は空のRSS・不正なYAML・URL衝突・検証失敗で差分を適用しない。同期では既存ファイルの正式schema外フィールドは保持対象にしないため、更新時に消える。pruneは保存済み
 YAML の日付・URLだけで対象を選び、同一実行内で削除後の補充はしない。defer、review、未確認リンクは保持する。
@@ -46,7 +45,8 @@ auto-merge は解除されないため、PR画面または `gh pr merge <番号>
 auto-merge も解除する。
 
 PR の手動クローズや automation branch への手動コミットでは自動処理は停止しない。automation branch は自動処理専用とし、手動変更は通常の
-PR で `main` に反映する。詳細は [コンテンツ自動 PR の管理を create-pull-request に委譲する](../adr/2026-10-14-delegate-content-pr-management.md) を参照。
+PR で `main`
+に反映する。
 
 feed/API/CI の失敗はActionsログとPRチェックを確認する。通信期限時に未確認のリンクは削除せず、次回のpruneで再確認する。HTTP
 200 のサービス固有エラーページなど、公開状態を機械判定できないケースは手動確認する。

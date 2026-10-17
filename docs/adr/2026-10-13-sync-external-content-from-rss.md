@@ -98,10 +98,6 @@ GitHub の公式ドキュメントでは、`GITHUB_TOKEN` で作成・更新し�
 
 ### 認証・マージ・公開
 
-PR 管理と固定 automation branch
-の扱いは [コンテンツ自動 PR の管理を create-pull-request に委譲する](2026-10-14-delegate-content-pr-management.md)
-を参照する。
-
 - PR の操作には、このリポジトリに限定した GitHub App を使う。ルールセットの bypass 権限を付与しない。
 - 各同期 PR と共通の削除 PR は、既存の必須 CI とマージ条件を満たしてから `main` に反映する。
 - 通常運用は必須 CI 成功後に自動マージする。初回の取り込みは手動で確認・マージする。

@@ -1,6 +1,3 @@
-import path from 'node:path';
-import YAML from 'yaml';
-import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import {
   type CommonContentOptions,
   defaultContentDirectory,
@@ -9,7 +6,6 @@ import {
   type Source,
 } from './external-content.ts';
 import {
-  type ContentFileWrite,
   readCollection,
   validateFileWrites,
   writeFiles,
@@ -21,9 +17,8 @@ import {
 } from './external-content-http.ts';
 import {
   buildCollectionIndex,
-  createSyncChanges,
+  createSyncWrites,
   type FeedItem,
-  type SyncChange,
 } from './external-content-planning.ts';
 
 type FeedLoader = (
@@ -34,22 +29,6 @@ type SyncOptions = Omit<
   CommonContentOptions,
   'linkVerifier' | 'linkCheckBatchIntervalMs' | 'sleep'
 > & { feedLoader?: FeedLoader };
-
-function syncWrites(changes: SyncChange[]): ContentFileWrite[] {
-  return changes.map((change) => ({
-    kind: change.action === 'add' ? 'create' : 'replace',
-    target: path.resolve(change.file),
-    content: YAML.stringify(
-      {
-        date: formatDateInSiteTimeZone(change.date),
-        types: change.types,
-        title: change.title,
-        url: change.url,
-      },
-      { defaultStringType: 'QUOTE_DOUBLE' },
-    ),
-  }));
-}
 
 export async function syncService(
   source: Source,
@@ -78,13 +57,12 @@ export async function syncService(
       ((configured, execution) =>
         fetchFeed(configured, { context: execution }));
     const currentFeed = await loadFeed(service, context);
-    const changes = createSyncChanges({
+    const writes = createSyncWrites({
       source,
       index,
       feed: currentFeed,
       contentDirectory,
     });
-    const writes = syncWrites(changes);
     await validateFileWrites(writes, contentDirectory);
     if (!dryRun) await writeFiles(writes);
   } finally {

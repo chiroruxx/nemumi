@@ -1,13 +1,16 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import YAML from 'yaml';
 import type { z } from 'zod';
 import type { contentRecordSchema } from '../../src/config/content-schema.ts';
+import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import {
   findSource,
   getService,
   type Source,
   validateContentUrl,
 } from './external-content.ts';
+import type { ContentFileWrite } from './external-content-files.ts';
 
 export const limits = { articles: 20, talks: 10 };
 
@@ -26,14 +29,6 @@ type CollectionIndex = {
   entries: IndexedEntry[];
   byUrl: Map<string, IndexedEntry>;
   manualCount: number;
-};
-export type SyncChange = {
-  action: 'add' | 'update';
-  file: string;
-  date: Date;
-  title: string;
-  url: string;
-  types: string[];
 };
 export type PruneRemoval = {
   file: string;
@@ -157,7 +152,19 @@ function sameContent(
   );
 }
 
-export function createSyncChanges({
+function serializeContent(item: FeedItem, types: string[]): string {
+  return YAML.stringify(
+    {
+      date: formatDateInSiteTimeZone(item.date),
+      types,
+      title: item.title,
+      url: item.url,
+    },
+    { defaultStringType: 'QUOTE_DOUBLE' },
+  );
+}
+
+export function createSyncWrites({
   source,
   index,
   feed,
@@ -167,7 +174,7 @@ export function createSyncChanges({
   index: CollectionIndex;
   feed: FeedItem[];
   contentDirectory: string;
-}): SyncChange[] {
+}): ContentFileWrite[] {
   const service = getService(source);
   if (service.collection !== index.collection) {
     throw new Error(
@@ -176,7 +183,7 @@ export function createSyncChanges({
   }
   const feedByUrl = normalizedFeed(feed, source);
   const keep = rankedKeepSet(index, feedByUrl);
-  const changes: SyncChange[] = [];
+  const writes: ContentFileWrite[] = [];
 
   for (const [url, item] of [...feedByUrl].sort(([a], [b]) =>
     a.localeCompare(b),
@@ -186,18 +193,15 @@ export function createSyncChanges({
     if (previous) {
       const types = previous.data.types ?? [service.type];
       if (sameContent(previous.data, item, types)) continue;
-      changes.push({
-        action: 'update',
-        file: previous.file,
-        date: item.date,
-        title: item.title,
-        url: item.url,
-        types,
+      writes.push({
+        kind: 'replace',
+        target: path.resolve(previous.file),
+        content: serializeContent(item, types),
       });
       continue;
     }
 
-    const file = path.join(
+    const file = path.resolve(
       contentDirectory,
       index.collection,
       filenameFor(source, url),
@@ -205,17 +209,14 @@ export function createSyncChanges({
     if (index.entries.some(({ entry }) => entry.id === path.basename(file))) {
       throw new Error(`Filename collision while adding ${url}`);
     }
-    changes.push({
-      action: 'add',
-      file,
-      date: item.date,
-      title: item.title,
-      url: item.url,
-      types: [service.type],
+    writes.push({
+      kind: 'create',
+      target: file,
+      content: serializeContent(item, [service.type]),
     });
   }
 
-  return changes;
+  return writes;
 }
 
 export function createPruneRemovals(index: CollectionIndex): PruneRemoval[] {

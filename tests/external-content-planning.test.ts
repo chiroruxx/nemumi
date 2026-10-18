@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
+import YAML from 'yaml';
 import {
   buildCollectionIndex,
   createContentLinkCheckPlan,
   createPruneRemovals,
-  createSyncChanges,
+  createSyncWrites,
   type FeedItem,
   limits,
   type StoredEntry,
@@ -85,7 +86,7 @@ test('buildCollectionIndex normalizes URLs, counts manual entries, and rejects s
   );
 });
 
-test('createSyncChanges is deterministic and keeps existing types', () => {
+test('createSyncWrites is deterministic and keeps existing types', () => {
   for (const types of [['手動分類'], undefined, []]) {
     const existing = [
       storedEntry(
@@ -112,34 +113,28 @@ test('createSyncChanges is deterministic and keeps existing types', () => {
       feed,
       contentDirectory: '/repo/src/content',
     };
-    const initial = createSyncChanges(options);
+    const initial = createSyncWrites(options);
 
     assert.deepEqual(
-      initial.map(({ action, date, title, url, types }) => ({
-        action,
-        date,
-        title,
-        url,
-        types,
-      })),
+      initial.map(({ kind, content }) => ({ kind, ...YAML.parse(content) })),
       [
         {
-          action: 'add',
-          date: new Date('2026-10-03'),
+          kind: 'create',
+          date: '2026-10-03',
           title: 'New A',
           url: 'https://sizu.me/chihiroxx/posts/a',
           types: ['日常記事'],
         },
         {
-          action: 'add',
-          date: new Date('2026-10-03'),
+          kind: 'create',
+          date: '2026-10-03',
           title: 'New B',
           url: 'https://sizu.me/chihiroxx/posts/b',
           types: ['日常記事'],
         },
         {
-          action: 'update',
-          date: new Date('2026-10-02'),
+          kind: 'replace',
+          date: '2026-10-02',
           title: 'Updated title',
           url: 'https://sizu.me/chihiroxx/posts/existing?ref=feed',
           types: types ?? ['日常記事'],
@@ -147,14 +142,14 @@ test('createSyncChanges is deterministic and keeps existing types', () => {
       ],
     );
     assert.deepEqual(
-      initial.map(({ url }) => url),
+      initial.map(({ content }) => YAML.parse(content).url),
       [
         'https://sizu.me/chihiroxx/posts/a',
         'https://sizu.me/chihiroxx/posts/b',
         'https://sizu.me/chihiroxx/posts/existing?ref=feed',
       ],
     );
-    assert.equal(initial[2]?.file, existing[0]?.file);
+    assert.equal(initial[2]?.target, existing[0]?.file);
   }
 });
 
@@ -170,7 +165,7 @@ test('sync ranks one source against saved entries from another source under the 
   });
   const index = buildCollectionIndex('articles', hatenaEntries);
 
-  const changes = createSyncChanges({
+  const writes = createSyncWrites({
     source: 'sizu',
     index,
     feed: [
@@ -183,7 +178,7 @@ test('sync ranks one source against saved entries from another source under the 
     contentDirectory: '/repo/src/content',
   });
 
-  assert.deepEqual(changes, []);
+  assert.deepEqual(writes, []);
 });
 
 test('createPruneRemovals ranks saved entries by date and URL and preserves manual slots', () => {
@@ -260,7 +255,7 @@ test('createPruneRemovals ranks saved entries by date and URL and preserves manu
   const collisionFilename = `sizu-${createHash('sha256').update(collisionUrl).digest('hex')}.yaml`;
   assert.throws(
     () =>
-      createSyncChanges({
+      createSyncWrites({
         source: 'sizu',
         index: buildCollectionIndex('articles', [
           storedEntry(
@@ -343,13 +338,13 @@ test('buildCollectionIndex removes fragments from comparison URLs, preserves que
   );
 });
 
-test('createSyncChanges leaves unchanged saved records untouched', () => {
+test('createSyncWrites leaves unchanged saved records untouched', () => {
   const url = 'https://sizu.me/chihiroxx/posts/unchanged?ref=rss';
   const index = buildCollectionIndex('articles', [
     storedEntry('unchanged.yaml', '2026-10-03', 'Unchanged', url, ['日常記事']),
   ]);
   assert.deepEqual(
-    createSyncChanges({
+    createSyncWrites({
       source: 'sizu',
       index,
       feed: [feedItem('2026-10-03', 'Unchanged', url)],

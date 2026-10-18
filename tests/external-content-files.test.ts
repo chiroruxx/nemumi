@@ -21,7 +21,7 @@ import {
 } from '../scripts/lib/external-content-files.ts';
 import {
   buildCollectionIndex,
-  createSyncChanges,
+  createSyncWrites,
   type FeedItem,
 } from '../scripts/lib/external-content-planning.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
@@ -226,89 +226,61 @@ test('writeFiles makes per-file atomic replacements and a reread/replan retry co
     },
   ];
   const initialIndex = buildCollectionIndex('articles', []);
-  const initialChanges = createSyncChanges({
+  const initialWrites = createSyncWrites({
     source: 'sizu',
     index: initialIndex,
     feed,
     contentDirectory,
   });
-  const secondTarget = initialChanges[1].file;
+  const secondTarget = initialWrites[1].target;
   let failOnce = true;
 
   await assert.rejects(
-    writeFiles(
-      initialChanges.map((change) => ({
-        kind:
-          change.action === 'add' ? ('create' as const) : ('replace' as const),
-        target: change.file,
-        content: YAML.stringify({
-          date: change.date.toISOString().slice(0, 10),
-          types: change.types,
-          title: change.title,
-          url: change.url,
-        }),
-      })),
-      {
-        writeFile,
-        rm,
-        rename: async (temporary, target) => {
-          if (target === secondTarget && failOnce) {
-            failOnce = false;
-            throw new Error('injected rename failure');
-          }
-          return renameFile(temporary, target);
-        },
+    writeFiles(initialWrites, {
+      writeFile,
+      rm,
+      rename: async (temporary, target) => {
+        if (target === secondTarget && failOnce) {
+          failOnce = false;
+          throw new Error('injected rename failure');
+        }
+        return renameFile(temporary, target);
       },
-    ),
+    }),
     /injected rename failure/,
   );
 
   const afterFailure = await readCollection('articles', contentDirectory);
   assert.equal(afterFailure.length, 1);
-  const retryChanges = createSyncChanges({
+  const retryWrites = createSyncWrites({
     source: 'sizu',
     index: buildCollectionIndex('articles', afterFailure),
     feed,
     contentDirectory,
   });
-  assert.equal(retryChanges.length, 1);
-  assert.equal(retryChanges[0].url, feed[1].url);
-  await writeFiles(
-    retryChanges.map((change) => ({
-      kind:
-        change.action === 'add' ? ('create' as const) : ('replace' as const),
-      target: change.file,
-      content: YAML.stringify({
-        date: change.date.toISOString().slice(0, 10),
-        types: change.types,
-        title: change.title,
-        url: change.url,
-      }),
-    })),
-  );
+  assert.equal(retryWrites.length, 1);
+  assert.equal(YAML.parse(retryWrites[0].content).url, feed[1].url);
+  await writeFiles(retryWrites);
 
   assert.equal(
     (await readdir(path.join(contentDirectory, 'articles'))).length,
     2,
   );
   assert.deepEqual(
-    await readFile(initialChanges[0].file, 'utf8'),
-    YAML.stringify({
+    YAML.parse(await readFile(initialWrites[0].target, 'utf8')),
+    {
       date: feed[0].date.toISOString().slice(0, 10),
       types: ['日常記事'],
       title: feed[0].title,
       url: feed[0].url,
-    }),
+    },
   );
-  assert.deepEqual(
-    await readFile(secondTarget, 'utf8'),
-    YAML.stringify({
-      date: feed[1].date.toISOString().slice(0, 10),
-      types: ['日常記事'],
-      title: feed[1].title,
-      url: feed[1].url,
-    }),
-  );
+  assert.deepEqual(YAML.parse(await readFile(secondTarget, 'utf8')), {
+    date: feed[1].date.toISOString().slice(0, 10),
+    types: ['日常記事'],
+    title: feed[1].title,
+    url: feed[1].url,
+  });
   assert.equal(
     (await readdir(path.join(contentDirectory, 'articles'))).some((name) =>
       name.endsWith('.tmp'),

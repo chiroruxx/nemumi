@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import {
-  lstat,
   mkdir,
   readdir,
   readFile,
@@ -13,10 +12,12 @@ import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
 import {
-  applyFileChanges,
-  type ContentFileOperation,
+  type ContentFileWrite,
   readCollection,
-  validateFileTargets,
+  removeFiles,
+  validateFileRemovals,
+  validateFileWrites,
+  writeFiles,
 } from '../scripts/lib/external-content-files.ts';
 import {
   buildCollectionIndex,
@@ -55,17 +56,17 @@ test('readCollection returns parsed and validated content with file identity', a
   assert.equal(entries[0].data.url.href, 'https://sizu.me/chihiroxx/posts/a');
 });
 
-test('validateFileTargets checks every target and detects escapes and collisions before changes', async (t) => {
+test('file write and removal validation checks every target and detects escapes and collisions before changes', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const file = path.join(contentDirectory, 'articles', 'post.yaml');
   await assert.doesNotReject(
-    validateFileTargets(
+    validateFileWrites(
       [{ kind: 'create', target: file, content: 'date: 2026-10-03\n' }],
       contentDirectory,
     ),
   );
   await assert.rejects(
-    validateFileTargets(
+    validateFileWrites(
       [
         { kind: 'create', target: file, content: 'first' },
         {
@@ -79,7 +80,7 @@ test('validateFileTargets checks every target and detects escapes and collisions
     /duplicate file target/,
   );
   await assert.rejects(
-    validateFileTargets(
+    validateFileWrites(
       [
         {
           kind: 'create',
@@ -93,15 +94,17 @@ test('validateFileTargets checks every target and detects escapes and collisions
   );
   for (const kind of ['replace', 'delete'] as const) {
     await assert.rejects(
-      validateFileTargets(
-        [{ kind, target: file, content: 'replacement' }],
-        contentDirectory,
-      ),
+      kind === 'delete'
+        ? validateFileRemovals([{ target: file }], contentDirectory)
+        : validateFileWrites(
+            [{ kind, target: file, content: 'replacement' }],
+            contentDirectory,
+          ),
       /file does not exist/,
     );
   }
   await assert.rejects(
-    validateFileTargets(
+    validateFileWrites(
       [
         {
           kind: 'create',
@@ -116,7 +119,7 @@ test('validateFileTargets checks every target and detects escapes and collisions
   await writeFile(file, 'already exists');
   const untouched = path.join(contentDirectory, 'articles', 'untouched.yaml');
   await assert.rejects(
-    validateFileTargets(
+    validateFileWrites(
       [
         { kind: 'create', target: untouched, content: 'new content' },
         { kind: 'create', target: file, content: 'collision' },
@@ -129,29 +132,52 @@ test('validateFileTargets checks every target and detects escapes and collisions
     'post.yaml',
   ]);
   await assert.rejects(
-    validateFileTargets(
+    validateFileWrites(
       [{ kind: 'create', target: file, content: 'collision' }],
       contentDirectory,
     ),
     /already exists/,
   );
+  await assert.rejects(
+    validateFileRemovals(
+      [
+        { target: file },
+        { target: `${contentDirectory}/articles/../articles/post.yaml` },
+      ],
+      contentDirectory,
+    ),
+    /duplicate file target/,
+  );
+  for (const [target, message] of [
+    [path.relative(process.cwd(), file), /absolute path/],
+    [path.join(contentDirectory, '..', 'outside.yaml'), /outside src\/content/],
+  ] as const) {
+    await assert.rejects(
+      validateFileRemovals([{ target }], contentDirectory),
+      message,
+    );
+  }
   const directory = path.join(contentDirectory, 'articles', 'directory');
   const link = path.join(contentDirectory, 'articles', 'link.yaml');
   await mkdir(directory);
   await symlink(file, link);
   for (const kind of ['replace', 'delete'] as const) {
     await assert.doesNotReject(
-      validateFileTargets(
-        [{ kind, target: file, content: '' }],
-        contentDirectory,
-      ),
+      kind === 'delete'
+        ? validateFileRemovals([{ target: file }], contentDirectory)
+        : validateFileWrites(
+            [{ kind, target: file, content: '' }],
+            contentDirectory,
+          ),
     );
     for (const target of [directory, link]) {
       await assert.rejects(
-        validateFileTargets(
-          [{ kind, target, content: 'replacement' }],
-          contentDirectory,
-        ),
+        kind === 'delete'
+          ? validateFileRemovals([{ target }], contentDirectory)
+          : validateFileWrites(
+              [{ kind, target, content: 'replacement' }],
+              contentDirectory,
+            ),
         /non-regular file/,
       );
     }
@@ -159,13 +185,13 @@ test('validateFileTargets checks every target and detects escapes and collisions
   for (const kind of ['create', 'replace'] as const) {
     const target = kind === 'create' ? untouched : file;
     await assert.rejects(
-      validateFileTargets(
+      validateFileWrites(
         [
           {
             kind,
             target,
             content: undefined,
-          } as unknown as ContentFileOperation,
+          } as unknown as ContentFileWrite,
         ],
         contentDirectory,
       ),
@@ -174,22 +200,22 @@ test('validateFileTargets checks every target and detects escapes and collisions
   }
 });
 
-test('applyFileChanges atomically replaces an existing file', async (t) => {
+test('writeFiles atomically replaces an existing file and removeFiles deletes it', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const file = path.join(contentDirectory, 'articles', 'replace.yaml');
   await writeFile(file, 'old content');
 
-  await applyFileChanges([
-    { kind: 'replace', target: file, content: 'new content' },
-  ]);
+  await writeFiles([{ kind: 'replace', target: file, content: 'new content' }]);
 
   assert.equal(await readFile(file, 'utf8'), 'new content');
   assert.deepEqual(await readdir(path.join(contentDirectory, 'articles')), [
     'replace.yaml',
   ]);
+  await removeFiles([{ target: file }]);
+  assert.deepEqual(await readdir(path.join(contentDirectory, 'articles')), []);
 });
 
-test('applyFileChanges makes per-file atomic replacements and a reread/replan retry converges after partial failure', async (t) => {
+test('writeFiles makes per-file atomic replacements and a reread/replan retry converges after partial failure', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const feed = [
     item,
@@ -210,7 +236,7 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
   let failOnce = true;
 
   await assert.rejects(
-    applyFileChanges(
+    writeFiles(
       initialChanges.map((change) => ({
         kind:
           change.action === 'add' ? ('create' as const) : ('replace' as const),
@@ -223,7 +249,6 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
         }),
       })),
       {
-        lstat,
         writeFile,
         rm,
         rename: async (temporary, target) => {
@@ -248,7 +273,7 @@ test('applyFileChanges makes per-file atomic replacements and a reread/replan re
   });
   assert.equal(retryChanges.length, 1);
   assert.equal(retryChanges[0].url, feed[1].url);
-  await applyFileChanges(
+  await writeFiles(
     retryChanges.map((change) => ({
       kind:
         change.action === 'add' ? ('create' as const) : ('replace' as const),

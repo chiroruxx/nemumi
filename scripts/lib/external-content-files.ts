@@ -15,9 +15,14 @@ import type { Collection, StoredEntry } from './external-content-planning.ts';
 const defaultContentDirectory = path.resolve('src/content');
 
 // Targets must be absolute paths, resolved when operations are created.
-export type ContentFileOperation =
-  | { kind: 'create' | 'replace'; target: string; content: string }
-  | { kind: 'delete'; target: string };
+export type ContentFileWrite = {
+  kind: 'create' | 'replace';
+  target: string;
+  content: string;
+};
+
+// Removal targets follow the same absolute-path contract as writes.
+export type ContentFileRemoval = { target: string };
 
 type ContentFileSystem = {
   lstat: typeof lstat;
@@ -87,69 +92,94 @@ function assertRegularFile(
   }
 }
 
-export async function validateFileTargets(
-  operations: ContentFileOperation[],
+function validateFileTarget(
+  target: string,
   contentDirectory: string,
-  fileSystem: ContentFileSystem = defaultFileSystem,
+  seen: Set<string>,
+): string {
+  if (!path.isAbsolute(target)) {
+    throw new Error(`File target must be an absolute path: ${target}`);
+  }
+  const resolved = path.resolve(target);
+  assertRepositoryFile(resolved, path.resolve(contentDirectory));
+  if (seen.has(resolved)) throw new Error(`duplicate file target: ${resolved}`);
+  seen.add(resolved);
+  return resolved;
+}
+
+async function readFileMetadata(
+  target: string,
+  fileSystem: Pick<ContentFileSystem, 'lstat'>,
+) {
+  try {
+    return await fileSystem.lstat(target);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    return undefined;
+  }
+}
+
+export async function validateFileWrites(
+  writes: ContentFileWrite[],
+  contentDirectory: string,
+  fileSystem: Pick<ContentFileSystem, 'lstat'> = defaultFileSystem,
 ): Promise<void> {
   const seen = new Set<string>();
-  for (const operation of operations) {
-    if (!path.isAbsolute(operation.target)) {
-      throw new Error(
-        `File target must be an absolute path: ${operation.target}`,
-      );
+  for (const write of writes) {
+    const target = validateFileTarget(write.target, contentDirectory, seen);
+    const metadata = await readFileMetadata(target, fileSystem);
+    if (write.kind === 'create') {
+      if (metadata)
+        throw new Error(`Cannot create ${target}: file already exists`);
+    } else {
+      assertRegularFile(target, metadata, write.kind);
     }
-    const target = path.resolve(operation.target);
-    assertRepositoryFile(target, path.resolve(contentDirectory));
-    if (seen.has(target)) throw new Error(`duplicate file target: ${target}`);
-    seen.add(target);
-
-    let metadata: Awaited<ReturnType<typeof lstat>> | undefined;
-    try {
-      metadata = await fileSystem.lstat(target);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    }
-    switch (operation.kind) {
-      case 'create':
-        if (metadata) {
-          throw new Error(`Cannot create ${target}: file already exists`);
-        }
-        if (typeof operation.content !== 'string') {
-          throw new Error(`Missing file content for ${target}`);
-        }
-        break;
-      case 'replace':
-        assertRegularFile(target, metadata, operation.kind);
-        if (typeof operation.content !== 'string') {
-          throw new Error(`Missing file content for ${target}`);
-        }
-        break;
-      case 'delete':
-        assertRegularFile(target, metadata, operation.kind);
-        break;
+    if (typeof write.content !== 'string') {
+      throw new Error(`Missing file content for ${target}`);
     }
   }
 }
 
-// Callers must validate all operations before applying changes.
-export async function applyFileChanges(
-  operations: ContentFileOperation[],
-  fileSystem: ContentFileSystem = defaultFileSystem,
+export async function validateFileRemovals(
+  removals: ContentFileRemoval[],
+  contentDirectory: string,
+  fileSystem: Pick<ContentFileSystem, 'lstat'> = defaultFileSystem,
 ): Promise<void> {
-  for (const operation of operations) {
-    if (operation.kind === 'delete') {
-      await fileSystem.rm(operation.target);
-      continue;
-    }
-    const temporary = `${operation.target}.${randomUUID()}.tmp`;
+  const seen = new Set<string>();
+  for (const removal of removals) {
+    const target = validateFileTarget(removal.target, contentDirectory, seen);
+    const metadata = await readFileMetadata(target, fileSystem);
+    assertRegularFile(target, metadata, 'delete');
+  }
+}
+
+// Callers must validate all writes before writing files.
+export async function writeFiles(
+  writes: ContentFileWrite[],
+  fileSystem: Pick<
+    ContentFileSystem,
+    'writeFile' | 'rename' | 'rm'
+  > = defaultFileSystem,
+): Promise<void> {
+  for (const write of writes) {
+    const temporary = `${write.target}.${randomUUID()}.tmp`;
     let temporaryMayExist = true;
     try {
-      await fileSystem.writeFile(temporary, operation.content, { flag: 'wx' });
-      await fileSystem.rename(temporary, operation.target);
+      await fileSystem.writeFile(temporary, write.content, { flag: 'wx' });
+      await fileSystem.rename(temporary, write.target);
       temporaryMayExist = false;
     } finally {
       if (temporaryMayExist) await fileSystem.rm(temporary, { force: true });
     }
+  }
+}
+
+// Callers must validate all removals before removing files.
+export async function removeFiles(
+  removals: ContentFileRemoval[],
+  fileSystem: Pick<ContentFileSystem, 'rm'> = defaultFileSystem,
+): Promise<void> {
+  for (const removal of removals) {
+    await fileSystem.rm(removal.target);
   }
 }

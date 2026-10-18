@@ -6,10 +6,10 @@ import {
   getService,
 } from './external-content.ts';
 import {
-  applyFileChanges,
-  type ContentFileOperation,
+  type ContentFileRemoval,
   readCollection,
-  validateFileTargets,
+  removeFiles,
+  validateFileRemovals,
 } from './external-content-files.ts';
 import {
   createExecutionContext,
@@ -65,17 +65,17 @@ export async function checkContentLinks({
         ...(sleep ? { sleep } : {}),
       },
     );
-    const operations: ContentFileOperation[] = [];
+    const removals: ContentFileRemoval[] = [];
     for (const { source, url } of linkChecks) {
       if (checked.statuses.get(url) !== 'deleted') continue;
       const collection = getService(source).collection as Collection;
       const entry = indexes.get(collection)?.byUrl.get(url)?.entry;
       if (!entry) throw new Error(`Missing planned link entry: ${url}`);
-      operations.push({ kind: 'delete', target: path.resolve(entry.file) });
+      removals.push({ target: path.resolve(entry.file) });
     }
-    operations.sort((a, b) => a.target.localeCompare(b.target));
-    await validateFileTargets(operations, contentDirectory);
-    if (!dryRun) await applyFileChanges(operations);
+    removals.sort((a, b) => a.target.localeCompare(b.target));
+    await validateFileRemovals(removals, contentDirectory);
+    if (!dryRun) await removeFiles(removals);
 
     return {
       deferred: linkChecks.filter(

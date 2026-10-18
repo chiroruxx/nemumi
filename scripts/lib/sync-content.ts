@@ -9,10 +9,10 @@ import {
   type Source,
 } from './external-content.ts';
 import {
-  applyFileChanges,
-  type ContentFileOperation,
+  type ContentFileWrite,
   readCollection,
-  validateFileTargets,
+  validateFileWrites,
+  writeFiles,
 } from './external-content-files.ts';
 import {
   createExecutionContext,
@@ -35,7 +35,7 @@ type SyncOptions = Omit<
   'linkVerifier' | 'linkCheckBatchIntervalMs' | 'sleep'
 > & { feedLoader?: FeedLoader };
 
-function syncOperations(changes: SyncChange[]): ContentFileOperation[] {
+function syncWrites(changes: SyncChange[]): ContentFileWrite[] {
   return changes.map((change) => ({
     kind: change.action === 'add' ? 'create' : 'replace',
     target: path.resolve(change.file),
@@ -84,9 +84,9 @@ export async function syncService(
       feed: currentFeed,
       contentDirectory,
     });
-    const operations = syncOperations(changes);
-    await validateFileTargets(operations, contentDirectory);
-    if (!dryRun) await applyFileChanges(operations);
+    const writes = syncWrites(changes);
+    await validateFileWrites(writes, contentDirectory);
+    if (!dryRun) await writeFiles(writes);
   } finally {
     context.dispose();
   }

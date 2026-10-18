@@ -4,10 +4,10 @@ import {
   defaultContentDirectory,
 } from './external-content.ts';
 import {
-  applyFileChanges,
-  type ContentFileOperation,
+  type ContentFileRemoval,
   readCollection,
-  validateFileTargets,
+  removeFiles,
+  validateFileRemovals,
 } from './external-content-files.ts';
 import {
   buildCollectionIndex,
@@ -26,9 +26,8 @@ type PruneOptions = Omit<
   | 'sleep'
 >;
 
-function pruneOperations(removals: PruneRemoval[]): ContentFileOperation[] {
+function pruneFileRemovals(removals: PruneRemoval[]): ContentFileRemoval[] {
   return removals.map(({ file }) => ({
-    kind: 'delete',
     target: path.resolve(file),
   }));
 }
@@ -44,7 +43,7 @@ export async function pruneContent({
     removals.push(...createPruneRemovals(index));
   }
 
-  const operations = pruneOperations(removals);
-  await validateFileTargets(operations, contentDirectory);
-  if (!dryRun) await applyFileChanges(operations);
+  const fileRemovals = pruneFileRemovals(removals);
+  await validateFileRemovals(fileRemovals, contentDirectory);
+  if (!dryRun) await removeFiles(fileRemovals);
 }

@@ -1,5 +1,3 @@
-import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { pruneContent } from '../lib/prune-content.ts';
 
 function parsePruneArguments(args: string[]): { dryRun: boolean } {
@@ -16,10 +14,7 @@ async function main(): Promise<void> {
   await pruneContent({ dryRun });
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
-) {
+if (import.meta.main) {
   try {
     await main();
   } catch (error) {

@@ -1,5 +1,3 @@
-import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { checkContentLinks } from '../lib/check-content-links.ts';
 import { writeGitHubSummary } from '../lib/content-cli.ts';
 
@@ -30,10 +28,7 @@ async function main(): Promise<void> {
   await writeGitHubSummary(summary);
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
-) {
+if (import.meta.main) {
   try {
     await main();
   } catch (error) {

@@ -1,5 +1,3 @@
-import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { isSource, type Source } from '../lib/external-content.ts';
 import { syncService } from '../lib/sync-content.ts';
 
@@ -27,10 +25,7 @@ async function main(): Promise<void> {
   await syncService(source, { dryRun });
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
-) {
+if (import.meta.main) {
   try {
     await main();
   } catch (error) {

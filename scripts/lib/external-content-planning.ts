@@ -10,7 +10,10 @@ import {
   type Source,
   validateContentUrl,
 } from './external-content.ts';
-import type { ContentFileWrite } from './external-content-files.ts';
+import type {
+  ContentFileRemoval,
+  ContentFileWrite,
+} from './external-content-files.ts';
 
 export const limits = { articles: 20, talks: 10 };
 
@@ -29,9 +32,6 @@ type CollectionIndex = {
   entries: IndexedEntry[];
   byUrl: Map<string, IndexedEntry>;
   manualCount: number;
-};
-export type PruneRemoval = {
-  file: string;
 };
 export type LinkCheck = { source: Source; url: string };
 
@@ -219,19 +219,21 @@ export function createSyncWrites({
   return writes;
 }
 
-export function createPruneRemovals(index: CollectionIndex): PruneRemoval[] {
+export function createPruneRemovals(
+  index: CollectionIndex,
+): ContentFileRemoval[] {
   const keep = rankedKeepSet(index);
-  const removals: PruneRemoval[] = [];
+  const removals: ContentFileRemoval[] = [];
 
   for (const indexed of index.entries) {
     const { source, url } = indexed;
     if (!source || !url) continue;
     if (!keep.has(url)) {
-      removals.push({ file: indexed.entry.file });
+      removals.push({ target: path.resolve(indexed.entry.file) });
     }
   }
 
-  removals.sort((a, b) => a.file.localeCompare(b.file));
+  removals.sort((a, b) => a.target.localeCompare(b.target));
   return removals;
 }
 

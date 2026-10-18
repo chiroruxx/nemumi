@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
   type CommonContentOptions,
   defaultContentDirectory,
@@ -14,7 +13,6 @@ import {
   type Collection,
   createPruneRemovals,
   limits,
-  type PruneRemoval,
 } from './external-content-planning.ts';
 
 type PruneOptions = Omit<
@@ -26,24 +24,17 @@ type PruneOptions = Omit<
   | 'sleep'
 >;
 
-function pruneFileRemovals(removals: PruneRemoval[]): ContentFileRemoval[] {
-  return removals.map(({ file }) => ({
-    target: path.resolve(file),
-  }));
-}
-
 export async function pruneContent({
   dryRun = false,
   contentDirectory = defaultContentDirectory,
 }: PruneOptions = {}): Promise<void> {
-  const removals: PruneRemoval[] = [];
+  const removals: ContentFileRemoval[] = [];
   for (const collection of Object.keys(limits) as Collection[]) {
     const entries = await readCollection(collection, contentDirectory);
     const index = buildCollectionIndex(collection, entries);
     removals.push(...createPruneRemovals(index));
   }
 
-  const fileRemovals = pruneFileRemovals(removals);
-  await validateFileRemovals(fileRemovals, contentDirectory);
-  if (!dryRun) await removeFiles(fileRemovals);
+  await validateFileRemovals(removals, contentDirectory);
+  if (!dryRun) await removeFiles(removals);
 }

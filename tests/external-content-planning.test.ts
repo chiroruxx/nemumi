@@ -247,7 +247,7 @@ test('createPruneRemovals ranks saved entries by date and URL and preserves manu
       'https://sizu.me/chihiroxx/posts/z',
     ],
   );
-  assert.deepEqual(tieRemovals.map(({ file }) => file).sort(), [
+  assert.deepEqual(tieRemovals.map(({ target }) => target).sort(), [
     '/repo/src/content/articles/tie-m.yaml',
     '/repo/src/content/articles/tie-z.yaml',
   ]);
@@ -271,7 +271,7 @@ test('createPruneRemovals ranks saved entries by date and URL and preserves manu
     /Filename collision while adding/,
   );
   assert.deepEqual(
-    removals.map(({ file }) => file),
+    removals.map(({ target }) => target),
     [
       '/repo/src/content/articles/01.yaml',
       '/repo/src/content/articles/02.yaml',
@@ -287,7 +287,7 @@ test('createPruneRemovals ranks saved entries by date and URL and preserves manu
       'https://sizu.me/chihiroxx/posts/tie-3',
     ],
   );
-  assert.ok(!removals.some(({ file }) => file.endsWith('manual.yaml')));
+  assert.ok(!removals.some(({ target }) => target.endsWith('manual.yaml')));
 });
 
 test('source ownership matches host, account path, and collection while preserving stored URL transport', () => {

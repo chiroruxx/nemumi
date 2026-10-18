@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
   buildCollectionIndex,
   type Collection,
@@ -73,7 +72,7 @@ export async function checkContentLinks({
     const removals: ContentFileRemoval[] = [];
     for (const { entry, url } of linkChecks) {
       if (checked.statuses.get(url.href) !== 'deleted') continue;
-      removals.push({ target: path.resolve(entry.file) });
+      removals.push({ target: entry.file });
     }
     removals.sort((a, b) => a.target.localeCompare(b.target));
     await validateFileRemovals(removals, contentDirectory);

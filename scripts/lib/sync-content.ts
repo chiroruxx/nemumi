@@ -114,7 +114,7 @@ function createSyncWrites({
       if (sameContent(previous.data, item, types)) continue;
       writes.push({
         kind: 'replace',
-        target: path.resolve(previous.file),
+        target: previous.file,
         content: serializeContent(item, types),
       });
       continue;

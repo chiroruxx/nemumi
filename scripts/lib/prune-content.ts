@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
   buildCollectionIndex,
   type Collection,
@@ -24,7 +23,7 @@ function createPruneRemovals(index: CollectionIndex): ContentFileRemoval[] {
         ),
     )
     .slice(limits[index.collection])
-    .map(({ entry }) => ({ target: path.resolve(entry.file) }))
+    .map(({ entry }) => ({ target: entry.file }))
     .sort((a, b) => a.target.localeCompare(b.target));
 }
 

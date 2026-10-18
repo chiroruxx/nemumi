@@ -51,7 +51,7 @@ export async function readCollection(
   collection: Collection,
   contentDirectory = defaultContentDirectory,
 ): Promise<StoredEntry[]> {
-  const directory = path.join(contentDirectory, collection);
+  const directory = path.resolve(contentDirectory, collection);
   const files = (await readdir(directory)).filter((name) =>
     name.endsWith('.yaml'),
   );

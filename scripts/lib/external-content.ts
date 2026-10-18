@@ -37,6 +37,7 @@ export const limits = { articles: 20, talks: 10 };
 export type Collection = keyof typeof limits;
 export type ContentData = z.infer<typeof contentRecordSchema>;
 export type FeedItem = { date: Date; title: string; url: URL };
+// File paths are absolute, resolved when collections are read.
 export type StoredEntry = { file: string; id: string; data: ContentData };
 export type LinkStatus = 'public' | 'deleted' | 'unverified';
 type IndexedEntry = {

@@ -1,9 +1,14 @@
 import path from 'node:path';
 import {
+  buildCollectionIndex,
+  type Collection,
+  type CollectionIndex,
   type CommonContentOptions,
   type ContentResult,
   defaultContentDirectory,
   getService,
+  type LinkCheck,
+  limits,
 } from './external-content.ts';
 import {
   type ContentFileRemoval,
@@ -16,13 +21,6 @@ import {
   runLinkChecks,
   verifyLink,
 } from './external-content-http.ts';
-import {
-  buildCollectionIndex,
-  type Collection,
-  type CollectionIndex,
-  type LinkCheck,
-  limits,
-} from './external-content-planning.ts';
 
 type CheckContentLinksOptions = CommonContentOptions;
 

@@ -10,7 +10,7 @@ import {
 import path from 'node:path';
 import YAML from 'yaml';
 import { contentRecordSchema } from '../../src/config/content-schema.ts';
-import type { Collection, StoredEntry } from './external-content-planning.ts';
+import type { Collection, StoredEntry } from './external-content.ts';
 
 const defaultContentDirectory = path.resolve('src/content');
 

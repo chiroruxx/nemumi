@@ -1,7 +1,11 @@
 import path from 'node:path';
 import {
+  buildCollectionIndex,
+  type Collection,
+  type CollectionIndex,
   type CommonContentOptions,
   defaultContentDirectory,
+  limits,
 } from './external-content.ts';
 import {
   type ContentFileRemoval,
@@ -9,12 +13,6 @@ import {
   removeFiles,
   validateFileRemovals,
 } from './external-content-files.ts';
-import {
-  buildCollectionIndex,
-  type Collection,
-  type CollectionIndex,
-  limits,
-} from './external-content-planning.ts';
 
 type PruneOptions = Omit<
   CommonContentOptions,

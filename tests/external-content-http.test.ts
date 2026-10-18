@@ -3,6 +3,8 @@ import test from 'node:test';
 import {
   findSource,
   getService,
+  type LinkCheck,
+  type LinkStatus,
   type Service,
 } from '../scripts/lib/external-content.ts';
 import {
@@ -12,10 +14,6 @@ import {
   runLinkChecks,
   verifyLink,
 } from '../scripts/lib/external-content-http.ts';
-import type {
-  LinkCheck,
-  LinkStatus,
-} from '../scripts/lib/external-content-planning.ts';
 
 const feedFixtures: [Service, string, string, string][] = [
   [

@@ -12,6 +12,10 @@ import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
 import {
+  buildCollectionIndex,
+  type FeedItem,
+} from '../scripts/lib/external-content.ts';
+import {
   type ContentFileWrite,
   readCollection,
   removeFiles,
@@ -19,10 +23,6 @@ import {
   validateFileWrites,
   writeFiles,
 } from '../scripts/lib/external-content-files.ts';
-import {
-  buildCollectionIndex,
-  type FeedItem,
-} from '../scripts/lib/external-content-planning.ts';
 import { createSyncWrites } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 

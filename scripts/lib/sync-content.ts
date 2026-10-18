@@ -3,8 +3,12 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import {
+  buildCollectionIndex,
+  type CollectionIndex,
   type CommonContentOptions,
+  type ContentData,
   defaultContentDirectory,
+  type FeedItem,
   getService,
   type Service,
   type Source,
@@ -21,12 +25,6 @@ import {
   type ExecutionContext,
   fetchFeed,
 } from './external-content-http.ts';
-import {
-  buildCollectionIndex,
-  type CollectionIndex,
-  type ContentData,
-  type FeedItem,
-} from './external-content-planning.ts';
 
 type FeedLoader = (
   service: Service,

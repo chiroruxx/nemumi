@@ -26,9 +26,7 @@ type CheckContentLinksOptions = CommonContentOptions;
 
 function createContentLinkChecks(index: CollectionIndex): LinkCheck[] {
   return index.entries
-    .flatMap(({ source, url }) =>
-      source && url ? [{ source, url: new URL(url) }] : [],
-    )
+    .flatMap(({ source, url }) => (source && url ? [{ source, url }] : []))
     .sort(
       (a, b) =>
         a.source.localeCompare(b.source) ||

@@ -89,7 +89,7 @@ async function parseFeedXml(xml: string, service: Service) {
     const url = new URL(item.link);
     validateContentUrl(url, service);
     url.hash = '';
-    return { date, title, url: url.href };
+    return { date, title, url };
   });
 }
 

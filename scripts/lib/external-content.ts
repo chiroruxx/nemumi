@@ -37,12 +37,12 @@ export const limits = { articles: 20, talks: 10 };
 
 export type Collection = keyof typeof limits;
 export type ContentData = z.infer<typeof contentRecordSchema>;
-export type FeedItem = { date: Date; title: string; url: string };
+export type FeedItem = { date: Date; title: string; url: URL };
 export type StoredEntry = { file: string; id: string; data: ContentData };
 export type LinkStatus = 'public' | 'deleted' | 'unverified';
 type IndexedEntry = {
   entry: StoredEntry;
-  url: string | undefined;
+  url: URL | undefined;
   source: Source | undefined;
 };
 export type CollectionIndex = {
@@ -76,19 +76,19 @@ export function buildCollectionIndex(
   const indexedEntries = entries.map((entry) => {
     const value = entry.data.url;
     const parsed = value ? analyzeContentUrl(value, collection) : undefined;
-    const url = parsed?.url.href;
+    const url = parsed?.url;
     if (url) {
-      const previous = seenUrls.get(url);
+      const previous = seenUrls.get(url.href);
       if (previous) {
         throw new Error(
           `${collection} URL is duplicated in ${previous} and ${entry.id}: ${url}`,
         );
       }
-      seenUrls.set(url, entry.id);
+      seenUrls.set(url.href, entry.id);
     }
     const source = parsed?.source;
     const indexed = { entry, url, source };
-    if (url && source) byUrl.set(url, indexed);
+    if (url && source) byUrl.set(url.href, indexed);
     return indexed;
   });
 

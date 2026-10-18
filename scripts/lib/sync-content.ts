@@ -42,19 +42,18 @@ function normalizedFeed(
   const service = getService(source);
   const normalized = new Map<string, FeedItem>();
   for (const item of feed) {
-    const parsed = new URL(item.url);
-    validateContentUrl(parsed, service);
-    parsed.hash = '';
-    const url = parsed.href;
+    const url = new URL(item.url);
+    validateContentUrl(url, service);
+    url.hash = '';
     const value = { ...item, url };
-    const previous = normalized.get(url);
+    const previous = normalized.get(url.href);
     if (
       previous &&
       (previous.date !== value.date || previous.title !== value.title)
     ) {
       throw new Error(`Conflicting RSS items for URL: ${url}`);
     }
-    normalized.set(url, value);
+    normalized.set(url.href, value);
   }
   return normalized;
 }
@@ -71,7 +70,7 @@ function sameContent(
   return (
     data.date.getTime() === item.date.getTime() &&
     data.title === item.title &&
-    data.url?.href === item.url &&
+    data.url?.href === item.url.href &&
     data.types?.length === types.length &&
     data.types.every((value, index) => value === types[index])
   );
@@ -83,7 +82,7 @@ function serializeContent(item: FeedItem, types: string[]): string {
       date: formatDateInSiteTimeZone(item.date),
       types,
       title: item.title,
-      url: item.url,
+      url: item.url.href,
     },
     { defaultStringType: 'QUOTE_DOUBLE' },
   );

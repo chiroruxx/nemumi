@@ -58,7 +58,7 @@ test('fetchFeed allows automatic redirects and maps all service fixtures to norm
       {
         date: new Date('2026-10-13'),
         title: `${service === getService('sizu') ? 'Sizu' : service === getService('hatena') ? 'Hatena' : 'Speaker Deck'} & fixture`,
-        url: normalizedUrl,
+        url: new URL(normalizedUrl),
       },
     ]);
   }

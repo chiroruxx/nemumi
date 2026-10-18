@@ -26,7 +26,7 @@ import { createContentDirectory } from './helpers/content-fixture.ts';
 const item: FeedItem = {
   date: new Date('2026-10-03'),
   title: 'A planned post',
-  url: 'https://sizu.me/chihiroxx/posts/planned',
+  url: new URL('https://sizu.me/chihiroxx/posts/planned'),
 };
 
 test('readCollection returns parsed and validated content with file identity', async (t) => {
@@ -219,7 +219,7 @@ test('writeFiles makes per-file atomic replacements and a reread/replan retry co
     {
       ...item,
       title: 'Another planned post',
-      url: 'https://sizu.me/chihiroxx/posts/planned-2',
+      url: new URL('https://sizu.me/chihiroxx/posts/planned-2'),
     },
   ];
   const initialWrites: ContentFileWrite[] = feed.map((item, index) => ({
@@ -229,7 +229,7 @@ test('writeFiles makes per-file atomic replacements and a reread/replan retry co
       date: item.date.toISOString().slice(0, 10),
       types: ['日常記事'],
       title: item.title,
-      url: item.url,
+      url: item.url.href,
     }),
   }));
   const secondTarget = initialWrites[1].target;
@@ -254,7 +254,7 @@ test('writeFiles makes per-file atomic replacements and a reread/replan retry co
   assert.equal(afterFailure.length, 1);
   await syncService('sizu', { contentDirectory, feedLoader: async () => feed });
   const secondFile = (await readCollection('articles', contentDirectory)).find(
-    ({ data }) => data.url?.href === feed[1].url,
+    ({ data }) => data.url?.href === feed[1].url.href,
   )?.file;
   assert.ok(secondFile);
 
@@ -268,14 +268,14 @@ test('writeFiles makes per-file atomic replacements and a reread/replan retry co
       date: feed[0].date.toISOString().slice(0, 10),
       types: ['日常記事'],
       title: feed[0].title,
-      url: feed[0].url,
+      url: feed[0].url.href,
     },
   );
   assert.deepEqual(YAML.parse(await readFile(secondFile, 'utf8')), {
     date: feed[1].date.toISOString().slice(0, 10),
     types: ['日常記事'],
     title: feed[1].title,
-    url: feed[1].url,
+    url: feed[1].url.href,
   });
   assert.equal(
     (await readdir(path.join(contentDirectory, 'articles'))).some((name) =>

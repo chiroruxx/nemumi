@@ -22,7 +22,7 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
   const item = {
     date: new Date('2026-10-03'),
     title: 'New post',
-    url: 'https://sizu.me/chihiroxx/posts/new-post',
+    url: new URL('https://sizu.me/chihiroxx/posts/new-post'),
   };
   const options: NonNullable<Parameters<typeof syncService>[1]> = {
     contentDirectory: path.relative(process.cwd(), contentDirectory),
@@ -39,7 +39,7 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
     await readFile(path.join(contentDirectory, 'articles', files[0]), 'utf8'),
   );
   assert.deepEqual(saved.types, ['日常記事']);
-  assert.equal(saved.url, item.url);
+  assert.equal(saved.url, item.url.href);
 
   const savedFile = path.join(contentDirectory, 'articles', files[0]);
   const timestamp = new Date('2000-01-01');
@@ -70,7 +70,9 @@ test('sync updates the existing filename, keeps types, and round-trips quoted mu
     const title = 'Updated "quoted" title\nsecond line';
     await syncService('sizu', {
       contentDirectory,
-      feedLoader: async () => [{ date: new Date('2026-10-02'), title, url }],
+      feedLoader: async () => [
+        { date: new Date('2026-10-02'), title, url: new URL(url) },
+      ],
     });
 
     assert.deepEqual(await readdir(articlesDirectory), ['legacy-name.yaml']);
@@ -101,12 +103,12 @@ test('sync imports all feed candidates before link checks and pruning', async (t
     {
       date: new Date('2026-10-03'),
       title: 'Deleted',
-      url: 'https://sizu.me/chihiroxx/posts/deleted',
+      url: new URL('https://sizu.me/chihiroxx/posts/deleted'),
     },
     {
       date: new Date('2026-09-30'),
       title: 'Public',
-      url: 'https://sizu.me/chihiroxx/posts/public',
+      url: new URL('https://sizu.me/chihiroxx/posts/public'),
     },
   ];
   await syncService('sizu', {
@@ -124,7 +126,7 @@ test('sync imports all feed candidates before link checks and pruning', async (t
       return url.href.endsWith('/deleted') ? 'deleted' : 'public';
     },
   });
-  assert.deepEqual(checked, [feed[0].url, feed[1].url]);
+  assert.deepEqual(checked, [feed[0].url.href, feed[1].url.href]);
   const savedUrls = await Promise.all(
     (await readdir(articlesDirectory)).map(async (file) => {
       const saved = YAML.parse(
@@ -141,10 +143,10 @@ test('sync imports all feed candidates before link checks and pruning', async (t
         (_, index) =>
           `https://example.com/manual-${String(index + 1).padStart(2, '0')}`,
       ),
-      feed[1].url,
+      feed[1].url.href,
     ].sort(),
   );
-  assert.equal(savedUrls.includes(feed[1].url), true);
+  assert.equal(savedUrls.includes(feed[1].url.href), true);
   await pruneContent({ contentDirectory });
   const remaining = await readdir(articlesDirectory);
   assert.equal(remaining.length, 20);
@@ -210,7 +212,7 @@ test('sync rejects duplicate saved URLs and filename collisions without changing
     syncService('sizu', {
       contentDirectory,
       feedLoader: async () => [
-        { date: new Date('2026-10-03'), title: 'Collision', url },
+        { date: new Date('2026-10-03'), title: 'Collision', url: new URL(url) },
       ],
     }),
     /Filename collision while adding/,
@@ -235,11 +237,11 @@ test('sync deduplicates identical feed content after fragment normalization rega
   const item = {
     date: new Date('2026-10-03'),
     title: 'Repeated post',
-    url: 'https://sizu.me/chihiroxx/posts/repeated?ref=rss#first',
+    url: new URL('https://sizu.me/chihiroxx/posts/repeated?ref=rss#first'),
   };
   const duplicate = {
     ...item,
-    url: `${item.url.slice(0, item.url.indexOf('#'))}#second`,
+    url: new URL('#second', item.url),
   };
   const run = (contentDirectory: string, items: (typeof item)[]) =>
     syncService('sizu', {
@@ -249,6 +251,8 @@ test('sync deduplicates identical feed content after fragment normalization rega
 
   await run(forwardDirectory, [item, duplicate]);
   await run(reverseDirectory, [duplicate, item]);
+  assert.equal(item.url.hash, '#first');
+  assert.equal(duplicate.url.hash, '#second');
   const savedEntries = await Promise.all(
     [forwardDirectory, reverseDirectory].map(async (directory) => {
       const articleDirectory = path.join(directory, 'articles');
@@ -274,24 +278,24 @@ test('sync rejects conflicting duplicate feed URLs before file changes', async (
     {
       date: new Date('2026-10-03'),
       title: 'First title',
-      url: 'https://sizu.me/chihiroxx/posts/conflict#first',
+      url: new URL('https://sizu.me/chihiroxx/posts/conflict#first'),
     },
     {
       date: new Date('2026-10-03'),
       title: 'Second title',
-      url: 'https://sizu.me/chihiroxx/posts/conflict#second',
+      url: new URL('https://sizu.me/chihiroxx/posts/conflict#second'),
     },
   ];
   const dateConflict = [
     {
       date: new Date('2026-10-03'),
       title: 'Same title',
-      url: 'https://sizu.me/chihiroxx/posts/date-conflict#first',
+      url: new URL('https://sizu.me/chihiroxx/posts/date-conflict#first'),
     },
     {
       date: new Date('2026-10-02'),
       title: 'Same title',
-      url: 'https://sizu.me/chihiroxx/posts/date-conflict#second',
+      url: new URL('https://sizu.me/chihiroxx/posts/date-conflict#second'),
     },
   ];
   for (const feedItems of [
@@ -372,17 +376,17 @@ test('sync applies feed changes without checking item links', async (t) => {
       {
         date: new Date('2026-10-02'),
         title: 'Updated title',
-        url: 'https://sizu.me/chihiroxx/posts/existing',
+        url: new URL('https://sizu.me/chihiroxx/posts/existing'),
       },
       {
         date: new Date('2026-10-03'),
         title: 'New item',
-        url: 'https://sizu.me/chihiroxx/posts/new',
+        url: new URL('https://sizu.me/chihiroxx/posts/new'),
       },
       {
         date: new Date('2026-10-04'),
         title: 'Another new item',
-        url: 'https://sizu.me/chihiroxx/posts/another-new',
+        url: new URL('https://sizu.me/chihiroxx/posts/another-new'),
       },
     ],
   });

@@ -26,7 +26,7 @@ type PruneOptions = Omit<
 function rankedKeepSet(index: CollectionIndex): Set<string> {
   const candidates = new Map<string, { date: Date }>();
   for (const indexed of index.entries) {
-    candidates.set(indexed.url ?? indexed.entry.file, {
+    candidates.set(indexed.url?.href ?? indexed.entry.file, {
       date: indexed.entry.data.date,
     });
   }
@@ -47,7 +47,7 @@ function createPruneRemovals(index: CollectionIndex): ContentFileRemoval[] {
   const removals: ContentFileRemoval[] = [];
 
   for (const indexed of index.entries) {
-    if (!keep.has(indexed.url ?? indexed.entry.file)) {
+    if (!keep.has(indexed.url?.href ?? indexed.entry.file)) {
       removals.push({ target: path.resolve(indexed.entry.file) });
     }
   }

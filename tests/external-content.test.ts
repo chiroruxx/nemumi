@@ -151,6 +151,7 @@ test('buildCollectionIndex normalizes URLs and rejects stored duplicates', () =>
     storedEntry('manual.yaml', '2026-10-02', 'Manual', 'https://example.com/a'),
   ]);
 
+  assert.ok(index.entries[0]?.url instanceof URL);
   assert.equal(
     index.byUrl.has('https://sizu.me/chihiroxx/posts/one?ref=feed'),
     true,
@@ -209,7 +210,7 @@ test('buildCollectionIndex removes fragments from comparison URLs, preserves que
     'https://sizu.me/chihiroxx/posts/one?ref=second',
   ];
   assert.deepEqual(
-    index.entries.map(({ url }) => url),
+    index.entries.map(({ url }) => url?.href),
     expected,
   );
   assert.deepEqual([...index.byUrl.keys()], expected);

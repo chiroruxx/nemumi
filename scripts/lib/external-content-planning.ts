@@ -223,9 +223,7 @@ export function createPruneRemovals(
   return removals;
 }
 
-export function createContentLinkCheckPlan(
-  index: CollectionIndex,
-): LinkCheck[] {
+export function createContentLinkChecks(index: CollectionIndex): LinkCheck[] {
   return index.entries
     .flatMap(({ source, url }) => (source && url ? [{ source, url }] : []))
     .sort(

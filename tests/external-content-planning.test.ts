@@ -4,7 +4,7 @@ import test from 'node:test';
 import YAML from 'yaml';
 import {
   buildCollectionIndex,
-  createContentLinkCheckPlan,
+  createContentLinkChecks,
   createPruneRemovals,
   createSyncWrites,
   type FeedItem,
@@ -258,7 +258,7 @@ test('createPruneRemovals ranks all saved entries by date and URL', () => {
     buildCollectionIndex('articles', [...tieEntries, ...manualEntries]),
   );
   assert.deepEqual(
-    createContentLinkCheckPlan(
+    createContentLinkChecks(
       buildCollectionIndex('articles', [...tieEntries, ...manualEntries]),
     ).map(({ url }) => url),
     [
@@ -298,7 +298,7 @@ test('createPruneRemovals ranks all saved entries by date and URL', () => {
     ],
   );
   assert.deepEqual(
-    createContentLinkCheckPlan(index)
+    createContentLinkChecks(index)
       .map(({ url }) => url)
       .filter((url) => url.includes('tie-')),
     [

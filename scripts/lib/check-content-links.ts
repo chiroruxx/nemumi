@@ -19,7 +19,7 @@ import {
 import {
   buildCollectionIndex,
   type Collection,
-  createContentLinkCheckPlan,
+  createContentLinkChecks,
   limits,
 } from './external-content-planning.ts';
 
@@ -49,7 +49,7 @@ export async function checkContentLinks({
       collections.map((index) => [index.collection, index]),
     );
     const linkChecks = collections
-      .flatMap(createContentLinkCheckPlan)
+      .flatMap(createContentLinkChecks)
       .sort(
         (a, b) =>
           a.source.localeCompare(b.source) || a.url.localeCompare(b.url),

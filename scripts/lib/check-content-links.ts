@@ -6,8 +6,6 @@ import {
   type CommonContentOptions,
   type ContentResult,
   defaultContentDirectory,
-  getService,
-  type LinkCheck,
   limits,
 } from './external-content.ts';
 import {
@@ -32,9 +30,9 @@ type CheckContentLinksOptions = CommonContentOptions & {
   sleep?: Sleep;
 };
 
-function createContentLinkChecks(index: CollectionIndex): LinkCheck[] {
-  return index.entries.flatMap(({ source, url }) =>
-    source && url ? [{ source, url }] : [],
+function createContentLinkChecks(index: CollectionIndex) {
+  return index.entries.flatMap(({ entry, source, url }) =>
+    source && url ? [{ entry, source, url }] : [],
   );
 }
 
@@ -58,9 +56,6 @@ export async function checkContentLinks({
         return buildCollectionIndex(collection, entries);
       }),
     );
-    const indexes = new Map(
-      collections.map((index) => [index.collection, index]),
-    );
     const linkChecks = collections
       .flatMap(createContentLinkChecks)
       .sort(
@@ -80,11 +75,8 @@ export async function checkContentLinks({
       },
     );
     const removals: ContentFileRemoval[] = [];
-    for (const { source, url } of linkChecks) {
+    for (const { entry, url } of linkChecks) {
       if (checked.statuses.get(url.href) !== 'deleted') continue;
-      const collection = getService(source).collection as Collection;
-      const entry = indexes.get(collection)?.byUrl.get(url.href)?.entry;
-      if (!entry) throw new Error(`Missing planned link entry: ${url}`);
       removals.push({ target: path.resolve(entry.file) });
     }
     removals.sort((a, b) => a.target.localeCompare(b.target));
@@ -92,10 +84,12 @@ export async function checkContentLinks({
     if (!dryRun) await removeFiles(removals);
 
     return {
-      unverified: linkChecks.filter(
-        ({ url }) => checked.statuses.get(url.href) === 'unverified',
+      unverified: linkChecks.flatMap(({ source, url }) =>
+        checked.statuses.get(url.href) === 'unverified'
+          ? [{ source, url }]
+          : [],
       ),
-      unchecked: checked.unchecked,
+      unchecked: checked.unchecked.map(({ source, url }) => ({ source, url })),
     };
   } finally {
     context.dispose();

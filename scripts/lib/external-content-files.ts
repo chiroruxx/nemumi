@@ -89,7 +89,7 @@ function assertRegularFile(
   if (!metadata) {
     throw new Error(`Cannot ${kind} ${target}: file does not exist`);
   }
-  if (metadata.isSymbolicLink() || !metadata.isFile()) {
+  if (!metadata.isFile()) {
     throw new Error(`Refusing to modify a non-regular file: ${target}`);
   }
 }

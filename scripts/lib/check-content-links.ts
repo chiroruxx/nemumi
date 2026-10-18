@@ -25,13 +25,9 @@ import {
 type CheckContentLinksOptions = CommonContentOptions;
 
 function createContentLinkChecks(index: CollectionIndex): LinkCheck[] {
-  return index.entries
-    .flatMap(({ source, url }) => (source && url ? [{ source, url }] : []))
-    .sort(
-      (a, b) =>
-        a.source.localeCompare(b.source) ||
-        a.url.href.localeCompare(b.url.href),
-    );
+  return index.entries.flatMap(({ source, url }) =>
+    source && url ? [{ source, url }] : [],
+  );
 }
 
 export async function checkContentLinks({

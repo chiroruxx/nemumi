@@ -241,6 +241,7 @@ test('sync deduplicates identical feed content after fragment normalization rega
   };
   const duplicate = {
     ...item,
+    date: new Date(item.date),
     url: new URL('#second', item.url),
   };
   const run = (contentDirectory: string, items: (typeof item)[]) =>

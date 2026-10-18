@@ -49,7 +49,8 @@ function normalizedFeed(
     const previous = normalized.get(url.href);
     if (
       previous &&
-      (previous.date !== value.date || previous.title !== value.title)
+      (previous.date.getTime() !== value.date.getTime() ||
+        previous.title !== value.title)
     ) {
       throw new Error(`Conflicting RSS items for URL: ${url}`);
     }

@@ -51,21 +51,6 @@ export type CollectionIndex = {
 };
 export type LinkCheck = { source: Source; url: URL };
 
-type ParsedContentUrl = {
-  url: URL;
-  source: Source | undefined;
-};
-
-function analyzeContentUrl(
-  value: URL,
-  collection?: Collection,
-): ParsedContentUrl {
-  const url = new URL(value);
-  url.hash = '';
-  const source = collection ? findSource(url, collection) : undefined;
-  return { url, source };
-}
-
 export function buildCollectionIndex(
   collection: Collection,
   entries: StoredEntry[],
@@ -74,9 +59,9 @@ export function buildCollectionIndex(
   const seenUrls = new Map<string, string>();
   const indexedEntries = entries.map((entry) => {
     const value = entry.data.url;
-    const parsed = value ? analyzeContentUrl(value, collection) : undefined;
-    const url = parsed?.url;
+    const url = value ? new URL(value) : undefined;
     if (url) {
+      url.hash = '';
       const previous = seenUrls.get(url.href);
       if (previous) {
         throw new Error(
@@ -85,7 +70,7 @@ export function buildCollectionIndex(
       }
       seenUrls.set(url.href, entry.id);
     }
-    const source = parsed?.source;
+    const source = url ? findSource(url, collection) : undefined;
     const indexed = { entry, url, source };
     if (url && source) byUrl.set(url.href, indexed);
     return indexed;
@@ -116,25 +101,15 @@ export function findSource(
 
 export function validateContentUrl(url: URL, service: Service): void {
   const source = findSource(url, service.collection);
-  const configuredSource = (Object.keys(services) as Source[]).find(
-    (source) => {
-      const configured = services[source];
-      return (
-        configured.host === service.host &&
-        configured.pathPrefix === service.pathPrefix &&
-        configured.collection === service.collection
-      );
-    },
-  );
+  const configured = source ? services[source] : undefined;
   if (
     url.protocol !== 'https:' ||
     (url.port !== '' && url.port !== '443') ||
-    url.hostname !== service.host ||
-    !url.pathname.startsWith(service.pathPrefix) ||
     url.username ||
     url.password ||
-    !configuredSource ||
-    source !== configuredSource
+    !configured ||
+    configured.host !== service.host ||
+    configured.pathPrefix !== service.pathPrefix
   ) {
     throw new Error(`Unexpected ${service.label} content URL: ${url.href}`);
   }

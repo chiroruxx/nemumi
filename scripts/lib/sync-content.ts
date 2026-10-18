@@ -102,11 +102,6 @@ function createSyncWrites({
   contentDirectory: string;
 }): ContentFileWrite[] {
   const service = getService(source);
-  if (service.collection !== index.collection) {
-    throw new Error(
-      `${service.label} cannot sync the ${index.collection} collection`,
-    );
-  }
   const feedByUrl = normalizedFeed(feed, source);
   const writes: ContentFileWrite[] = [];
 

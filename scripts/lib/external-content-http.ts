@@ -34,10 +34,8 @@ export function createExecutionContext({
 }: ExecutionContextOptions = {}): ExecutionContext {
   const controller = new AbortController();
   const deadlineAt = now() + Math.max(0, budgetMs);
-  let expired = false;
   const timer = setTimeout(
     () => {
-      expired = true;
       controller.abort(
         new DOMException('Execution deadline exceeded', 'TimeoutError'),
       );
@@ -46,7 +44,8 @@ export function createExecutionContext({
   );
   return {
     signal: controller.signal,
-    remainingMs: () => (expired ? 0 : Math.max(0, deadlineAt - now())),
+    remainingMs: () =>
+      controller.signal.aborted ? 0 : Math.max(0, deadlineAt - now()),
     dispose: () => clearTimeout(timer),
   };
 }

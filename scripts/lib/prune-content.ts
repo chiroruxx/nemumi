@@ -23,37 +23,18 @@ type PruneOptions = Omit<
   | 'sleep'
 >;
 
-function rankedKeepSet(index: CollectionIndex): Set<string> {
-  const candidates = new Map<string, { date: Date }>();
-  for (const indexed of index.entries) {
-    candidates.set(indexed.url?.href ?? indexed.entry.file, {
-      date: indexed.entry.data.date,
-    });
-  }
-
-  return new Set(
-    [...candidates.entries()]
-      .sort(
-        ([keyA, a], [keyB, b]) =>
-          b.date.getTime() - a.date.getTime() || keyA.localeCompare(keyB),
-      )
-      .slice(0, limits[index.collection])
-      .map(([key]) => key),
-  );
-}
-
 function createPruneRemovals(index: CollectionIndex): ContentFileRemoval[] {
-  const keep = rankedKeepSet(index);
-  const removals: ContentFileRemoval[] = [];
-
-  for (const indexed of index.entries) {
-    if (!keep.has(indexed.url?.href ?? indexed.entry.file)) {
-      removals.push({ target: path.resolve(indexed.entry.file) });
-    }
-  }
-
-  removals.sort((a, b) => a.target.localeCompare(b.target));
-  return removals;
+  return [...index.entries]
+    .sort(
+      (a, b) =>
+        b.entry.data.date.getTime() - a.entry.data.date.getTime() ||
+        (a.url?.href ?? a.entry.file).localeCompare(
+          b.url?.href ?? b.entry.file,
+        ),
+    )
+    .slice(limits[index.collection])
+    .map(({ entry }) => ({ target: path.resolve(entry.file) }))
+    .sort((a, b) => a.target.localeCompare(b.target));
 }
 
 export async function pruneContent({

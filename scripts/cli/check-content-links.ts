@@ -1,5 +1,6 @@
 import { checkContentLinks } from '../lib/check-content-links.ts';
 import { writeGitHubSummary } from '../lib/content-cli.ts';
+import type { ContentResult } from '../lib/external-content.ts';
 
 function parseArguments(args: string[]): { dryRun: boolean } {
   const options = args[0] === '--' ? args.slice(1) : args;
@@ -9,10 +10,7 @@ function parseArguments(args: string[]): { dryRun: boolean } {
   throw new Error('Usage: check-content-links [--dry-run]');
 }
 
-function formatUnverifiedLinks(result: {
-  unverified: Array<{ url: URL }>;
-  unchecked: Array<{ url: URL }>;
-}): string {
+function formatUnverifiedLinks(result: ContentResult): string {
   const urls = new Set(
     [...result.unverified, ...result.unchecked].map(({ url }) => url.href),
   );

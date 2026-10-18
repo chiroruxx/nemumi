@@ -1,3 +1,4 @@
+import { setTimeout as delay } from 'node:timers/promises';
 import Parser from 'rss-parser';
 import { contentDateSchema } from '../../src/config/content-schema.ts';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
@@ -69,18 +70,7 @@ export type HttpRuntime = {
 };
 
 function sleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
-  if (signal?.aborted) return Promise.reject(signal.reason);
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort);
-      resolve();
-    }, milliseconds);
-    const onAbort = () => {
-      clearTimeout(timer);
-      reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
-    };
-    signal?.addEventListener('abort', onAbort, { once: true });
-  });
+  return delay(milliseconds, undefined, { signal });
 }
 
 function requestSignal(runtime: HttpRuntime): AbortSignal {

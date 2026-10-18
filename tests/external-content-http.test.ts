@@ -302,6 +302,16 @@ test('runLinkChecks completes batches of five before waiting one second, without
   assert.equal(result.statuses.size, 11);
   assert.deepEqual(result.unchecked, []);
   assert.deepEqual(waits, [1000, 1000]);
+  const withoutInjectedSleep = await runLinkChecks(
+    checks,
+    async () => 'public',
+    {
+      context: createTestContext(() => 60_000, controller.signal),
+      batchIntervalMs: 0,
+    },
+  );
+  assert.equal(withoutInjectedSleep.statuses.size, checks.length);
+  assert.deepEqual(withoutInjectedSleep.unchecked, []);
 });
 
 test('runLinkChecks leaves never-started and interrupted checks unchecked after the global deadline', async () => {
@@ -432,29 +442,38 @@ test('runLinkChecks returns at the deadline and ignores a verifier that settles 
 });
 
 test('runLinkChecks preserves completed results and leaves later batches unchecked when a wait aborts', async () => {
-  const controller = new AbortController();
-  const checks: LinkCheck[] = Array.from({ length: 6 }, (_, index) => ({
-    source: 'sizu',
-    url: `https://sizu.me/chihiroxx/posts/${index}`,
-  }));
-  let calls = 0;
-  const result = await runLinkChecks(
-    checks,
-    async () => {
-      calls += 1;
-      return 'public';
-    },
-    {
-      context: createTestContext(() => 60_000, controller.signal),
-      sleep: async (_milliseconds, signal) => {
-        controller.abort(new Error('deadline'));
-        throw signal?.reason;
+  for (const useDefaultSleep of [false, true]) {
+    const controller = new AbortController();
+    const checks: LinkCheck[] = Array.from({ length: 6 }, (_, index) => ({
+      source: 'sizu',
+      url: `https://sizu.me/chihiroxx/posts/${index}`,
+    }));
+    let calls = 0;
+    const result = await runLinkChecks(
+      checks,
+      async () => {
+        calls += 1;
+        if (useDefaultSleep && calls === 5) {
+          setImmediate(() => controller.abort(new Error('deadline')));
+        }
+        return 'public';
       },
-    },
-  );
-  assert.equal(calls, 5);
-  assert.equal(result.statuses.size, 5);
-  assert.deepEqual(result.unchecked, checks.slice(5));
+      {
+        context: createTestContext(() => 60_000, controller.signal),
+        ...(useDefaultSleep
+          ? {}
+          : {
+              sleep: async (_milliseconds: number, signal?: AbortSignal) => {
+                controller.abort(new Error('deadline'));
+                throw signal?.reason;
+              },
+            }),
+      },
+    );
+    assert.equal(calls, 5);
+    assert.equal(result.statuses.size, 5);
+    assert.deepEqual(result.unchecked, checks.slice(5));
+  }
 });
 
 test('runLinkChecks converts thrown and rejected checks to defer without stopping the batch', async () => {

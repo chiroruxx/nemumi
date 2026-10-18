@@ -46,11 +46,10 @@ test('collection ownership remains host and path based even when URL transport n
       'http://sizu.me/chihiroxx/posts/legacy',
     ),
   ]);
-  assert.equal(index.manualCount, 0);
   assert.equal(index.entries[0]?.source, 'sizu');
 });
 
-test('buildCollectionIndex normalizes URLs, counts manual entries, and rejects stored duplicates', () => {
+test('buildCollectionIndex normalizes URLs and rejects stored duplicates', () => {
   const index = buildCollectionIndex('articles', [
     storedEntry(
       'sizu.yaml',
@@ -61,7 +60,6 @@ test('buildCollectionIndex normalizes URLs, counts manual entries, and rejects s
     storedEntry('manual.yaml', '2026-10-02', 'Manual', 'https://example.com/a'),
   ]);
 
-  assert.equal(index.manualCount, 1);
   assert.equal(
     index.byUrl.has('https://sizu.me/chihiroxx/posts/one?ref=feed'),
     true,
@@ -181,7 +179,7 @@ test('sync ranks one source against saved entries from another source under the 
   assert.deepEqual(writes, []);
 });
 
-test('createPruneRemovals ranks saved entries by date and URL and preserves manual slots', () => {
+test('createPruneRemovals ranks all saved entries by date and URL', () => {
   const saved = Array.from({ length: limits.articles + 1 }, (_, index) => {
     const day = index + 1;
     const date =
@@ -196,14 +194,13 @@ test('createPruneRemovals ranks saved entries by date and URL and preserves manu
   });
   const manual = storedEntry(
     'manual.yaml',
-    '2026-10-22',
+    '2026-09-01',
     'Manual',
     'https://example.com/manual',
   );
   const index = buildCollectionIndex('articles', [...saved, manual]);
   const removals = createPruneRemovals(index);
 
-  assert.equal(index.manualCount, 1);
   const tieEntries = [
     storedEntry(
       'tie-z.yaml',
@@ -274,7 +271,7 @@ test('createPruneRemovals ranks saved entries by date and URL and preserves manu
     removals.map(({ target }) => target),
     [
       '/repo/src/content/articles/01.yaml',
-      '/repo/src/content/articles/02.yaml',
+      '/repo/src/content/articles/manual.yaml',
     ],
   );
   assert.deepEqual(
@@ -287,7 +284,7 @@ test('createPruneRemovals ranks saved entries by date and URL and preserves manu
       'https://sizu.me/chihiroxx/posts/tie-3',
     ],
   );
-  assert.ok(!removals.some(({ target }) => target.endsWith('manual.yaml')));
+  assert.ok(removals.some(({ target }) => target.endsWith('manual.yaml')));
 });
 
 test('source ownership matches host, account path, and collection while preserving stored URL transport', () => {

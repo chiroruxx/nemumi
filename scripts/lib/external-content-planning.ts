@@ -31,7 +31,6 @@ type CollectionIndex = {
   collection: Collection;
   entries: IndexedEntry[];
   byUrl: Map<string, IndexedEntry>;
-  manualCount: number;
 };
 export type LinkCheck = { source: Source; url: string };
 
@@ -79,7 +78,6 @@ export function buildCollectionIndex(
     collection,
     entries: indexedEntries,
     byUrl,
-    manualCount: indexedEntries.filter(({ source }) => !source).length,
   };
 }
 
@@ -111,26 +109,22 @@ function rankedKeepSet(
   index: CollectionIndex,
   feedByUrl: Map<string, FeedItem> = new Map(),
 ): Set<string> {
-  const byUrl = new Map<string, { date: Date }>();
-  for (const indexed of index.byUrl.values()) {
-    if (indexed.url) byUrl.set(indexed.url, { date: indexed.entry.data.date });
+  const candidates = new Map<string, { date: Date }>();
+  for (const indexed of index.entries) {
+    candidates.set(indexed.url ?? indexed.entry.file, {
+      date: indexed.entry.data.date,
+    });
   }
-  for (const [url, item] of feedByUrl) byUrl.set(url, { date: item.date });
+  for (const [url, item] of feedByUrl) candidates.set(url, { date: item.date });
 
-  const available = limits[index.collection] - index.manualCount;
-  if (available < 0) {
-    throw new Error(
-      `${index.collection} manual entries exceed its ${limits[index.collection]} item limit`,
-    );
-  }
   return new Set(
-    [...byUrl.entries()]
+    [...candidates.entries()]
       .sort(
-        ([urlA, a], [urlB, b]) =>
-          b.date.getTime() - a.date.getTime() || urlA.localeCompare(urlB),
+        ([keyA, a], [keyB, b]) =>
+          b.date.getTime() - a.date.getTime() || keyA.localeCompare(keyB),
       )
-      .slice(0, available)
-      .map(([url]) => url),
+      .slice(0, limits[index.collection])
+      .map(([key]) => key),
   );
 }
 
@@ -226,9 +220,7 @@ export function createPruneRemovals(
   const removals: ContentFileRemoval[] = [];
 
   for (const indexed of index.entries) {
-    const { source, url } = indexed;
-    if (!source || !url) continue;
-    if (!keep.has(url)) {
+    if (!keep.has(indexed.url ?? indexed.entry.file)) {
       removals.push({ target: path.resolve(indexed.entry.file) });
     }
   }

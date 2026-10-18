@@ -108,7 +108,7 @@ test('sync adds selected candidates and the shared link check removes invalid ad
       return url.endsWith('/deleted') ? 'deleted' : 'public';
     },
   });
-  assert.deepEqual(checked, [feed[0].url]);
+  assert.deepEqual(checked, [feed[0].url, feed[1].url]);
   const savedUrls = await Promise.all(
     (await readdir(articlesDirectory)).map(async (file) => {
       const saved = YAML.parse(
@@ -119,13 +119,16 @@ test('sync adds selected candidates and the shared link check removes invalid ad
   );
   assert.deepEqual(
     savedUrls.sort(),
-    Array.from(
-      { length: 19 },
-      (_, index) =>
-        `https://example.com/manual-${String(index + 1).padStart(2, '0')}`,
-    ),
+    [
+      ...Array.from(
+        { length: 19 },
+        (_, index) =>
+          `https://example.com/manual-${String(index + 1).padStart(2, '0')}`,
+      ),
+      feed[1].url,
+    ].sort(),
   );
-  assert.equal(savedUrls.includes(feed[1].url), false);
+  assert.equal(savedUrls.includes(feed[1].url), true);
 });
 
 test('sync rejects duplicate saved URLs before feed loading and leaves both files unchanged', async (t) => {

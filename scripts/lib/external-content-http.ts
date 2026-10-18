@@ -104,7 +104,7 @@ async function parseFeedXml(xml: string, service: Service) {
 
 export async function fetchFeed(service: Service, runtime: HttpRuntime = {}) {
   const body = await ky(service.feed, {
-    fetch: runtime.fetch ?? fetch,
+    fetch: runtime.fetch,
     redirect: 'manual',
     headers: { 'user-agent': 'nemumi-sync-content/1.0' },
     signal: runtime.context?.signal,
@@ -145,7 +145,7 @@ export async function verifyLink(
     let response: Response;
     try {
       response = await ky(url.href, {
-        fetch: runtime.fetch ?? fetch,
+        fetch: runtime.fetch,
         redirect: 'manual',
         signal: runtime.context?.signal,
         timeout: runtime.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,

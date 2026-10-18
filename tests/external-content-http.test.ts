@@ -175,13 +175,32 @@ test('fetchFeed cancels redirect and failed response bodies and enforces the byt
       }),
       { status, ...(headers === undefined ? {} : { headers }) },
     );
-  await assert.rejects(
-    fetchFeed(getService('sizu'), {
-      fetch: async () => response(302, { location: 'https://example.com/rss' }),
-      sleep: async () => {},
-    }),
-    /redirected outside/,
-  );
+  let redirects = 0;
+  for (const status of [301, 302, 303, 307, 308]) {
+    for (const location of [
+      undefined,
+      'https://example.com/rss',
+      '/new-rss',
+      'http://sizu.me/rss',
+      'https://[invalid',
+    ]) {
+      const requests: string[] = [];
+      await assert.rejects(
+        fetchFeed(getService('sizu'), {
+          fetch: async (input, init) => {
+            requests.push(String(input));
+            assert.equal(init?.redirect, 'manual');
+            return response(status, location === undefined ? {} : { location });
+          },
+          sleep: async () => assert.fail('RSS redirects must not be retried'),
+        }),
+        /RSS redirect requires updating its configured URL/,
+      );
+      redirects += 1;
+      assert.deepEqual(requests, [getService('sizu').feed]);
+      assert.equal(canceled, redirects);
+    }
+  }
   await assert.rejects(
     fetchFeed(getService('sizu'), {
       fetch: async () => response(404),
@@ -189,7 +208,7 @@ test('fetchFeed cancels redirect and failed response bodies and enforces the byt
     }),
     /HTTP 404/,
   );
-  assert.equal(canceled, 2);
+  assert.equal(canceled, redirects + 1);
 
   await assert.rejects(
     fetchFeed(getService('sizu'), {

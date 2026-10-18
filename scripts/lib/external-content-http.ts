@@ -200,23 +200,7 @@ export async function fetchFeed(service: Service, runtime: HttpRuntime = {}) {
     }
 
     if (REDIRECT_STATUSES.has(response.status)) {
-      const location = response.headers.get('location');
-      let redirect: URL | undefined;
-      try {
-        redirect = location ? new URL(location, service.feed) : undefined;
-      } catch {
-        redirect = undefined;
-      }
       await cancelBody(response);
-      if (
-        !redirect ||
-        redirect.hostname !== service.host ||
-        redirect.protocol !== 'https:'
-      ) {
-        throw new Error(
-          `${service.label} RSS redirected outside its HTTPS host`,
-        );
-      }
       throw new Error(
         `${service.label} RSS redirect requires updating its configured URL`,
       );

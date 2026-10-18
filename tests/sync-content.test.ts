@@ -4,6 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
 import { checkContentLinks } from '../scripts/lib/check-content-links.ts';
+import { pruneContent } from '../scripts/lib/prune-content.ts';
 import { syncService } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
@@ -67,10 +68,10 @@ test('sync updates the existing filename, keeps types, and round-trips quoted mu
   });
 });
 
-test('sync adds selected candidates and the shared link check removes invalid additions', async (t) => {
+test('sync imports all feed candidates before link checks and pruning', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
-  for (let index = 1; index <= 19; index += 1) {
+  for (let index = 1; index <= 20; index += 1) {
     const id = String(index).padStart(2, '0');
     await writeFile(
       path.join(articlesDirectory, `manual-${id}.yaml`),
@@ -88,7 +89,7 @@ test('sync adds selected candidates and the shared link check removes invalid ad
       url: 'https://sizu.me/chihiroxx/posts/deleted',
     },
     {
-      date: new Date('2026-10-02'),
+      date: new Date('2026-09-30'),
       title: 'Public',
       url: 'https://sizu.me/chihiroxx/posts/public',
     },
@@ -98,7 +99,7 @@ test('sync adds selected candidates and the shared link check removes invalid ad
     feedLoader: async () => feed,
   });
 
-  assert.ok((await readdir(articlesDirectory)).length > 19);
+  assert.equal((await readdir(articlesDirectory)).length, 22);
   const checked: string[] = [];
   await checkContentLinks({
     contentDirectory,
@@ -121,7 +122,7 @@ test('sync adds selected candidates and the shared link check removes invalid ad
     savedUrls.sort(),
     [
       ...Array.from(
-        { length: 19 },
+        { length: 20 },
         (_, index) =>
           `https://example.com/manual-${String(index + 1).padStart(2, '0')}`,
       ),
@@ -129,6 +130,10 @@ test('sync adds selected candidates and the shared link check removes invalid ad
     ].sort(),
   );
   assert.equal(savedUrls.includes(feed[1].url), true);
+  await pruneContent({ contentDirectory });
+  const remaining = await readdir(articlesDirectory);
+  assert.equal(remaining.length, 20);
+  assert.ok(remaining.every((file) => file.startsWith('manual-')));
 });
 
 test('sync rejects duplicate saved URLs before feed loading and leaves both files unchanged', async (t) => {

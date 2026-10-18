@@ -151,7 +151,7 @@ test('createSyncWrites is deterministic and keeps existing types', () => {
   }
 });
 
-test('sync ranks one source against saved entries from another source under the shared collection cap', () => {
+test('sync adds and updates older feed items even when saved entries exceed the collection cap', () => {
   const hatenaEntries = Array.from({ length: limits.articles }, (_, index) => {
     const day = String(index + 1).padStart(2, '0');
     return storedEntry(
@@ -161,12 +161,17 @@ test('sync ranks one source against saved entries from another source under the 
       `https://toyo.hatenablog.jp/entry/hatena-${day}`,
     );
   });
-  const index = buildCollectionIndex('articles', hatenaEntries);
+  const existingUrl = 'https://sizu.me/chihiroxx/posts/existing';
+  const index = buildCollectionIndex('articles', [
+    ...hatenaEntries,
+    storedEntry('existing.yaml', '2026-09-01', 'Old title', existingUrl),
+  ]);
 
   const writes = createSyncWrites({
     source: 'sizu',
     index,
     feed: [
+      feedItem('2026-09-02', 'Updated title', existingUrl),
       feedItem(
         '2026-09-30',
         'Older Sizu post',
@@ -176,7 +181,25 @@ test('sync ranks one source against saved entries from another source under the 
     contentDirectory: '/repo/src/content',
   });
 
-  assert.deepEqual(writes, []);
+  assert.deepEqual(
+    writes.map(({ kind, content }) => ({ kind, ...YAML.parse(content) })),
+    [
+      {
+        kind: 'replace',
+        date: '2026-09-02',
+        title: 'Updated title',
+        url: existingUrl,
+        types: ['日常記事'],
+      },
+      {
+        kind: 'create',
+        date: '2026-09-30',
+        title: 'Older Sizu post',
+        url: 'https://sizu.me/chihiroxx/posts/older',
+        types: ['日常記事'],
+      },
+    ],
+  );
 });
 
 test('createPruneRemovals ranks all saved entries by date and URL', () => {

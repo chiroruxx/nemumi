@@ -50,8 +50,6 @@ export async function syncService(
     const collection = service.collection;
     const existing = await readCollection(collection, contentDirectory);
     const index = buildCollectionIndex(collection, existing);
-    // Sync each source independently. Saved entries from other sources still
-    // reserve their current slots until the later prune run ranks the collection.
     const loadFeed =
       feedLoader ??
       ((configured, execution) =>

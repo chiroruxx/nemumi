@@ -105,17 +105,13 @@ function normalizedFeed(
   return normalized;
 }
 
-function rankedKeepSet(
-  index: CollectionIndex,
-  feedByUrl: Map<string, FeedItem> = new Map(),
-): Set<string> {
+function rankedKeepSet(index: CollectionIndex): Set<string> {
   const candidates = new Map<string, { date: Date }>();
   for (const indexed of index.entries) {
     candidates.set(indexed.url ?? indexed.entry.file, {
       date: indexed.entry.data.date,
     });
   }
-  for (const [url, item] of feedByUrl) candidates.set(url, { date: item.date });
 
   return new Set(
     [...candidates.entries()]
@@ -176,13 +172,11 @@ export function createSyncWrites({
     );
   }
   const feedByUrl = normalizedFeed(feed, source);
-  const keep = rankedKeepSet(index, feedByUrl);
   const writes: ContentFileWrite[] = [];
 
   for (const [url, item] of [...feedByUrl].sort(([a], [b]) =>
     a.localeCompare(b),
   )) {
-    if (!keep.has(url)) continue;
     const previous = index.byUrl.get(url)?.entry;
     if (previous) {
       const types = previous.data.types ?? [service.type];

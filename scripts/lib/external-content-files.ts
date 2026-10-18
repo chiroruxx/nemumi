@@ -162,13 +162,12 @@ export async function writeFiles(
 ): Promise<void> {
   for (const write of writes) {
     const temporary = `${write.target}.${randomUUID()}.tmp`;
-    let temporaryMayExist = true;
     try {
       await fileSystem.writeFile(temporary, write.content, { flag: 'wx' });
       await fileSystem.rename(temporary, write.target);
-      temporaryMayExist = false;
-    } finally {
-      if (temporaryMayExist) await fileSystem.rm(temporary, { force: true });
+    } catch (error) {
+      await fileSystem.rm(temporary, { force: true });
+      throw error;
     }
   }
 }

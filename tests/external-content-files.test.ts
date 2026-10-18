@@ -181,10 +181,29 @@ test('file write and removal validation checks every target and detects escapes 
   }
 });
 
-test('writeFiles atomically replaces an existing file and removeFiles deletes it', async (t) => {
+test('writeFiles atomically replaces files and cleans failed writes, and removeFiles deletes targets', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const file = path.join(contentDirectory, 'articles', 'replace.yaml');
   await writeFile(file, 'old content');
+
+  await assert.rejects(
+    writeFiles(
+      [{ kind: 'replace', target: file, content: 'partial content' }],
+      {
+        writeFile: async (...args) => {
+          await writeFile(...args);
+          throw new Error('injected partial write failure');
+        },
+        rename: renameFile,
+        rm,
+      },
+    ),
+    /injected partial write failure/,
+  );
+  assert.equal(await readFile(file, 'utf8'), 'old content');
+  assert.deepEqual(await readdir(path.join(contentDirectory, 'articles')), [
+    'replace.yaml',
+  ]);
 
   await writeFiles([{ kind: 'replace', target: file, content: 'new content' }]);
 

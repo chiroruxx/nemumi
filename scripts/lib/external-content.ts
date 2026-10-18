@@ -39,7 +39,7 @@ export type Collection = keyof typeof limits;
 export type ContentData = z.infer<typeof contentRecordSchema>;
 export type FeedItem = { date: Date; title: string; url: string };
 export type StoredEntry = { file: string; id: string; data: ContentData };
-export type LinkStatus = 'public' | 'deleted' | 'defer' | 'review';
+export type LinkStatus = 'public' | 'deleted' | 'unverified';
 type IndexedEntry = {
   entry: StoredEntry;
   url: string | undefined;
@@ -163,7 +163,6 @@ export type CommonContentOptions = {
 };
 
 export type ContentResult = {
-  deferred: LinkCheck[];
-  review: LinkCheck[];
+  unverified: LinkCheck[];
   unchecked: LinkCheck[];
 };

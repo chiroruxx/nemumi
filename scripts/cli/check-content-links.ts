@@ -12,14 +12,11 @@ function parseArguments(args: string[]): { dryRun: boolean } {
 }
 
 function formatUnverifiedLinks(result: {
-  deferred: Array<{ url: string }>;
-  review: Array<{ url: string }>;
+  unverified: Array<{ url: string }>;
   unchecked: Array<{ url: string }>;
 }): string {
   const urls = new Set(
-    [...result.deferred, ...result.review, ...result.unchecked].map(
-      ({ url }) => url,
-    ),
+    [...result.unverified, ...result.unchecked].map(({ url }) => url),
   );
   if (urls.size === 0) return '公開状態を確認できなかった URL はありません。';
   return `公開状態を確認できなかった URL:\n${[...urls].map((url) => `- ${url}`).join('\n')}`;

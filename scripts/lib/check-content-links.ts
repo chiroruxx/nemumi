@@ -85,11 +85,8 @@ export async function checkContentLinks({
     if (!dryRun) await removeFiles(removals);
 
     return {
-      deferred: linkChecks.filter(
-        ({ url }) => checked.statuses.get(url) === 'defer',
-      ),
-      review: linkChecks.filter(
-        ({ url }) => checked.statuses.get(url) === 'review',
+      unverified: linkChecks.filter(
+        ({ url }) => checked.statuses.get(url) === 'unverified',
       ),
       unchecked: checked.unchecked,
     };

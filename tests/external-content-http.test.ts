@@ -283,7 +283,7 @@ test('runLinkChecks leaves never-started and interrupted checks unchecked after 
     async () => {
       controller.abort(new Error('global deadline'));
       remaining = 0;
-      return 'defer';
+      return 'unverified';
     },
     {
       context: createTestContext(() => remaining, controller.signal),
@@ -403,7 +403,7 @@ test('deadline abort reaches the signal passed to the active fetch', async () =>
   );
   await started.promise;
   controller.abort(new Error('deadline'));
-  assert.equal(await verification, 'defer');
+  assert.equal(await verification, 'unverified');
   assert.equal(requestSignal?.aborted, true);
 });
 
@@ -477,7 +477,7 @@ test('runLinkChecks preserves completed results and leaves later batches uncheck
   }
 });
 
-test('runLinkChecks converts thrown and rejected checks to defer without stopping the batch', async () => {
+test('runLinkChecks converts thrown and rejected checks to unverified without stopping the batch', async () => {
   const checks: LinkCheck[] = Array.from({ length: 3 }, (_, index) => ({
     source: 'sizu',
     url: `https://sizu.me/chihiroxx/posts/${index}`,
@@ -493,7 +493,7 @@ test('runLinkChecks converts thrown and rejected checks to defer without stoppin
   );
   assert.deepEqual(
     checks.map(({ url }) => result.statuses.get(url)),
-    ['defer', 'defer', 'public'],
+    ['unverified', 'unverified', 'public'],
   );
   assert.deepEqual(result.unchecked, []);
 });
@@ -525,7 +525,7 @@ test('runLinkChecks skips expired work and does not wait when the next batch can
   }
 });
 
-test('verifyLink reports an expired global deadline as defer and malformed targets as review', async () => {
+test('verifyLink reports an expired global deadline and malformed targets as unverified', async () => {
   const controller = new AbortController();
   controller.abort(new Error('deadline'));
   const context = createTestContext(() => 0, controller.signal);
@@ -538,14 +538,14 @@ test('verifyLink reports an expired global deadline as defer and malformed targe
         fetch: async () => new Response(null, { status: 200 }),
       },
     ),
-    'defer',
+    'unverified',
   );
   assert.equal(
     await verifyLink('https://example.com/login', getService('sizu'), {
       context: createTestContext(() => 60_000),
       fetch: async () => new Response(null, { status: 200 }),
     }),
-    'review',
+    'unverified',
   );
 });
 
@@ -558,15 +558,15 @@ test('verifyLink classifies HEAD statuses and retries network failures with Ky d
   const methods: string[] = [];
   const statuses = [302, 404, 410, 401, 403, 429, 500, 503, 400] as const;
   const expected = [
-    'review',
+    'unverified',
     'deleted',
     'deleted',
-    'defer',
-    'defer',
-    'defer',
-    'defer',
-    'defer',
-    'review',
+    'unverified',
+    'unverified',
+    'unverified',
+    'unverified',
+    'unverified',
+    'unverified',
   ] as const;
   for (const [index, status] of statuses.entries()) {
     assert.equal(
@@ -604,7 +604,7 @@ test('verifyLink classifies HEAD statuses and retries network failures with Ky d
         },
       },
     ),
-    'defer',
+    'unverified',
   );
   assert.equal(calls, 3);
 
@@ -622,11 +622,11 @@ test('verifyLink classifies HEAD statuses and retries network failures with Ky d
   );
   await new Promise<void>((resolve) => setImmediate(resolve));
   t.mock.timers.tick(10_000);
-  assert.equal(await verification, 'defer');
+  assert.equal(await verification, 'unverified');
   assert.equal(calls, 1);
 });
 
-test('verifyLink reviews unsafe redirect destinations without fetching them', async () => {
+test('verifyLink leaves unsafe redirect destinations unverified without fetching them', async () => {
   const cases = [
     {
       url: 'https://sizu.me/chihiroxx/posts/post',
@@ -680,12 +680,12 @@ test('verifyLink reviews unsafe redirect destinations without fetching them', as
         });
       },
     });
-    assert.equal(status, 'review', url);
+    assert.equal(status, 'unverified', url);
     assert.equal(requests, expectedRequests, url);
   }
 });
 
-test('verifyLink reviews redirect loops and allows five redirects but rejects a sixth', async () => {
+test('verifyLink leaves redirect loops unverified and allows five redirects but rejects a sixth', async () => {
   let requests = 0;
   const request = (redirects: number) =>
     verifyLink('https://sizu.me/chihiroxx/posts/start', getService('sizu'), {
@@ -705,11 +705,11 @@ test('verifyLink reviews redirect loops and allows five redirects but rejects a 
         });
       },
     });
-  assert.equal(await request(0), 'review');
+  assert.equal(await request(0), 'unverified');
   assert.equal(requests, 1);
   for (const [redirects, expected] of [
     [5, 'public'],
-    [6, 'review'],
+    [6, 'unverified'],
   ] as const) {
     requests = 0;
     assert.equal(await request(redirects), expected, `${redirects} redirects`);

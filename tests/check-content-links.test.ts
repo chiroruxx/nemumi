@@ -9,7 +9,7 @@ import { createContentDirectory } from './helpers/content-fixture.ts';
 test('checkContentLinks removes confirmed invalid managed links and preserves manual and unverified entries', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const directory = path.join(contentDirectory, 'articles');
-  for (const slug of ['deleted', 'deferred', 'review', 'public']) {
+  for (const slug of ['deleted', 'unavailable', 'unexpected', 'public']) {
     await writeFile(
       path.join(directory, `${slug}.yaml`),
       YAML.stringify({
@@ -32,26 +32,26 @@ test('checkContentLinks removes confirmed invalid managed links and preserves ma
     contentDirectory,
     linkVerifier: async (url) => {
       if (url.endsWith('/deleted')) return 'deleted';
-      if (url.endsWith('/deferred')) return 'defer';
-      if (url.endsWith('/review')) return 'review';
+      if (url.endsWith('/unavailable')) return 'unverified';
+      if (url.endsWith('/unexpected')) return 'unverified';
       return 'public';
     },
     linkCheckBatchIntervalMs: 0,
   });
 
   assert.deepEqual(
-    result.deferred.map(({ url }) => url),
-    ['https://sizu.me/chihiroxx/posts/deferred'],
+    result.unverified.map(({ url }) => url),
+    [
+      'https://sizu.me/chihiroxx/posts/unavailable',
+      'https://sizu.me/chihiroxx/posts/unexpected',
+    ],
   );
-  assert.deepEqual(
-    result.review.map(({ url }) => url),
-    ['https://sizu.me/chihiroxx/posts/review'],
-  );
+  assert.deepEqual(result.unchecked, []);
   assert.deepEqual((await readdir(directory)).sort(), [
-    'deferred.yaml',
     'manual.yaml',
     'public.yaml',
-    'review.yaml',
+    'unavailable.yaml',
+    'unexpected.yaml',
   ]);
 });
 

@@ -128,7 +128,7 @@ function storedEntry(
   };
 }
 
-test('collection ownership remains host and path based even when URL transport needs review', () => {
+test('collection ownership remains host and path based even when URL transport needs verification', () => {
   const index = buildCollectionIndex('articles', [
     storedEntry(
       'legacy-http.yaml',

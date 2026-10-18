@@ -113,7 +113,7 @@ export async function verifyLink(
       runtime.context?.signal.aborted ||
       runtime.context?.remainingMs() === 0
     ) {
-      return 'defer';
+      return 'unverified';
     }
     let url: URL;
     try {
@@ -121,9 +121,9 @@ export async function verifyLink(
       validateContentUrl(url, service);
       url.hash = '';
     } catch {
-      return 'review';
+      return 'unverified';
     }
-    if (visited.has(url.href)) return 'review';
+    if (visited.has(url.href)) return 'unverified';
     visited.add(url.href);
     let response: Response;
     try {
@@ -135,26 +135,23 @@ export async function verifyLink(
         throwHttpErrors: false,
       });
     } catch {
-      return 'defer';
+      return 'unverified';
     }
     if (REDIRECT_STATUSES.has(response.status)) {
       const location = response.headers.get('location');
-      if (!location) return 'review';
+      if (!location) return 'unverified';
       try {
         target = new URL(location, url).href;
       } catch {
-        return 'review';
+        return 'unverified';
       }
       continue;
     }
     const status = response.status;
     if (status === 404 || status === 410) return 'deleted';
-    if (status === 401 || status === 403 || status === 429 || status >= 500) {
-      return 'defer';
-    }
-    return response.ok ? 'public' : 'review';
+    return response.ok ? 'public' : 'unverified';
   }
-  return 'review';
+  return 'unverified';
 }
 
 // Verifiers must settle promptly when context.signal is aborted.
@@ -195,7 +192,7 @@ export async function runLinkChecks(
           try {
             status = await verify(entry.url, getService(entry.source), context);
           } catch {
-            status = 'defer';
+            status = 'unverified';
           }
           if (!expired()) statuses.set(entry.url, status);
         });

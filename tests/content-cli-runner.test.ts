@@ -179,7 +179,7 @@ async function createCliFixture(t: import('node:test').TestContext) {
         throw new Error('Unexpected fixture URL: ' + url);
       }
       const status = process.env.FIXTURE_LINK_STATUS ||
-        (url.endsWith('/deferred') ? 503 : url.endsWith('/review') ? 400 : url.endsWith('/deleted') ? 404 : 200);
+        (url.endsWith('/unavailable') ? 503 : url.endsWith('/unexpected') ? 400 : url.endsWith('/deleted') ? 404 : 200);
       return new Response('', { status: Number(status) });
     };
   `,
@@ -260,7 +260,7 @@ test('sync CLI saves candidates without checking links; shared checker reports a
 test('link check CLI reports unverified URLs and honors dry-run before deleting confirmed links', async (t) => {
   const { contentDirectory, outputFile, run } = await createCliFixture(t);
   const directory = path.join(contentDirectory, 'articles');
-  for (const slug of ['public', 'deferred', 'review', 'deleted']) {
+  for (const slug of ['public', 'unavailable', 'unexpected', 'deleted']) {
     await writeFile(
       path.join(directory, `${slug}.yaml`),
       YAML.stringify({
@@ -271,7 +271,7 @@ test('link check CLI reports unverified URLs and honors dry-run before deleting 
     );
   }
   const expected =
-    '公開状態を確認できなかった URL:\n- https://sizu.me/chihiroxx/posts/deferred\n- https://sizu.me/chihiroxx/posts/review';
+    '公開状態を確認できなかった URL:\n- https://sizu.me/chihiroxx/posts/unavailable\n- https://sizu.me/chihiroxx/posts/unexpected';
   const { stdout, stderr } = await run(
     'check-content-links',
     ['--dry-run'],
@@ -284,9 +284,9 @@ test('link check CLI reports unverified URLs and honors dry-run before deleting 
   const applied = await run('check-content-links', [], '');
   assert.equal(applied.stdout.trim(), expected);
   assert.deepEqual((await readdir(directory)).sort(), [
-    'deferred.yaml',
     'public.yaml',
-    'review.yaml',
+    'unavailable.yaml',
+    'unexpected.yaml',
   ]);
 });
 

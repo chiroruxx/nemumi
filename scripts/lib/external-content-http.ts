@@ -70,15 +70,6 @@ function sleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
   return delay(milliseconds, undefined, { signal });
 }
 
-function requestSignal(runtime: HttpRuntime): AbortSignal {
-  const timeout = AbortSignal.timeout(
-    runtime.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
-  );
-  return runtime.context
-    ? AbortSignal.any([timeout, runtime.context.signal])
-    : timeout;
-}
-
 async function cancelBody(response: Response): Promise<void> {
   try {
     await response.body?.cancel();
@@ -132,7 +123,6 @@ export async function verifyLink(
   service: Service,
   runtime: HttpRuntime = {},
 ): Promise<LinkStatus> {
-  const fetchImpl = runtime.fetch ?? fetch;
   let target = value;
   const visited = new Set<string>();
   for (let redirects = 0; redirects <= 5; redirects += 1) {
@@ -154,10 +144,14 @@ export async function verifyLink(
     visited.add(url.href);
     let response: Response;
     try {
-      response = await fetchImpl(url.href, {
-        method: 'GET',
+      response = await ky(url.href, {
+        fetch: runtime.fetch ?? fetch,
         redirect: 'manual',
-        signal: requestSignal(runtime),
+        signal: runtime.context?.signal,
+        timeout: runtime.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
+        // Classify HTTP statuses without retries or reading error bodies.
+        retry: 0,
+        throwHttpErrors: false,
         headers: { 'user-agent': 'nemumi-link-check/1.0' },
       });
     } catch {

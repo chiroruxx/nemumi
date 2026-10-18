@@ -177,8 +177,8 @@ test('verifyLink passes the execution signal to fetch and releases response bodi
     {
       context: createTestContext(() => 60_000, controller.signal),
       fetch: async (input, init) => {
-        requests.push(String(input));
-        passedSignals.push(init?.signal as AbortSignal);
+        requests.push(input instanceof Request ? input.url : String(input));
+        passedSignals.push(new Request(input, init).signal);
         const redirected = requests.length === 1;
         return new Response(
           new ReadableStream({
@@ -389,13 +389,15 @@ test('fetchFeed bounds headers, bodies, and retry waits by its total timeout and
 test('deadline abort reaches the signal passed to the active fetch', async () => {
   const controller = new AbortController();
   let requestSignal: AbortSignal | undefined;
+  const started = Promise.withResolvers<void>();
   const verification = verifyLink(
     'https://sizu.me/chihiroxx/posts/fixture',
     getService('sizu'),
     {
       context: createTestContext(() => 60_000, controller.signal),
-      fetch: async (_input, init) => {
-        requestSignal = init?.signal as AbortSignal;
+      fetch: async (input, init) => {
+        requestSignal = new Request(input, init).signal;
+        started.resolve();
         return new Promise<Response>((_resolve, reject) => {
           requestSignal?.addEventListener(
             'abort',
@@ -406,7 +408,7 @@ test('deadline abort reaches the signal passed to the active fetch', async () =>
       },
     },
   );
-  await Promise.resolve();
+  await started.promise;
   controller.abort(new Error('deadline'));
   assert.equal(await verification, 'defer');
   assert.equal(requestSignal?.aborted, true);
@@ -565,8 +567,18 @@ test('verifyLink cancels bodies for redirects and each terminal HTTP status', as
       }),
       { status, ...(headers === undefined ? {} : { headers }) },
     );
-  const statuses = [302, 404, 403, 400] as const;
-  const expected = ['review', 'deleted', 'defer', 'review'] as const;
+  const statuses = [302, 404, 410, 401, 403, 429, 500, 503, 400] as const;
+  const expected = [
+    'review',
+    'deleted',
+    'deleted',
+    'defer',
+    'defer',
+    'defer',
+    'defer',
+    'defer',
+    'review',
+  ] as const;
   for (const [index, status] of statuses.entries()) {
     assert.equal(
       await verifyLink(
@@ -585,7 +597,46 @@ test('verifyLink cancels bodies for redirects and each terminal HTTP status', as
       expected[index],
     );
   }
-  assert.equal(canceled, 4);
+  assert.equal(canceled, statuses.length);
+  let calls = 0;
+  assert.equal(
+    await verifyLink(
+      'https://sizu.me/chihiroxx/posts/one',
+      getService('sizu'),
+      {
+        fetch: async () => {
+          calls += 1;
+          throw new TypeError('fetch failed');
+        },
+      },
+    ),
+    'defer',
+  );
+  assert.equal(calls, 1);
+
+  const keepAlive = setTimeout(() => {}, 1000);
+  try {
+    assert.equal(
+      await verifyLink(
+        'https://sizu.me/chihiroxx/posts/one',
+        getService('sizu'),
+        {
+          requestTimeoutMs: 10,
+          fetch: async (input, init) => {
+            const signal = new Request(input, init).signal;
+            return new Promise<Response>((_resolve, reject) => {
+              signal.addEventListener('abort', () => reject(signal.reason), {
+                once: true,
+              });
+            });
+          },
+        },
+      ),
+      'defer',
+    );
+  } finally {
+    clearTimeout(keepAlive);
+  }
 });
 
 test('verifyLink reviews unsafe redirect destinations without fetching them', async () => {
@@ -687,7 +738,7 @@ test('verifyLink strips fragments while preserving query parameters in requests'
       getService('sizu'),
       {
         fetch: async (input) => {
-          requested.push(String(input));
+          requested.push(input instanceof Request ? input.url : String(input));
           return new Response(null, { status: 200 });
         },
       },

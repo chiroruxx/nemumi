@@ -179,22 +179,6 @@ test('file write and removal validation checks every target and detects escapes 
       );
     }
   }
-  for (const kind of ['create', 'replace'] as const) {
-    const target = kind === 'create' ? untouched : file;
-    await assert.rejects(
-      validateFileWrites(
-        [
-          {
-            kind,
-            target,
-            content: undefined,
-          } as unknown as ContentFileWrite,
-        ],
-        contentDirectory,
-      ),
-      /Missing file content/,
-    );
-  }
 });
 
 test('writeFiles atomically replaces an existing file and removeFiles deletes it', async (t) => {

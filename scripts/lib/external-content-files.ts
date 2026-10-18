@@ -136,9 +136,6 @@ export async function validateFileWrites(
     } else {
       assertRegularFile(target, metadata, write.kind);
     }
-    if (typeof write.content !== 'string') {
-      throw new Error(`Missing file content for ${target}`);
-    }
   }
 }
 

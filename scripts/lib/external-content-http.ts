@@ -50,17 +50,13 @@ export function createExecutionContext({
   };
 }
 
-type FetchLike = (
-  input: string | URL | Request,
-  init?: RequestInit,
-) => Promise<Response>;
 // Injected waits must settle promptly when the signal is aborted.
 export type Sleep = (
   milliseconds: number,
   signal?: AbortSignal,
 ) => Promise<void>;
 export type HttpRuntime = {
-  fetch?: FetchLike;
+  fetch?: typeof fetch;
   context?: ExecutionContext;
 };
 

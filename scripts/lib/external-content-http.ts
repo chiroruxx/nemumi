@@ -1,10 +1,5 @@
 import { setTimeout as delay } from 'node:timers/promises';
-import ky, {
-  isHTTPError,
-  isNetworkError,
-  isResponseSizeError,
-  NetworkError,
-} from 'ky';
+import ky from 'ky';
 import Parser from 'rss-parser';
 import { contentDateSchema } from '../../src/config/content-schema.ts';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
@@ -19,7 +14,6 @@ import {
 const DEFAULT_EXECUTION_BUDGET_MS = 8 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 30_000;
 const RSS_RESPONSE_LIMIT_BYTES = 5 * 1024 * 1024;
-const MAX_RETRIES = 2;
 const LINK_CHECK_BATCH_SIZE = 5;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
@@ -62,11 +56,12 @@ type FetchLike = (
   init?: RequestInit,
 ) => Promise<Response>;
 // Injected waits must settle promptly when the signal is aborted.
-type Sleep = (milliseconds: number, signal?: AbortSignal) => Promise<void>;
+export type Sleep = (
+  milliseconds: number,
+  signal?: AbortSignal,
+) => Promise<void>;
 export type HttpRuntime = {
   fetch?: FetchLike;
-  sleep?: Sleep;
-  now?: () => number;
   context?: ExecutionContext;
   requestTimeoutMs?: number;
 };
@@ -82,29 +77,6 @@ function requestSignal(runtime: HttpRuntime): AbortSignal {
   return runtime.context
     ? AbortSignal.any([timeout, runtime.context.signal])
     : timeout;
-}
-
-function assertBudget(runtime: HttpRuntime): void {
-  if (runtime.context?.remainingMs() === 0 || runtime.context?.signal.aborted) {
-    throw new DOMException('Execution deadline exceeded', 'TimeoutError');
-  }
-}
-
-function retryDelay(
-  value: string | null,
-  now: () => number,
-  attempt: number,
-): number {
-  if (value) {
-    const seconds = Number(value);
-    const requested = Number.isFinite(seconds)
-      ? seconds * 1000
-      : Date.parse(value) - now();
-    if (Number.isFinite(requested) && requested > 0) {
-      return Math.min(requested, 10_000);
-    }
-  }
-  return (attempt + 1) * 1000;
 }
 
 async function cancelBody(response: Response): Promise<void> {
@@ -140,91 +112,19 @@ async function parseFeedXml(xml: string, service: Service) {
 }
 
 export async function fetchFeed(service: Service, runtime: HttpRuntime = {}) {
-  const fetchImpl = runtime.fetch ?? fetch;
-  const wait = runtime.sleep ?? sleep;
-  try {
-    const body = await ky(service.feed, {
-      redirect: 'manual',
-      headers: { 'user-agent': 'nemumi-sync-content/1.0' },
-      signal: runtime.context?.signal,
-      // The fetch signal bounds each attempt, including its body, to 30 seconds.
-      timeout: false,
-      maxResponseSize: RSS_RESPONSE_LIMIT_BYTES,
-      retry: {
-        limit: MAX_RETRIES,
-        // Preserve fractional Retry-After and 1s/2s waits in beforeRetry.
-        delay: () => 0,
-        afterStatusCodes: [],
-        shouldRetry: ({ error }) =>
-          isHTTPError(error)
-            ? error.response.status === 429 || error.response.status >= 500
-            : isNetworkError(error),
-      },
-      hooks: {
-        beforeRetry: [
-          async ({ error, retryCount }) => {
-            await wait(
-              retryDelay(
-                isHTTPError(error)
-                  ? error.response.headers.get('retry-after')
-                  : null,
-                runtime.now ?? Date.now,
-                retryCount - 1,
-              ),
-              runtime.context?.signal,
-            );
-          },
-        ],
-      },
-      fetch: async (input, init) => {
-        assertBudget(runtime);
-        const request = new Request(input, init);
-        const signal = AbortSignal.any([
-          request.signal,
-          requestSignal(runtime),
-        ]);
-        let response: Response;
-        try {
-          response = await fetchImpl(new Request(request, { signal }));
-        } catch (error) {
-          throw new NetworkError(request, {
-            cause: error instanceof Error ? error : undefined,
-          });
-        }
-        if (REDIRECT_STATUSES.has(response.status)) {
-          await cancelBody(response);
-          throw new Error(
-            `${service.label} RSS redirect requires updating its configured URL`,
-          );
-        }
-        if (!response.ok) {
-          await cancelBody(response);
-          // Ky only needs the status and headers; do not read an error body.
-          return new Response(null, response);
-        }
-        if (
-          Number(response.headers.get('content-length')) >
-          RSS_RESPONSE_LIMIT_BYTES
-        ) {
-          await cancelBody(response);
-          throw new Error('RSS exceeds the 5 MiB response limit');
-        }
-        return response;
-      },
-    }).text();
-    return parseFeedXml(body, service);
-  } catch (error) {
-    if (isHTTPError(error)) {
-      throw new Error(
-        `${service.label} RSS returned HTTP ${error.response.status}`,
-        { cause: error },
-      );
-    }
-    if (isResponseSizeError(error)) {
-      throw new Error('RSS exceeds the 5 MiB response limit', { cause: error });
-    }
-    throw error;
-  }
+  const body = await ky(service.feed, {
+    fetch: runtime.fetch ?? fetch,
+    redirect: 'manual',
+    headers: { 'user-agent': 'nemumi-sync-content/1.0' },
+    signal: runtime.context?.signal,
+    // Bound the entire RSS request, including retries, waits, and body reads.
+    timeout: false,
+    totalTimeout: runtime.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
+    maxResponseSize: RSS_RESPONSE_LIMIT_BYTES,
+    // Keep server-directed retry waits within ten seconds.
+    retry: { maxRetryAfter: 10_000 },
+  }).text();
+  return parseFeedXml(body, service);
 }
 
 export async function verifyLink(

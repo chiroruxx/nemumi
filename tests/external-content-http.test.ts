@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { isHTTPError, isResponseSizeError, isTimeoutError } from 'ky';
 import {
   findSource,
   getService,
@@ -73,166 +74,96 @@ test('fetchFeed rejects RSS item URLs outside the configured service path', asyn
   );
 });
 
-test('fetchFeed applies bounded retries and honors Retry-After seconds and fractions', async () => {
-  for (const [retryAfter, delay] of [
-    ['2', 2000],
-    ['0.5', 500],
-    ['12', 10_000],
-    ['0', 2000],
-    ['invalid', 2000],
-    ['Mon, 12 Oct 2026 00:00:00 GMT', 2000],
-  ] as const) {
-    const sleeps: number[] = [];
-    const attempts: RequestInit[] = [];
-    const responses = [
-      new Response('busy', {
-        status: 503,
-        headers: { 'retry-after': retryAfter },
-      }),
-      new Response(feedFixtures[0][3], { status: 200 }),
-    ];
-    let networkFailures = 1;
-    const result = await fetchFeed(getService('sizu'), {
-      fetch: async (_input, init) => {
-        attempts.push(init ?? {});
-        if (networkFailures-- > 0) throw new Error('connection reset');
-        const response = responses.shift();
-        assert.ok(response);
-        return response;
-      },
-      sleep: async (milliseconds) => {
-        sleeps.push(milliseconds);
-      },
-    });
-    assert.equal(attempts.length, 3);
-    assert.deepEqual(sleeps, [1000, delay]);
-    assert.equal(result[0]?.title, 'Sizu & fixture');
-  }
+test('fetchFeed retries network failures and server errors using Ky', async () => {
+  let calls = 0;
+  const result = await fetchFeed(getService('sizu'), {
+    fetch: async () => {
+      calls += 1;
+      if (calls === 1) throw new TypeError('fetch failed');
+      if (calls === 2)
+        return new Response('busy', {
+          status: 503,
+          headers: { 'retry-after': '0' },
+        });
+      return new Response(feedFixtures[0][3]);
+    },
+  });
+  assert.equal(calls, 3);
+  assert.equal(result[0]?.title, 'Sizu & fixture');
 });
 
-test('fetchFeed stops after two retries and cancels every exhausted error response', async () => {
+test('fetchFeed stops after two retries and exposes the Ky HTTP error', async () => {
   let calls = 0;
-  let canceled = 0;
-  const sleeps: number[] = [];
   await assert.rejects(
     fetchFeed(getService('sizu'), {
       fetch: async () => {
         calls += 1;
-        return new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(new TextEncoder().encode('busy'));
-            },
-            cancel() {
-              canceled += 1;
-            },
-          }),
-          { status: 503 },
-        );
-      },
-      sleep: async (milliseconds) => {
-        sleeps.push(milliseconds);
+        return new Response('busy', {
+          status: 503,
+          headers: { 'retry-after': '0' },
+        });
       },
     }),
-    /HTTP 503/,
+    (error: unknown) => isHTTPError(error) && error.response.status === 503,
   );
   assert.equal(calls, 3);
-  assert.equal(canceled, 3);
-  assert.deepEqual(sleeps, [1000, 2000]);
 });
 
-test('fetchFeed parses Retry-After HTTP dates and rejects malformed RSS without partial output', async () => {
-  let now = Date.parse('2026-10-13T00:00:00Z');
-  const sleeps: number[] = [];
-  let call = 0;
+test('fetchFeed retries rate limiting with an HTTP date and rejects malformed RSS without partial output', async () => {
+  let calls = 0;
   await assert.rejects(
     fetchFeed(getService('sizu'), {
-      now: () => now,
-      sleep: async (milliseconds) => {
-        sleeps.push(milliseconds);
-        now += milliseconds;
-      },
       fetch: async () => {
-        call += 1;
-        if (call === 1) {
+        calls += 1;
+        if (calls === 1)
           return new Response('busy', {
             status: 429,
-            headers: { 'retry-after': new Date(now + 3000).toUTCString() },
+            headers: { 'retry-after': new Date(0).toUTCString() },
           });
-        }
         return new Response('<rss><channel><item><title>broken');
       },
     }),
     /RSS|XML|feed|Unclosed/i,
   );
-  assert.deepEqual(sleeps, [3000]);
+  assert.equal(calls, 2);
 });
 
-test('fetchFeed cancels redirect and failed response bodies and enforces the byte limit', async () => {
-  let canceled = 0;
-  const response = (status: number, headers?: HeadersInit) =>
-    new Response(
-      new ReadableStream({
-        cancel() {
-          canceled += 1;
+test('fetchFeed rejects redirects and failed responses without following them and enforces the byte limit', async () => {
+  for (const status of [301, 302, 303, 307, 308, 404, 501]) {
+    const requests: string[] = [];
+    await assert.rejects(
+      fetchFeed(getService('sizu'), {
+        fetch: async (input, init) => {
+          const request = new Request(input, init);
+          requests.push(request.url);
+          assert.equal(request.redirect, 'manual');
+          return new Response('', {
+            status,
+            headers: { location: 'https://example.com/rss' },
+          });
         },
       }),
-      { status, ...(headers === undefined ? {} : { headers }) },
+      (error: unknown) =>
+        isHTTPError(error) && error.response.status === status,
     );
-  let redirects = 0;
-  for (const status of [301, 302, 303, 307, 308]) {
-    for (const location of [
-      undefined,
-      'https://example.com/rss',
-      '/new-rss',
-      'http://sizu.me/rss',
-      'https://[invalid',
-    ]) {
-      const requests: string[] = [];
-      await assert.rejects(
-        fetchFeed(getService('sizu'), {
-          fetch: async (input, init) => {
-            requests.push(input instanceof Request ? input.url : String(input));
-            assert.equal(
-              input instanceof Request ? input.redirect : init?.redirect,
-              'manual',
-            );
-            return response(status, location === undefined ? {} : { location });
-          },
-          sleep: async () => assert.fail('RSS redirects must not be retried'),
-        }),
-        /RSS redirect requires updating its configured URL/,
-      );
-      redirects += 1;
-      assert.deepEqual(requests, [getService('sizu').feed]);
-      assert.equal(canceled, redirects);
-    }
+    assert.deepEqual(requests, [getService('sizu').feed]);
   }
-  await assert.rejects(
-    fetchFeed(getService('sizu'), {
-      fetch: async () => response(404),
-      sleep: async () => {},
-    }),
-    /HTTP 404/,
-  );
-  assert.equal(canceled, redirects + 1);
-
-  await assert.rejects(
-    fetchFeed(getService('sizu'), {
-      fetch: async () =>
-        response(200, { 'content-length': String(5 * 1024 * 1024 + 1) }),
-    }),
-    /5 MiB/,
-  );
-  assert.equal(canceled, redirects + 2);
-
-  await assert.rejects(
-    fetchFeed(getService('sizu'), {
-      fetch: async () => new Response('x'.repeat(5 * 1024 * 1024 + 1)),
-      sleep: async () => {},
-    }),
-    /5 MiB/,
-  );
+  for (const headers of [{}, { 'content-length': '1' }]) {
+    await assert.rejects(
+      fetchFeed(getService('sizu'), {
+        fetch: async () =>
+          new Response('x'.repeat(5 * 1024 * 1024 + 1), { headers }),
+      }),
+      isResponseSizeError,
+    );
+  }
+  const parsed = await fetchFeed(getService('sizu'), {
+    fetch: async () =>
+      new Response(feedFixtures[0][3], {
+        headers: { 'content-length': String(5 * 1024 * 1024 + 1) },
+      }),
+  });
+  assert.equal(parsed[0]?.title, 'Sizu & fixture');
 });
 
 test('verifyLink passes the execution signal to fetch and releases response bodies', async () => {
@@ -263,7 +194,6 @@ test('verifyLink passes the execution signal to fetch and releases response bodi
           },
         );
       },
-      sleep: async () => {},
     },
   );
   assert.equal(status, 'public');
@@ -412,53 +342,47 @@ test('fetchFeed rejects a failed body read instead of returning partial RSS item
   assert.equal(calls, 1);
 });
 
-test('fetchFeed bounds body reads by the request timeout and cancels retry waits at the execution deadline', async () => {
-  const keepAlive = setInterval(() => {}, 1000);
-  try {
+test('fetchFeed bounds headers, bodies, and retry waits by its total timeout and execution deadline', async () => {
+  for (const phase of ['headers', 'body', 'retry'] as const) {
     let calls = 0;
     await assert.rejects(
       fetchFeed(getService('sizu'), {
-        requestTimeoutMs: 10,
-        fetch: async (input, init) => {
+        requestTimeoutMs: 20,
+        fetch: async () => {
           calls += 1;
-          const signal = input instanceof Request ? input.signal : init?.signal;
-          assert.ok(signal);
-          return new Response(
-            new ReadableStream({
-              start(controller) {
-                signal.addEventListener(
-                  'abort',
-                  () => controller.error(signal.reason),
-                  { once: true },
-                );
-              },
-            }),
-          );
+          if (phase === 'headers') return new Promise<Response>(() => {});
+          if (phase === 'body') return new Response(new ReadableStream());
+          return new Response('busy', {
+            status: 503,
+            headers: { 'retry-after': '10' },
+          });
+        },
+      }),
+      isTimeoutError,
+    );
+    assert.equal(calls, 1);
+  }
+
+  const context = createExecutionContext({ budgetMs: 20 });
+  let calls = 0;
+  try {
+    await assert.rejects(
+      fetchFeed(getService('sizu'), {
+        context,
+        fetch: async () => {
+          calls += 1;
+          return new Response('busy', {
+            status: 503,
+            headers: { 'retry-after': '10' },
+          });
         },
       }),
       { name: 'TimeoutError' },
     );
-    assert.equal(calls, 1);
-
-    const controller = new AbortController();
-    calls = 0;
-    await assert.rejects(
-      fetchFeed(getService('sizu'), {
-        context: createTestContext(() => 60_000, controller.signal),
-        fetch: async () => {
-          calls += 1;
-          return new Response('busy', { status: 503 });
-        },
-        sleep: async (_milliseconds, signal) => {
-          controller.abort(new Error('execution deadline'));
-          signal?.throwIfAborted();
-        },
-      }),
-      /execution deadline/,
-    );
+    assert.equal(context.signal.aborted, true);
     assert.equal(calls, 1);
   } finally {
-    clearInterval(keepAlive);
+    context.dispose();
   }
 });
 

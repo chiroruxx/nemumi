@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { z } from 'zod';
 import type { contentRecordSchema } from '../../src/config/content-schema.ts';
-import type { HttpRuntime, LinkVerifier } from './external-content-http.ts';
+import type { LinkVerifier, Sleep } from './external-content-http.ts';
 
 const services = {
   sizu: {
@@ -159,7 +159,7 @@ export type CommonContentOptions = {
   executionBudgetMs?: number;
   linkCheckBatchIntervalMs?: number;
   now?: () => number;
-  sleep?: HttpRuntime['sleep'];
+  sleep?: Sleep;
 };
 
 export type ContentResult = {

@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import YAML from 'yaml';
+import { createContentLinkChecks } from '../scripts/lib/check-content-links.ts';
 import {
   buildCollectionIndex,
-  createContentLinkChecks,
-  createPruneRemovals,
-  createSyncWrites,
   type FeedItem,
   limits,
   type StoredEntry,
 } from '../scripts/lib/external-content-planning.ts';
+import { createPruneRemovals } from '../scripts/lib/prune-content.ts';
+import { createSyncWrites } from '../scripts/lib/sync-content.ts';
 
 function storedEntry(
   id: string,

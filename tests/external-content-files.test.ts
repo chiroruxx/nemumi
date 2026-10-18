@@ -21,9 +21,9 @@ import {
 } from '../scripts/lib/external-content-files.ts';
 import {
   buildCollectionIndex,
-  createSyncWrites,
   type FeedItem,
 } from '../scripts/lib/external-content-planning.ts';
+import { createSyncWrites } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
 const item: FeedItem = {

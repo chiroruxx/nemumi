@@ -19,11 +19,20 @@ import {
 import {
   buildCollectionIndex,
   type Collection,
-  createContentLinkChecks,
+  type CollectionIndex,
+  type LinkCheck,
   limits,
 } from './external-content-planning.ts';
 
 type CheckContentLinksOptions = CommonContentOptions;
+
+export function createContentLinkChecks(index: CollectionIndex): LinkCheck[] {
+  return index.entries
+    .flatMap(({ source, url }) => (source && url ? [{ source, url }] : []))
+    .sort(
+      (a, b) => a.source.localeCompare(b.source) || a.url.localeCompare(b.url),
+    );
+}
 
 export async function checkContentLinks({
   dryRun = false,

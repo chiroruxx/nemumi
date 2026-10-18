@@ -121,13 +121,11 @@ export async function verifyLink(
       // Classify HTTP statuses without reading error bodies.
       throwHttpErrors: false,
     });
+    if (response.ok) return 'public';
+    if (REDIRECT_STATUSES.has(response.status)) return 'public';
     if (DELETED_STATUSES.has(response.status)) return 'deleted';
-    return response.ok || REDIRECT_STATUSES.has(response.status)
-      ? 'public'
-      : 'unverified';
-  } catch {
-    return 'unverified';
-  }
+  } catch {}
+  return 'unverified';
 }
 
 // Verifiers must settle promptly when context.signal is aborted.

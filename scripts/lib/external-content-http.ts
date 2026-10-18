@@ -12,7 +12,6 @@ import {
 } from './external-content.ts';
 
 const DEFAULT_EXECUTION_BUDGET_MS = 8 * 60 * 1000;
-const REQUEST_TIMEOUT_MS = 30_000;
 const RSS_RESPONSE_LIMIT_BYTES = 5 * 1024 * 1024;
 const LINK_CHECK_BATCH_SIZE = 5;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -63,19 +62,10 @@ export type Sleep = (
 export type HttpRuntime = {
   fetch?: FetchLike;
   context?: ExecutionContext;
-  requestTimeoutMs?: number;
 };
 
 function sleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
   return delay(milliseconds, undefined, { signal });
-}
-
-async function cancelBody(response: Response): Promise<void> {
-  try {
-    await response.body?.cancel();
-  } catch {
-    // A response body may already be closed or errored; release it best-effort.
-  }
 }
 
 function publicationDate(value: string): Date {
@@ -105,15 +95,8 @@ async function parseFeedXml(xml: string, service: Service) {
 export async function fetchFeed(service: Service, runtime: HttpRuntime = {}) {
   const body = await ky(service.feed, {
     fetch: runtime.fetch,
-    redirect: 'manual',
-    headers: { 'user-agent': 'nemumi-sync-content/1.0' },
     signal: runtime.context?.signal,
-    // Bound the entire RSS request, including retries, waits, and body reads.
-    timeout: false,
-    totalTimeout: runtime.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
     maxResponseSize: RSS_RESPONSE_LIMIT_BYTES,
-    // Keep server-directed retry waits within ten seconds.
-    retry: { maxRetryAfter: 10_000 },
   }).text();
   return parseFeedXml(body, service);
 }
@@ -144,22 +127,18 @@ export async function verifyLink(
     visited.add(url.href);
     let response: Response;
     try {
-      response = await ky(url.href, {
+      response = await ky.head(url.href, {
         fetch: runtime.fetch,
         redirect: 'manual',
         signal: runtime.context?.signal,
-        timeout: runtime.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
-        // Classify HTTP statuses without retries or reading error bodies.
-        retry: 0,
+        // Classify HTTP statuses without reading error bodies.
         throwHttpErrors: false,
-        headers: { 'user-agent': 'nemumi-link-check/1.0' },
       });
     } catch {
       return 'defer';
     }
     if (REDIRECT_STATUSES.has(response.status)) {
       const location = response.headers.get('location');
-      await cancelBody(response);
       if (!location) return 'review';
       try {
         target = new URL(location, url).href;
@@ -169,7 +148,6 @@ export async function verifyLink(
       continue;
     }
     const status = response.status;
-    await cancelBody(response);
     if (status === 404 || status === 410) return 'deleted';
     if (status === 401 || status === 403 || status === 429 || status >= 500) {
       return 'defer';

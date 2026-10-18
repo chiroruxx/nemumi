@@ -16,7 +16,7 @@ YAML の日付・URL（URL がない項目はファイルパス）で対象を�
 
 リンク確認はサービスを問わず最大5件ずつ並列実行し、次のバッチまで1秒待機する。個々の HTTP リクエスト間隔は制御しない。
 
-RSS 取得とリンク確認には [Ky を採用する](../adr/2026-10-18-select-http-client-for-external-content.md)。
+RSS 取得とリンク確認には [Ky を採用する](../adr/2026-10-18-select-http-library.md)。
 
 ## 設定
 

@@ -103,7 +103,7 @@ export async function fetchFeed(service: Service, runtime: HttpRuntime = {}) {
 }
 
 export async function verifyLink(
-  value: string,
+  value: URL,
   service: Service,
   runtime: HttpRuntime = {},
 ): Promise<LinkStatus> {

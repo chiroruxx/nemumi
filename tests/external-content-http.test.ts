@@ -170,7 +170,7 @@ test('verifyLink uses HEAD and passes the execution signal to fetch', async () =
   const requests: string[] = [];
   const passedSignals: AbortSignal[] = [];
   const status = await verifyLink(
-    'https://sizu.me/chihiroxx/posts/fixture',
+    new URL('https://sizu.me/chihiroxx/posts/fixture'),
     getService('sizu'),
     {
       context: createTestContext(() => 60_000, controller.signal),
@@ -375,7 +375,7 @@ test('deadline abort reaches the signal passed to the active fetch', async () =>
   let requestSignal: AbortSignal | undefined;
   const started = Promise.withResolvers<void>();
   const verification = verifyLink(
-    'https://sizu.me/chihiroxx/posts/fixture',
+    new URL('https://sizu.me/chihiroxx/posts/fixture'),
     getService('sizu'),
     {
       context: createTestContext(() => 60_000, controller.signal),
@@ -522,7 +522,7 @@ test('verifyLink reports an expired global deadline and malformed targets as unv
   const context = createTestContext(() => 0, controller.signal);
   assert.equal(
     await verifyLink(
-      'https://sizu.me/chihiroxx/posts/one',
+      new URL('https://sizu.me/chihiroxx/posts/one'),
       getService('sizu'),
       {
         context,
@@ -537,7 +537,7 @@ test('verifyLink reports an expired global deadline and malformed targets as unv
     'https://user:password@sizu.me/chihiroxx/posts/post',
   ]) {
     assert.equal(
-      await verifyLink(value, getService('sizu'), {
+      await verifyLink(new URL(value), getService('sizu'), {
         context: createTestContext(() => 60_000),
         fetch: async () =>
           assert.fail('Invalid input URLs must not be fetched'),
@@ -569,7 +569,7 @@ test('verifyLink classifies HEAD statuses and retries network failures with Ky d
   for (const [index, status] of statuses.entries()) {
     assert.equal(
       await verifyLink(
-        'https://sizu.me/chihiroxx/posts/one',
+        new URL('https://sizu.me/chihiroxx/posts/one'),
         getService('sizu'),
         {
           fetch: async (input, init) => {
@@ -593,7 +593,7 @@ test('verifyLink classifies HEAD statuses and retries network failures with Ky d
   let calls = 0;
   assert.equal(
     await verifyLink(
-      'https://sizu.me/chihiroxx/posts/one',
+      new URL('https://sizu.me/chihiroxx/posts/one'),
       getService('sizu'),
       {
         fetch: async () => {
@@ -609,7 +609,7 @@ test('verifyLink classifies HEAD statuses and retries network failures with Ky d
   t.mock.timers.enable({ apis: ['setTimeout'] });
   calls = 0;
   const verification = verifyLink(
-    'https://sizu.me/chihiroxx/posts/one',
+    new URL('https://sizu.me/chihiroxx/posts/one'),
     getService('sizu'),
     {
       fetch: async () => {
@@ -639,7 +639,7 @@ test('verifyLink treats redirects as public without requesting any destination',
       'https://[invalid',
     ]) {
       const requests: string[] = [];
-      const result = await verifyLink(source, getService('sizu'), {
+      const result = await verifyLink(new URL(source), getService('sizu'), {
         fetch: async (input, init) => {
           const request = new Request(input, init);
           requests.push(request.url);
@@ -659,18 +659,19 @@ test('verifyLink treats redirects as public without requesting any destination',
 
 test('verifyLink strips fragments while preserving query parameters in requests', async () => {
   const requested: string[] = [];
+  const value = new URL('https://sizu.me/chihiroxx/posts/one?ref=feed#section');
   assert.equal(
-    await verifyLink(
-      'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
-      getService('sizu'),
-      {
-        fetch: async (input) => {
-          requested.push(input instanceof Request ? input.url : String(input));
-          return new Response(null, { status: 200 });
-        },
+    await verifyLink(value, getService('sizu'), {
+      fetch: async (input) => {
+        requested.push(input instanceof Request ? input.url : String(input));
+        return new Response(null, { status: 200 });
       },
-    ),
+    }),
     'public',
   );
   assert.deepEqual(requested, ['https://sizu.me/chihiroxx/posts/one?ref=feed']);
+  assert.equal(
+    value.href,
+    'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
+  );
 });

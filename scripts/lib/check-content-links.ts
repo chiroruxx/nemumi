@@ -65,7 +65,7 @@ export async function checkContentLinks({
       linkChecks,
       linkVerifier ??
         ((url, configured, execution) =>
-          verifyLink(url, configured, { context: execution })),
+          verifyLink(new URL(url), configured, { context: execution })),
       {
         context,
         batchIntervalMs: linkCheckBatchIntervalMs,

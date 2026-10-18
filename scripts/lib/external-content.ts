@@ -1,7 +1,6 @@
 import path from 'node:path';
 import type { z } from 'zod';
 import type { contentRecordSchema } from '../../src/config/content-schema.ts';
-import type { LinkVerifier, Sleep } from './external-content-http.ts';
 
 const services = {
   sizu: {
@@ -155,11 +154,6 @@ export const defaultContentDirectory = path.resolve('src/content');
 export type CommonContentOptions = {
   dryRun?: boolean;
   contentDirectory?: string;
-  linkVerifier?: LinkVerifier;
-  executionBudgetMs?: number;
-  linkCheckBatchIntervalMs?: number;
-  now?: () => number;
-  sleep?: Sleep;
 };
 
 export type ContentResult = {

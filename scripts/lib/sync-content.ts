@@ -30,10 +30,11 @@ type FeedLoader = (
   service: Service,
   context: ExecutionContext,
 ) => Promise<FeedItem[]>;
-type SyncOptions = Omit<
-  CommonContentOptions,
-  'linkVerifier' | 'linkCheckBatchIntervalMs' | 'sleep'
-> & { feedLoader?: FeedLoader };
+type SyncOptions = CommonContentOptions & {
+  feedLoader?: FeedLoader;
+  executionBudgetMs?: number;
+  now?: () => number;
+};
 
 function normalizedFeed(
   feed: FeedItem[],

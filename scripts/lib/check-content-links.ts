@@ -18,11 +18,19 @@ import {
 } from './external-content-files.ts';
 import {
   createExecutionContext,
+  type LinkVerifier,
   runLinkChecks,
+  type Sleep,
   verifyLink,
 } from './external-content-http.ts';
 
-type CheckContentLinksOptions = CommonContentOptions;
+type CheckContentLinksOptions = CommonContentOptions & {
+  linkVerifier?: LinkVerifier;
+  executionBudgetMs?: number;
+  linkCheckBatchIntervalMs?: number;
+  now?: () => number;
+  sleep?: Sleep;
+};
 
 function createContentLinkChecks(index: CollectionIndex): LinkCheck[] {
   return index.entries.flatMap(({ source, url }) =>

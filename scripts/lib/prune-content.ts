@@ -14,15 +14,6 @@ import {
   validateFileRemovals,
 } from './external-content-files.ts';
 
-type PruneOptions = Omit<
-  CommonContentOptions,
-  | 'linkVerifier'
-  | 'executionBudgetMs'
-  | 'linkCheckBatchIntervalMs'
-  | 'now'
-  | 'sleep'
->;
-
 function createPruneRemovals(index: CollectionIndex): ContentFileRemoval[] {
   return [...index.entries]
     .sort(
@@ -40,7 +31,7 @@ function createPruneRemovals(index: CollectionIndex): ContentFileRemoval[] {
 export async function pruneContent({
   dryRun = false,
   contentDirectory = defaultContentDirectory,
-}: PruneOptions = {}): Promise<void> {
+}: CommonContentOptions = {}): Promise<void> {
   const removals: ContentFileRemoval[] = [];
   for (const collection of Object.keys(limits) as Collection[]) {
     const entries = await readCollection(collection, contentDirectory);

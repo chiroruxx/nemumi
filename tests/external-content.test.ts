@@ -1,21 +1,14 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import test from 'node:test';
-import YAML from 'yaml';
-import { createContentLinkChecks } from '../scripts/lib/check-content-links.ts';
 import {
   buildCollectionIndex,
-  type FeedItem,
   findSource,
   getService,
   isSource,
-  limits,
   type Service,
   type StoredEntry,
   validateContentUrl,
 } from '../scripts/lib/external-content.ts';
-import { createPruneRemovals } from '../scripts/lib/prune-content.ts';
-import { createSyncWrites } from '../scripts/lib/sync-content.ts';
 
 test('isSource accepts configured services only', () => {
   for (const source of ['sizu', 'hatena', 'speakerdeck']) {
@@ -135,12 +128,6 @@ function storedEntry(
   };
 }
 
-const feedItem = (date: string, title: string, url: string): FeedItem => ({
-  date: new Date(date),
-  title,
-  url,
-});
-
 test('collection ownership remains host and path based even when URL transport needs review', () => {
   const index = buildCollectionIndex('articles', [
     storedEntry(
@@ -188,232 +175,6 @@ test('buildCollectionIndex normalizes URLs and rejects stored duplicates', () =>
   );
 });
 
-test('createSyncWrites is deterministic and keeps existing types', () => {
-  for (const types of [['手動分類'], undefined, []]) {
-    const existing = [
-      storedEntry(
-        'sizu.yaml',
-        '2026-10-01',
-        'Old title',
-        'https://sizu.me/chihiroxx/posts/existing?ref=feed',
-        types,
-      ),
-    ];
-    const index = buildCollectionIndex('articles', existing);
-    const feed = [
-      feedItem('2026-10-03', 'New B', 'https://sizu.me/chihiroxx/posts/b#feed'),
-      feedItem(
-        '2026-10-02',
-        'Updated title',
-        'https://sizu.me/chihiroxx/posts/existing?ref=feed',
-      ),
-      feedItem('2026-10-03', 'New A', 'https://sizu.me/chihiroxx/posts/a'),
-    ];
-    const options = {
-      source: 'sizu' as const,
-      index,
-      feed,
-      contentDirectory: '/repo/src/content',
-    };
-    const initial = createSyncWrites(options);
-
-    assert.deepEqual(
-      initial.map(({ kind, content }) => ({ kind, ...YAML.parse(content) })),
-      [
-        {
-          kind: 'create',
-          date: '2026-10-03',
-          title: 'New A',
-          url: 'https://sizu.me/chihiroxx/posts/a',
-          types: ['日常記事'],
-        },
-        {
-          kind: 'create',
-          date: '2026-10-03',
-          title: 'New B',
-          url: 'https://sizu.me/chihiroxx/posts/b',
-          types: ['日常記事'],
-        },
-        {
-          kind: 'replace',
-          date: '2026-10-02',
-          title: 'Updated title',
-          url: 'https://sizu.me/chihiroxx/posts/existing?ref=feed',
-          types: types ?? ['日常記事'],
-        },
-      ],
-    );
-    assert.deepEqual(
-      initial.map(({ content }) => YAML.parse(content).url),
-      [
-        'https://sizu.me/chihiroxx/posts/a',
-        'https://sizu.me/chihiroxx/posts/b',
-        'https://sizu.me/chihiroxx/posts/existing?ref=feed',
-      ],
-    );
-    assert.equal(initial[2]?.target, existing[0]?.file);
-  }
-});
-
-test('sync adds and updates older feed items even when saved entries exceed the collection cap', () => {
-  const hatenaEntries = Array.from({ length: limits.articles }, (_, index) => {
-    const day = String(index + 1).padStart(2, '0');
-    return storedEntry(
-      `hatena-${day}.yaml`,
-      `2026-10-${day}`,
-      `Hatena ${day}`,
-      `https://toyo.hatenablog.jp/entry/hatena-${day}`,
-    );
-  });
-  const existingUrl = 'https://sizu.me/chihiroxx/posts/existing';
-  const index = buildCollectionIndex('articles', [
-    ...hatenaEntries,
-    storedEntry('existing.yaml', '2026-09-01', 'Old title', existingUrl),
-  ]);
-
-  const writes = createSyncWrites({
-    source: 'sizu',
-    index,
-    feed: [
-      feedItem('2026-09-02', 'Updated title', existingUrl),
-      feedItem(
-        '2026-09-30',
-        'Older Sizu post',
-        'https://sizu.me/chihiroxx/posts/older',
-      ),
-    ],
-    contentDirectory: '/repo/src/content',
-  });
-
-  assert.deepEqual(
-    writes.map(({ kind, content }) => ({ kind, ...YAML.parse(content) })),
-    [
-      {
-        kind: 'replace',
-        date: '2026-09-02',
-        title: 'Updated title',
-        url: existingUrl,
-        types: ['日常記事'],
-      },
-      {
-        kind: 'create',
-        date: '2026-09-30',
-        title: 'Older Sizu post',
-        url: 'https://sizu.me/chihiroxx/posts/older',
-        types: ['日常記事'],
-      },
-    ],
-  );
-});
-
-test('createPruneRemovals ranks all saved entries by date and URL', () => {
-  const saved = Array.from({ length: limits.articles + 1 }, (_, index) => {
-    const day = index + 1;
-    const date =
-      day >= 19 ? '2026-10-21' : `2026-10-${String(day).padStart(2, '0')}`;
-    const slug = day >= 19 ? `tie-${22 - day}` : `post-${day}`;
-    return storedEntry(
-      `${String(day).padStart(2, '0')}.yaml`,
-      date,
-      `Post ${day}`,
-      `https://sizu.me/chihiroxx/posts/${slug}`,
-    );
-  });
-  const manual = storedEntry(
-    'manual.yaml',
-    '2026-09-01',
-    'Manual',
-    'https://example.com/manual',
-  );
-  const index = buildCollectionIndex('articles', [...saved, manual]);
-  const removals = createPruneRemovals(index);
-
-  const tieEntries = [
-    storedEntry(
-      'tie-z.yaml',
-      '2026-10-21',
-      'Z',
-      'https://sizu.me/chihiroxx/posts/z',
-    ),
-    storedEntry(
-      'tie-a.yaml',
-      '2026-10-21',
-      'A',
-      'https://sizu.me/chihiroxx/posts/a',
-    ),
-    storedEntry(
-      'tie-m.yaml',
-      '2026-10-21',
-      'M',
-      'https://sizu.me/chihiroxx/posts/m',
-    ),
-  ];
-  const manualEntries = Array.from(
-    { length: limits.articles - 1 },
-    (_, index) =>
-      storedEntry(
-        `manual-${index}.yaml`,
-        '2026-10-22',
-        `Manual ${index}`,
-        `https://example.com/manual-${index}`,
-      ),
-  );
-  const tieRemovals = createPruneRemovals(
-    buildCollectionIndex('articles', [...tieEntries, ...manualEntries]),
-  );
-  assert.deepEqual(
-    createContentLinkChecks(
-      buildCollectionIndex('articles', [...tieEntries, ...manualEntries]),
-    ).map(({ url }) => url),
-    [
-      'https://sizu.me/chihiroxx/posts/a',
-      'https://sizu.me/chihiroxx/posts/m',
-      'https://sizu.me/chihiroxx/posts/z',
-    ],
-  );
-  assert.deepEqual(tieRemovals.map(({ target }) => target).sort(), [
-    '/repo/src/content/articles/tie-m.yaml',
-    '/repo/src/content/articles/tie-z.yaml',
-  ]);
-  const collisionUrl = 'https://sizu.me/chihiroxx/posts/collision';
-  const collisionFilename = `sizu-${createHash('sha256').update(collisionUrl).digest('hex')}.yaml`;
-  assert.throws(
-    () =>
-      createSyncWrites({
-        source: 'sizu',
-        index: buildCollectionIndex('articles', [
-          storedEntry(
-            collisionFilename,
-            '2026-10-01',
-            'Manual',
-            'https://example.com/manual',
-          ),
-        ]),
-        feed: [feedItem('2026-10-03', 'Collision', collisionUrl)],
-        contentDirectory: '/repo/src/content',
-      }),
-    /Filename collision while adding/,
-  );
-  assert.deepEqual(
-    removals.map(({ target }) => target),
-    [
-      '/repo/src/content/articles/01.yaml',
-      '/repo/src/content/articles/manual.yaml',
-    ],
-  );
-  assert.deepEqual(
-    createContentLinkChecks(index)
-      .map(({ url }) => url)
-      .filter((url) => url.includes('tie-')),
-    [
-      'https://sizu.me/chihiroxx/posts/tie-1',
-      'https://sizu.me/chihiroxx/posts/tie-2',
-      'https://sizu.me/chihiroxx/posts/tie-3',
-    ],
-  );
-  assert.ok(removals.some(({ target }) => target.endsWith('manual.yaml')));
-});
-
 test('source ownership matches host, account path, and collection while preserving stored URL transport', () => {
   const cases = [
     ['articles', 'https://sizu.me/chihiroxx/posts/one?ref=rss#section', 'sizu'],
@@ -459,21 +220,5 @@ test('buildCollectionIndex removes fragments from comparison URLs, preserves que
   assert.deepEqual(
     entries.map(({ data }) => data.url?.href),
     urls,
-  );
-});
-
-test('createSyncWrites leaves unchanged saved records untouched', () => {
-  const url = 'https://sizu.me/chihiroxx/posts/unchanged?ref=rss';
-  const index = buildCollectionIndex('articles', [
-    storedEntry('unchanged.yaml', '2026-10-03', 'Unchanged', url, ['日常記事']),
-  ]);
-  assert.deepEqual(
-    createSyncWrites({
-      source: 'sizu',
-      index,
-      feed: [feedItem('2026-10-03', 'Unchanged', url)],
-      contentDirectory: '/repo/src/content',
-    }),
-    [],
   );
 });

@@ -42,9 +42,7 @@ function rankedKeepSet(index: CollectionIndex): Set<string> {
   );
 }
 
-export function createPruneRemovals(
-  index: CollectionIndex,
-): ContentFileRemoval[] {
+function createPruneRemovals(index: CollectionIndex): ContentFileRemoval[] {
   const keep = rankedKeepSet(index);
   const removals: ContentFileRemoval[] = [];
 

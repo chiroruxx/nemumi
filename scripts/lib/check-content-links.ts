@@ -24,7 +24,7 @@ import {
 
 type CheckContentLinksOptions = CommonContentOptions;
 
-export function createContentLinkChecks(index: CollectionIndex): LinkCheck[] {
+function createContentLinkChecks(index: CollectionIndex): LinkCheck[] {
   return index.entries
     .flatMap(({ source, url }) => (source && url ? [{ source, url }] : []))
     .sort(

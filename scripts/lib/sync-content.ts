@@ -89,7 +89,7 @@ function serializeContent(item: FeedItem, types: string[]): string {
   );
 }
 
-export function createSyncWrites({
+function createSyncWrites({
   source,
   index,
   feed,

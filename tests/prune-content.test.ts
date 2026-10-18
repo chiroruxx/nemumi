@@ -152,7 +152,7 @@ test('pruning preserves manual entries and applies each collection limit under a
   assert.equal((await readdir(talksDirectory)).length, 10);
 });
 
-test('pruning applies the item limit without performing link checks', async (t) => {
+test('pruning breaks date ties by URL without performing link checks', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
   for (let index = 1; index <= 21; index += 1) {
@@ -160,9 +160,12 @@ test('pruning applies the item limit without performing link checks', async (t) 
     await writeFile(
       path.join(articlesDirectory, `entry-${suffix}.yaml`),
       YAML.stringify({
-        date: `2020-01-${suffix}`,
+        date: index <= 3 ? '2020-01-01' : `2020-01-${suffix}`,
         title: `Post ${suffix}`,
-        url: `https://sizu.me/chihiroxx/posts/post-${suffix}`,
+        url:
+          index <= 3
+            ? `https://sizu.me/chihiroxx/posts/tie-${4 - index}`
+            : `https://sizu.me/chihiroxx/posts/post-${suffix}`,
       }),
     );
   }

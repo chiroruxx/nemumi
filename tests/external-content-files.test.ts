@@ -11,10 +11,7 @@ import {
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
-import {
-  buildCollectionIndex,
-  type FeedItem,
-} from '../scripts/lib/external-content.ts';
+import type { FeedItem } from '../scripts/lib/external-content.ts';
 import {
   type ContentFileWrite,
   readCollection,
@@ -23,7 +20,7 @@ import {
   validateFileWrites,
   writeFiles,
 } from '../scripts/lib/external-content-files.ts';
-import { createSyncWrites } from '../scripts/lib/sync-content.ts';
+import { syncService } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
 const item: FeedItem = {
@@ -225,13 +222,16 @@ test('writeFiles makes per-file atomic replacements and a reread/replan retry co
       url: 'https://sizu.me/chihiroxx/posts/planned-2',
     },
   ];
-  const initialIndex = buildCollectionIndex('articles', []);
-  const initialWrites = createSyncWrites({
-    source: 'sizu',
-    index: initialIndex,
-    feed,
-    contentDirectory,
-  });
+  const initialWrites: ContentFileWrite[] = feed.map((item, index) => ({
+    kind: 'create',
+    target: path.join(contentDirectory, 'articles', `entry-${index}.yaml`),
+    content: YAML.stringify({
+      date: item.date.toISOString().slice(0, 10),
+      types: ['日常記事'],
+      title: item.title,
+      url: item.url,
+    }),
+  }));
   const secondTarget = initialWrites[1].target;
   let failOnce = true;
 
@@ -252,15 +252,11 @@ test('writeFiles makes per-file atomic replacements and a reread/replan retry co
 
   const afterFailure = await readCollection('articles', contentDirectory);
   assert.equal(afterFailure.length, 1);
-  const retryWrites = createSyncWrites({
-    source: 'sizu',
-    index: buildCollectionIndex('articles', afterFailure),
-    feed,
-    contentDirectory,
-  });
-  assert.equal(retryWrites.length, 1);
-  assert.equal(YAML.parse(retryWrites[0].content).url, feed[1].url);
-  await writeFiles(retryWrites);
+  await syncService('sizu', { contentDirectory, feedLoader: async () => feed });
+  const secondFile = (await readCollection('articles', contentDirectory)).find(
+    ({ data }) => data.url?.href === feed[1].url,
+  )?.file;
+  assert.ok(secondFile);
 
   assert.equal(
     (await readdir(path.join(contentDirectory, 'articles'))).length,
@@ -275,7 +271,7 @@ test('writeFiles makes per-file atomic replacements and a reread/replan retry co
       url: feed[0].url,
     },
   );
-  assert.deepEqual(YAML.parse(await readFile(secondTarget, 'utf8')), {
+  assert.deepEqual(YAML.parse(await readFile(secondFile, 'utf8')), {
     date: feed[1].date.toISOString().slice(0, 10),
     types: ['日常記事'],
     title: feed[1].title,

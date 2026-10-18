@@ -26,9 +26,13 @@ type CheckContentLinksOptions = CommonContentOptions;
 
 function createContentLinkChecks(index: CollectionIndex): LinkCheck[] {
   return index.entries
-    .flatMap(({ source, url }) => (source && url ? [{ source, url }] : []))
+    .flatMap(({ source, url }) =>
+      source && url ? [{ source, url: new URL(url) }] : [],
+    )
     .sort(
-      (a, b) => a.source.localeCompare(b.source) || a.url.localeCompare(b.url),
+      (a, b) =>
+        a.source.localeCompare(b.source) ||
+        a.url.href.localeCompare(b.url.href),
     );
 }
 
@@ -59,13 +63,14 @@ export async function checkContentLinks({
       .flatMap(createContentLinkChecks)
       .sort(
         (a, b) =>
-          a.source.localeCompare(b.source) || a.url.localeCompare(b.url),
+          a.source.localeCompare(b.source) ||
+          a.url.href.localeCompare(b.url.href),
       );
     const checked = await runLinkChecks(
       linkChecks,
       linkVerifier ??
         ((url, configured, execution) =>
-          verifyLink(new URL(url), configured, { context: execution })),
+          verifyLink(url, configured, { context: execution })),
       {
         context,
         batchIntervalMs: linkCheckBatchIntervalMs,
@@ -74,9 +79,9 @@ export async function checkContentLinks({
     );
     const removals: ContentFileRemoval[] = [];
     for (const { source, url } of linkChecks) {
-      if (checked.statuses.get(url) !== 'deleted') continue;
+      if (checked.statuses.get(url.href) !== 'deleted') continue;
       const collection = getService(source).collection as Collection;
-      const entry = indexes.get(collection)?.byUrl.get(url)?.entry;
+      const entry = indexes.get(collection)?.byUrl.get(url.href)?.entry;
       if (!entry) throw new Error(`Missing planned link entry: ${url}`);
       removals.push({ target: path.resolve(entry.file) });
     }
@@ -86,7 +91,7 @@ export async function checkContentLinks({
 
     return {
       unverified: linkChecks.filter(
-        ({ url }) => checked.statuses.get(url) === 'unverified',
+        ({ url }) => checked.statuses.get(url.href) === 'unverified',
       ),
       unchecked: checked.unchecked,
     };

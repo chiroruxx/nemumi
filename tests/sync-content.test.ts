@@ -120,8 +120,8 @@ test('sync imports all feed candidates before link checks and pruning', async (t
     contentDirectory,
     linkCheckBatchIntervalMs: 0,
     linkVerifier: async (url) => {
-      checked.push(url);
-      return url.endsWith('/deleted') ? 'deleted' : 'public';
+      checked.push(url.href);
+      return url.href.endsWith('/deleted') ? 'deleted' : 'public';
     },
   });
   assert.deepEqual(checked, [feed[0].url, feed[1].url]);

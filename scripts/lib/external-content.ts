@@ -50,7 +50,7 @@ export type CollectionIndex = {
   entries: IndexedEntry[];
   byUrl: Map<string, IndexedEntry>;
 };
-export type LinkCheck = { source: Source; url: string };
+export type LinkCheck = { source: Source; url: URL };
 
 type ParsedContentUrl = {
   url: URL;

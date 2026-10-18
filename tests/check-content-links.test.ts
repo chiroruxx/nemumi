@@ -31,16 +31,16 @@ test('checkContentLinks removes confirmed invalid managed links and preserves ma
   const result = await checkContentLinks({
     contentDirectory,
     linkVerifier: async (url) => {
-      if (url.endsWith('/deleted')) return 'deleted';
-      if (url.endsWith('/unavailable')) return 'unverified';
-      if (url.endsWith('/unexpected')) return 'unverified';
+      if (url.href.endsWith('/deleted')) return 'deleted';
+      if (url.href.endsWith('/unavailable')) return 'unverified';
+      if (url.href.endsWith('/unexpected')) return 'unverified';
       return 'public';
     },
     linkCheckBatchIntervalMs: 0,
   });
 
   assert.deepEqual(
-    result.unverified.map(({ url }) => url),
+    result.unverified.map(({ url }) => url.href),
     [
       'https://sizu.me/chihiroxx/posts/unavailable',
       'https://sizu.me/chihiroxx/posts/unexpected',
@@ -104,8 +104,8 @@ test('checkContentLinks checks every managed article and talk without applying c
     contentDirectory,
     linkCheckBatchIntervalMs: 0,
     linkVerifier: async (url) => {
-      checked.push(url);
-      return url.endsWith('/talk') ? 'deleted' : 'public';
+      checked.push(url.href);
+      return url.href.endsWith('/talk') ? 'deleted' : 'public';
     },
   });
 
@@ -166,8 +166,8 @@ test('checkContentLinks removes confirmed invalid links and reports later checks
     now: () => elapsed,
     linkCheckBatchIntervalMs: 0,
     linkVerifier: async (url) => {
-      if (url.endsWith('/entry-1')) return 'deleted';
-      if (url.endsWith('/entry-6')) {
+      if (url.href.endsWith('/entry-1')) return 'deleted';
+      if (url.href.endsWith('/entry-6')) {
         elapsed = 1000;
         return 'deleted';
       }
@@ -176,7 +176,7 @@ test('checkContentLinks removes confirmed invalid links and reports later checks
   });
 
   assert.deepEqual(
-    result.unchecked.map(({ url }) => url),
+    result.unchecked.map(({ url }) => url.href),
     ['https://sizu.me/chihiroxx/posts/entry-6'],
   );
   assert.deepEqual((await readdir(directory)).sort(), [

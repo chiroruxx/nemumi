@@ -194,7 +194,7 @@ test('runLinkChecks completes batches of five before waiting one second, without
   t.after(() => controller.abort());
   const checks: LinkCheck[] = Array.from({ length: 11 }, (_, index) => ({
     source: 'sizu',
-    url: `https://sizu.me/chihiroxx/posts/${index}`,
+    url: new URL(`https://sizu.me/chihiroxx/posts/${index}`),
   }));
   const started: string[] = [];
   const pending: (() => void)[] = [];
@@ -204,7 +204,7 @@ test('runLinkChecks completes batches of five before waiting one second, without
   const work = runLinkChecks(
     checks,
     async (url) => {
-      started.push(url);
+      started.push(url.href);
       await new Promise<void>((resolve) => pending.push(resolve));
       return 'public';
     },
@@ -221,7 +221,7 @@ test('runLinkChecks completes batches of five before waiting one second, without
   await tick();
   assert.deepEqual(
     started,
-    checks.slice(0, 5).map(({ url }) => url),
+    checks.slice(0, 5).map(({ url }) => url.href),
   );
   pending.splice(0, 4).forEach((resolve) => {
     resolve();
@@ -266,8 +266,8 @@ test('runLinkChecks leaves never-started and interrupted checks unchecked after 
   const controller = new AbortController();
   let remaining = 1;
   const checks: LinkCheck[] = [
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/one' },
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/two' },
+    { source: 'sizu', url: new URL('https://sizu.me/chihiroxx/posts/one') },
+    { source: 'sizu', url: new URL('https://sizu.me/chihiroxx/posts/two') },
   ];
   const result = await runLinkChecks(
     checks,
@@ -403,7 +403,7 @@ test('runLinkChecks leaves canceled verification unchecked at the deadline', asy
   let remaining = 10_000;
   const check = {
     source: 'sizu' as const,
-    url: 'https://sizu.me/chihiroxx/posts/canceled',
+    url: new URL('https://sizu.me/chihiroxx/posts/canceled'),
   };
   let started!: () => void;
   const startedPromise = new Promise<void>((resolve) => {
@@ -438,7 +438,7 @@ test('runLinkChecks preserves completed results and leaves later batches uncheck
     const controller = new AbortController();
     const checks: LinkCheck[] = Array.from({ length: 6 }, (_, index) => ({
       source: 'sizu',
-      url: `https://sizu.me/chihiroxx/posts/${index}`,
+      url: new URL(`https://sizu.me/chihiroxx/posts/${index}`),
     }));
     let calls = 0;
     const result = await runLinkChecks(
@@ -471,19 +471,20 @@ test('runLinkChecks preserves completed results and leaves later batches uncheck
 test('runLinkChecks converts thrown and rejected checks to unverified without stopping the batch', async () => {
   const checks: LinkCheck[] = Array.from({ length: 3 }, (_, index) => ({
     source: 'sizu',
-    url: `https://sizu.me/chihiroxx/posts/${index}`,
+    url: new URL(`https://sizu.me/chihiroxx/posts/${index}`),
   }));
   const result = await runLinkChecks(
     checks,
     (url) => {
-      if (url.endsWith('/0')) throw new Error('synchronous failure');
-      if (url.endsWith('/1')) return Promise.reject(new Error('async failure'));
+      if (url.href.endsWith('/0')) throw new Error('synchronous failure');
+      if (url.href.endsWith('/1'))
+        return Promise.reject(new Error('async failure'));
       return Promise.resolve('public');
     },
     { context: createTestContext(() => 60_000) },
   );
   assert.deepEqual(
-    checks.map(({ url }) => result.statuses.get(url)),
+    checks.map(({ url }) => result.statuses.get(url.href)),
     ['unverified', 'unverified', 'public'],
   );
   assert.deepEqual(result.unchecked, []);
@@ -492,7 +493,7 @@ test('runLinkChecks converts thrown and rejected checks to unverified without st
 test('runLinkChecks skips expired work and does not wait when the next batch cannot fit', async () => {
   const checks: LinkCheck[] = Array.from({ length: 6 }, (_, index) => ({
     source: 'sizu',
-    url: `https://sizu.me/chihiroxx/posts/${index}`,
+    url: new URL(`https://sizu.me/chihiroxx/posts/${index}`),
   }));
   for (const remaining of [0, 500]) {
     let calls = 0;
@@ -657,7 +658,7 @@ test('verifyLink treats redirects as public without requesting any destination',
   }
 });
 
-test('verifyLink strips fragments while preserving query parameters in requests', async () => {
+test('verifyLink accepts a URL with query parameters and a fragment without modifying it', async () => {
   const requested: string[] = [];
   const value = new URL('https://sizu.me/chihiroxx/posts/one?ref=feed#section');
   assert.equal(
@@ -669,7 +670,7 @@ test('verifyLink strips fragments while preserving query parameters in requests'
     }),
     'public',
   );
-  assert.deepEqual(requested, ['https://sizu.me/chihiroxx/posts/one?ref=feed']);
+  assert.deepEqual(requested, [value.href]);
   assert.equal(
     value.href,
     'https://sizu.me/chihiroxx/posts/one?ref=feed#section',

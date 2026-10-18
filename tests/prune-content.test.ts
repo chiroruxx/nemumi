@@ -209,7 +209,7 @@ test('update workflow checks links before applying the cap so an invalid newest 
         contentDirectory,
         linkCheckBatchIntervalMs: 0,
         linkVerifier: async (url) =>
-          url.endsWith('/post-22') ? 'deleted' : 'public',
+          url.href.endsWith('/post-22') ? 'deleted' : 'public',
       });
     } else if (step.run?.includes('mise run prune-content')) {
       await pruneContent({ contentDirectory });

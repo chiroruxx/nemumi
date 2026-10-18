@@ -103,7 +103,7 @@ export async function fetchFeed(service: Service, runtime: HttpRuntime = {}) {
 }
 
 export async function verifyLink(
-  value: URL,
+  url: URL,
   service: Service,
   runtime: HttpRuntime = {},
 ): Promise<LinkStatus> {
@@ -111,9 +111,7 @@ export async function verifyLink(
     return 'unverified';
   }
   try {
-    const url = new URL(value);
     validateContentUrl(url, service);
-    url.hash = '';
     const response = await ky.head(url.href, {
       fetch: runtime.fetch,
       redirect: 'manual',
@@ -130,7 +128,7 @@ export async function verifyLink(
 
 // Verifiers must settle promptly when context.signal is aborted.
 export type LinkVerifier = (
-  url: string,
+  url: URL,
   service: Service,
   context: ExecutionContext,
 ) => Promise<LinkStatus>;
@@ -168,7 +166,7 @@ export async function runLinkChecks(
           } catch {
             status = 'unverified';
           }
-          if (!expired()) statuses.set(entry.url, status);
+          if (!expired()) statuses.set(entry.url.href, status);
         });
       await Promise.all(batch);
       if (expired() || offset + LINK_CHECK_BATCH_SIZE >= entries.length) break;
@@ -181,6 +179,6 @@ export async function runLinkChecks(
 
   return {
     statuses,
-    unchecked: entries.filter(({ url }) => !statuses.has(url)),
+    unchecked: entries.filter(({ url }) => !statuses.has(url.href)),
   };
 }

@@ -176,10 +176,10 @@ test('pruning applies the item limit without performing link checks', async (t) 
   );
 });
 
-test('prune workflow checks links before applying the cap so an invalid newest item does not displace an older valid item', async (t) => {
+test('update workflow checks links before applying the cap so an invalid newest item does not displace an older valid item', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
-  for (let index = 1; index <= 21; index += 1) {
+  for (let index = 1; index <= 22; index += 1) {
     const suffix = String(index).padStart(2, '0');
     await writeFile(
       path.join(articlesDirectory, `entry-${suffix}.yaml`),
@@ -192,21 +192,21 @@ test('prune workflow checks links before applying the cap so an invalid newest i
   }
 
   const workflow = YAML.parse(
-    await readFile('.github/workflows/prune-content.yml', 'utf8'),
+    await readFile('.github/workflows/update-content.yml', 'utf8'),
   ) as {
     jobs: {
-      prune: {
+      sync: {
         steps: Array<{ uses?: string; run?: string }>;
       };
     };
   };
-  for (const step of workflow.jobs.prune.steps) {
+  for (const step of workflow.jobs.sync.steps) {
     if (step.uses === './.github/actions/check-content-links') {
       await checkContentLinks({
         contentDirectory,
         linkCheckBatchIntervalMs: 0,
         linkVerifier: async (url) =>
-          url.endsWith('/post-21') ? 'deleted' : 'public',
+          url.endsWith('/post-22') ? 'deleted' : 'public',
       });
     } else if (step.run?.includes('mise run prune-content')) {
       await pruneContent({ contentDirectory });
@@ -215,6 +215,8 @@ test('prune workflow checks links before applying the cap so an invalid newest i
 
   const remaining = await readdir(articlesDirectory);
   assert.equal(remaining.length, 20);
-  assert.ok(remaining.includes('entry-01.yaml'));
-  assert.equal(remaining.includes('entry-21.yaml'), false);
+  assert.equal(remaining.includes('entry-01.yaml'), false);
+  assert.ok(remaining.includes('entry-02.yaml'));
+  assert.ok(remaining.includes('entry-21.yaml'));
+  assert.equal(remaining.includes('entry-22.yaml'), false);
 });

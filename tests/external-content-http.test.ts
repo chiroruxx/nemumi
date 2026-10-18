@@ -77,6 +77,10 @@ test('fetchFeed applies bounded retries and honors Retry-After seconds and fract
   for (const [retryAfter, delay] of [
     ['2', 2000],
     ['0.5', 500],
+    ['12', 10_000],
+    ['0', 2000],
+    ['invalid', 2000],
+    ['Mon, 12 Oct 2026 00:00:00 GMT', 2000],
   ] as const) {
     const sleeps: number[] = [];
     const attempts: RequestInit[] = [];
@@ -188,8 +192,11 @@ test('fetchFeed cancels redirect and failed response bodies and enforces the byt
       await assert.rejects(
         fetchFeed(getService('sizu'), {
           fetch: async (input, init) => {
-            requests.push(String(input));
-            assert.equal(init?.redirect, 'manual');
+            requests.push(input instanceof Request ? input.url : String(input));
+            assert.equal(
+              input instanceof Request ? input.redirect : init?.redirect,
+              'manual',
+            );
             return response(status, location === undefined ? {} : { location });
           },
           sleep: async () => assert.fail('RSS redirects must not be retried'),
@@ -209,6 +216,15 @@ test('fetchFeed cancels redirect and failed response bodies and enforces the byt
     /HTTP 404/,
   );
   assert.equal(canceled, redirects + 1);
+
+  await assert.rejects(
+    fetchFeed(getService('sizu'), {
+      fetch: async () =>
+        response(200, { 'content-length': String(5 * 1024 * 1024 + 1) }),
+    }),
+    /5 MiB/,
+  );
+  assert.equal(canceled, redirects + 2);
 
   await assert.rejects(
     fetchFeed(getService('sizu'), {
@@ -394,6 +410,56 @@ test('fetchFeed rejects a failed body read instead of returning partial RSS item
     /body stream failed/,
   );
   assert.equal(calls, 1);
+});
+
+test('fetchFeed bounds body reads by the request timeout and cancels retry waits at the execution deadline', async () => {
+  const keepAlive = setInterval(() => {}, 1000);
+  try {
+    let calls = 0;
+    await assert.rejects(
+      fetchFeed(getService('sizu'), {
+        requestTimeoutMs: 10,
+        fetch: async (input, init) => {
+          calls += 1;
+          const signal = input instanceof Request ? input.signal : init?.signal;
+          assert.ok(signal);
+          return new Response(
+            new ReadableStream({
+              start(controller) {
+                signal.addEventListener(
+                  'abort',
+                  () => controller.error(signal.reason),
+                  { once: true },
+                );
+              },
+            }),
+          );
+        },
+      }),
+      { name: 'TimeoutError' },
+    );
+    assert.equal(calls, 1);
+
+    const controller = new AbortController();
+    calls = 0;
+    await assert.rejects(
+      fetchFeed(getService('sizu'), {
+        context: createTestContext(() => 60_000, controller.signal),
+        fetch: async () => {
+          calls += 1;
+          return new Response('busy', { status: 503 });
+        },
+        sleep: async (_milliseconds, signal) => {
+          controller.abort(new Error('execution deadline'));
+          signal?.throwIfAborted();
+        },
+      }),
+      /execution deadline/,
+    );
+    assert.equal(calls, 1);
+  } finally {
+    clearInterval(keepAlive);
+  }
 });
 
 test('deadline abort reaches the signal passed to the active fetch', async () => {

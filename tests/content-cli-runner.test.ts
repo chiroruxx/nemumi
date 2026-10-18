@@ -168,7 +168,7 @@ async function createCliFixture(t: import('node:test').TestContext) {
       'https://speakerdeck.com/chiroruxx.rss': 'https://speakerdeck.com/chiroruxx/fixture',
     };
     globalThis.fetch = async (input) => {
-      const url = String(input);
+      const url = input instanceof Request ? input.url : String(input);
       await appendFile(process.env.FIXTURE_REQUEST_FILE, url + '\\n');
       if (feeds[url]) {
         return new Response('<rss version="2.0"><channel><item><title>Fixture</title><link>' + feeds[url] + '</link><pubDate>Mon, 12 Oct 2026 18:20:00 GMT</pubDate></item></channel></rss>');

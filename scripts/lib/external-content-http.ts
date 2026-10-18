@@ -1,4 +1,10 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import ky, {
+  isHTTPError,
+  isNetworkError,
+  isResponseSizeError,
+  NetworkError,
+} from 'ky';
 import Parser from 'rss-parser';
 import { contentDateSchema } from '../../src/config/content-schema.ts';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
@@ -109,43 +115,6 @@ async function cancelBody(response: Response): Promise<void> {
   }
 }
 
-async function readLimitedText(response: Response): Promise<string> {
-  const declaredLength = Number(response.headers.get('content-length'));
-  if (
-    Number.isFinite(declaredLength) &&
-    declaredLength > RSS_RESPONSE_LIMIT_BYTES
-  ) {
-    await cancelBody(response);
-    throw new Error('RSS exceeds the 5 MiB response limit');
-  }
-  if (!response.body) throw new Error('RSS response is empty');
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let byteCount = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      byteCount += value.byteLength;
-      if (byteCount > RSS_RESPONSE_LIMIT_BYTES) {
-        await reader.cancel();
-        throw new Error('RSS exceeds the 5 MiB response limit');
-      }
-      chunks.push(value);
-    }
-  } catch (error) {
-    try {
-      await reader.cancel(error);
-    } catch {
-      // Preserve the read error if the stream has already failed.
-    }
-    throw error;
-  } finally {
-    reader.releaseLock();
-  }
-  return Buffer.concat(chunks).toString('utf8');
-}
-
 function publicationDate(value: string): Date {
   const instant = contentDateSchema.parse(value);
   return contentDateSchema.parse(formatDateInSiteTimeZone(instant));
@@ -173,59 +142,89 @@ async function parseFeedXml(xml: string, service: Service) {
 export async function fetchFeed(service: Service, runtime: HttpRuntime = {}) {
   const fetchImpl = runtime.fetch ?? fetch;
   const wait = runtime.sleep ?? sleep;
-  const now = runtime.now ?? Date.now;
-  let response: Response | undefined;
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
-    assertBudget(runtime);
-    try {
-      response = await fetchImpl(service.feed, {
-        signal: requestSignal(runtime),
-        redirect: 'manual',
-        headers: { 'user-agent': 'nemumi-sync-content/1.0' },
-      });
-    } catch (error) {
-      if (
-        runtime.context?.signal.aborted ||
-        runtime.context?.remainingMs() === 0
-      ) {
-        throw new DOMException('Execution deadline exceeded', 'TimeoutError');
-      }
-      if (attempt === MAX_RETRIES) throw error;
-      await wait(retryDelay(null, now, attempt), runtime.context?.signal);
-      continue;
-    }
-
-    if (REDIRECT_STATUSES.has(response.status)) {
-      await cancelBody(response);
-      throw new Error(
-        `${service.label} RSS redirect requires updating its configured URL`,
-      );
-    }
-
-    if (response.status === 429 || response.status >= 500) {
-      if (attempt === MAX_RETRIES) {
-        const status = response.status;
-        await cancelBody(response);
-        throw new Error(`${service.label} RSS returned HTTP ${status}`);
-      }
-      const delayMs = retryDelay(
-        response.headers.get('retry-after'),
-        now,
-        attempt,
-      );
-      await cancelBody(response);
-      await wait(delayMs, runtime.context?.signal);
-      continue;
-    }
-    if (!response.ok) {
-      const status = response.status;
-      await cancelBody(response);
-      throw new Error(`${service.label} RSS returned HTTP ${status}`);
-    }
-    const body = await readLimitedText(response);
+  try {
+    const body = await ky(service.feed, {
+      redirect: 'manual',
+      headers: { 'user-agent': 'nemumi-sync-content/1.0' },
+      signal: runtime.context?.signal,
+      // The fetch signal bounds each attempt, including its body, to 30 seconds.
+      timeout: false,
+      maxResponseSize: RSS_RESPONSE_LIMIT_BYTES,
+      retry: {
+        limit: MAX_RETRIES,
+        // Preserve fractional Retry-After and 1s/2s waits in beforeRetry.
+        delay: () => 0,
+        afterStatusCodes: [],
+        shouldRetry: ({ error }) =>
+          isHTTPError(error)
+            ? error.response.status === 429 || error.response.status >= 500
+            : isNetworkError(error),
+      },
+      hooks: {
+        beforeRetry: [
+          async ({ error, retryCount }) => {
+            await wait(
+              retryDelay(
+                isHTTPError(error)
+                  ? error.response.headers.get('retry-after')
+                  : null,
+                runtime.now ?? Date.now,
+                retryCount - 1,
+              ),
+              runtime.context?.signal,
+            );
+          },
+        ],
+      },
+      fetch: async (input, init) => {
+        assertBudget(runtime);
+        const request = new Request(input, init);
+        const signal = AbortSignal.any([
+          request.signal,
+          requestSignal(runtime),
+        ]);
+        let response: Response;
+        try {
+          response = await fetchImpl(new Request(request, { signal }));
+        } catch (error) {
+          throw new NetworkError(request, {
+            cause: error instanceof Error ? error : undefined,
+          });
+        }
+        if (REDIRECT_STATUSES.has(response.status)) {
+          await cancelBody(response);
+          throw new Error(
+            `${service.label} RSS redirect requires updating its configured URL`,
+          );
+        }
+        if (!response.ok) {
+          await cancelBody(response);
+          // Ky only needs the status and headers; do not read an error body.
+          return new Response(null, response);
+        }
+        if (
+          Number(response.headers.get('content-length')) >
+          RSS_RESPONSE_LIMIT_BYTES
+        ) {
+          await cancelBody(response);
+          throw new Error('RSS exceeds the 5 MiB response limit');
+        }
+        return response;
+      },
+    }).text();
     return parseFeedXml(body, service);
+  } catch (error) {
+    if (isHTTPError(error)) {
+      throw new Error(
+        `${service.label} RSS returned HTTP ${error.response.status}`,
+        { cause: error },
+      );
+    }
+    if (isResponseSizeError(error)) {
+      throw new Error('RSS exceeds the 5 MiB response limit', { cause: error });
+    }
+    throw error;
   }
-  throw new Error(`${service.label} RSS request returned no response`);
 }
 
 export async function verifyLink(

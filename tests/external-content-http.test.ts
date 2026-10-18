@@ -356,23 +356,24 @@ test('runLinkChecks leaves never-started and interrupted checks unchecked after 
   assert.deepEqual(result.unchecked, checks);
 });
 
-test('createExecutionContext exposes a cancellable deadline signal and remaining budget', () => {
-  let timer: (() => void) | undefined;
-  const context = createExecutionContext({
-    budgetMs: 8000,
-    now: () => 100,
-    setTimer: (callback) => {
-      timer = callback;
-      return 1 as unknown as ReturnType<typeof setTimeout>;
-    },
-    clearTimer: () => {},
-  });
+test('createExecutionContext exposes a cancellable deadline signal and remaining budget', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 });
+  const context = createExecutionContext({ budgetMs: 8000 });
   assert.equal(context.remainingMs(), 8000);
   assert.equal(context.signal.aborted, false);
-  timer?.();
+  t.mock.timers.tick(7999);
+  assert.equal(context.remainingMs(), 1);
+  assert.equal(context.signal.aborted, false);
+  t.mock.timers.tick(1);
   assert.equal(context.signal.aborted, true);
+  assert.equal(context.signal.reason.name, 'TimeoutError');
   assert.equal(context.remainingMs(), 0);
   context.dispose();
+
+  const disposed = createExecutionContext({ budgetMs: 100 });
+  disposed.dispose();
+  t.mock.timers.tick(100);
+  assert.equal(disposed.signal.aborted, false);
 });
 
 test('fetchFeed rejects a failed body read instead of returning partial RSS items', async () => {

@@ -23,24 +23,19 @@ export type ExecutionContext = {
   dispose(): void;
 };
 
-type Timer = ReturnType<typeof setTimeout>;
 type ExecutionContextOptions = {
   budgetMs?: number;
   now?: () => number;
-  setTimer?: (callback: () => void, delayMs: number) => Timer;
-  clearTimer?: (timer: Timer) => void;
 };
 
 export function createExecutionContext({
   budgetMs = DEFAULT_EXECUTION_BUDGET_MS,
   now = Date.now,
-  setTimer = (callback, delayMs) => setTimeout(callback, delayMs),
-  clearTimer = (timer) => clearTimeout(timer),
 }: ExecutionContextOptions = {}): ExecutionContext {
   const controller = new AbortController();
   const deadlineAt = now() + Math.max(0, budgetMs);
   let expired = false;
-  const timer = setTimer(
+  const timer = setTimeout(
     () => {
       expired = true;
       controller.abort(
@@ -52,7 +47,7 @@ export function createExecutionContext({
   return {
     signal: controller.signal,
     remainingMs: () => (expired ? 0 : Math.max(0, deadlineAt - now())),
-    dispose: () => clearTimer(timer),
+    dispose: () => clearTimeout(timer),
   };
 }
 

@@ -2,7 +2,6 @@ import path from 'node:path';
 import {
   buildCollectionIndex,
   type Collection,
-  type CollectionIndex,
   type CommonContentOptions,
   type ContentResult,
   defaultContentDirectory,
@@ -30,12 +29,6 @@ type CheckContentLinksOptions = CommonContentOptions & {
   sleep?: Sleep;
 };
 
-function createContentLinkChecks(index: CollectionIndex) {
-  return index.entries.flatMap(({ entry, source, url }) =>
-    source && url ? [{ entry, source, url }] : [],
-  );
-}
-
 export async function checkContentLinks({
   dryRun = false,
   contentDirectory = defaultContentDirectory,
@@ -57,7 +50,10 @@ export async function checkContentLinks({
       }),
     );
     const linkChecks = collections
-      .flatMap(createContentLinkChecks)
+      .flatMap(({ entries }) => entries)
+      .flatMap(({ entry, source, url }) =>
+        source && url ? [{ entry, source, url }] : [],
+      )
       .sort(
         (a, b) =>
           a.source.localeCompare(b.source) ||

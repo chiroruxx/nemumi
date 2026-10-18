@@ -55,6 +55,7 @@ type FetchLike = (
   input: string | URL | Request,
   init?: RequestInit,
 ) => Promise<Response>;
+// Injected waits must settle promptly when the signal is aborted.
 type Sleep = (milliseconds: number, signal?: AbortSignal) => Promise<void>;
 export type HttpRuntime = {
   fetch?: FetchLike;
@@ -285,6 +286,7 @@ export async function verifyLink(
   return 'review';
 }
 
+// Verifiers must settle promptly when context.signal is aborted.
 export type LinkVerifier = (
   url: string,
   service: Service,
@@ -307,11 +309,6 @@ export async function runLinkChecks(
 ): Promise<LinkCheckRunResult> {
   const statuses = new Map<string, LinkStatus>();
   const expired = () => context.signal.aborted || context.remainingMs() <= 0;
-  let onDeadline!: () => void;
-  const deadline = new Promise<void>((resolve) => {
-    onDeadline = resolve;
-  });
-  context.signal.addEventListener('abort', onDeadline, { once: true });
 
   try {
     for (
@@ -331,16 +328,13 @@ export async function runLinkChecks(
           }
           if (!expired()) statuses.set(entry.url, status);
         });
-      // A custom verifier may ignore AbortSignal, so stop waiting at the deadline.
-      await Promise.race([Promise.all(batch), deadline]);
+      await Promise.all(batch);
       if (expired() || offset + LINK_CHECK_BATCH_SIZE >= entries.length) break;
       if (context.remainingMs() <= batchIntervalMs) break;
-      await Promise.race([wait(batchIntervalMs, context.signal), deadline]);
+      await wait(batchIntervalMs, context.signal);
     }
   } catch (error) {
     if (!context.signal.aborted) throw error;
-  } finally {
-    context.signal.removeEventListener('abort', onDeadline);
   }
 
   return {

@@ -422,14 +422,13 @@ test('deadline abort reaches the signal passed to the active fetch', async () =>
   assert.equal(requestSignal?.aborted, true);
 });
 
-test('runLinkChecks returns at the deadline and ignores a verifier that settles later', async () => {
+test('runLinkChecks leaves canceled verification unchecked at the deadline', async () => {
   const controller = new AbortController();
   let remaining = 10_000;
   const check = {
     source: 'sizu' as const,
-    url: 'https://sizu.me/chihiroxx/posts/stuck',
+    url: 'https://sizu.me/chihiroxx/posts/canceled',
   };
-  let finish!: (status: LinkStatus) => void;
   let started!: () => void;
   const startedPromise = new Promise<void>((resolve) => {
     started = resolve;
@@ -437,10 +436,15 @@ test('runLinkChecks returns at the deadline and ignores a verifier that settles 
   const context = createTestContext(() => remaining, controller.signal);
   const run = runLinkChecks(
     [check],
-    async () => {
-      started();
-      return new Promise<LinkStatus>((resolve) => {
-        finish = resolve;
+    async (_url, _service, execution) => {
+      execution.signal.throwIfAborted();
+      return new Promise<LinkStatus>((_resolve, reject) => {
+        execution.signal.addEventListener(
+          'abort',
+          () => reject(execution.signal.reason),
+          { once: true },
+        );
+        started();
       });
     },
     { context },
@@ -448,15 +452,7 @@ test('runLinkChecks returns at the deadline and ignores a verifier that settles 
   await startedPromise;
   remaining = 0;
   controller.abort(new Error('global deadline'));
-  const result = await Promise.race([
-    run,
-    new Promise<'stuck'>((resolve) => setTimeout(() => resolve('stuck'), 50)),
-  ]);
-  assert.notEqual(result, 'stuck');
-  if (result === 'stuck') throw new Error('scheduler did not observe deadline');
-  assert.deepEqual(result.unchecked, [check]);
-  finish('deleted');
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  const result = await run;
   assert.equal(result.statuses.size, 0);
   assert.deepEqual(result.unchecked, [check]);
 });

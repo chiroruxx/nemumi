@@ -106,52 +106,27 @@ export async function verifyLink(
   service: Service,
   runtime: HttpRuntime = {},
 ): Promise<LinkStatus> {
-  let target = value;
-  const visited = new Set<string>();
-  for (let redirects = 0; redirects <= 5; redirects += 1) {
-    if (
-      runtime.context?.signal.aborted ||
-      runtime.context?.remainingMs() === 0
-    ) {
-      return 'unverified';
-    }
-    let url: URL;
-    try {
-      url = new URL(target);
-      validateContentUrl(url, service);
-      url.hash = '';
-    } catch {
-      return 'unverified';
-    }
-    if (visited.has(url.href)) return 'unverified';
-    visited.add(url.href);
-    let response: Response;
-    try {
-      response = await ky.head(url.href, {
-        fetch: runtime.fetch,
-        redirect: 'manual',
-        signal: runtime.context?.signal,
-        // Classify HTTP statuses without reading error bodies.
-        throwHttpErrors: false,
-      });
-    } catch {
-      return 'unverified';
-    }
-    if (REDIRECT_STATUSES.has(response.status)) {
-      const location = response.headers.get('location');
-      if (!location) return 'unverified';
-      try {
-        target = new URL(location, url).href;
-      } catch {
-        return 'unverified';
-      }
-      continue;
-    }
-    const status = response.status;
-    if (status === 404 || status === 410) return 'deleted';
-    return response.ok ? 'public' : 'unverified';
+  if (runtime.context?.signal.aborted || runtime.context?.remainingMs() === 0) {
+    return 'unverified';
   }
-  return 'unverified';
+  try {
+    const url = new URL(value);
+    validateContentUrl(url, service);
+    url.hash = '';
+    const response = await ky.head(url.href, {
+      fetch: runtime.fetch,
+      redirect: 'manual',
+      signal: runtime.context?.signal,
+      // Classify HTTP statuses without reading error bodies.
+      throwHttpErrors: false,
+    });
+    if (response.status === 404 || response.status === 410) return 'deleted';
+    return response.ok || REDIRECT_STATUSES.has(response.status)
+      ? 'public'
+      : 'unverified';
+  } catch {
+    return 'unverified';
+  }
 }
 
 // Verifiers must settle promptly when context.signal is aborted.

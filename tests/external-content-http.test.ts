@@ -165,7 +165,7 @@ test('fetchFeed rejects failed responses and enforces the byte limit', async () 
   assert.equal(parsed[0]?.title, 'Sizu & fixture');
 });
 
-test('verifyLink uses HEAD and passes the execution signal through redirects', async () => {
+test('verifyLink uses HEAD and passes the execution signal to fetch', async () => {
   const controller = new AbortController();
   const requests: string[] = [];
   const passedSignals: AbortSignal[] = [];
@@ -179,22 +179,13 @@ test('verifyLink uses HEAD and passes the execution signal through redirects', a
         const request = new Request(input, init);
         assert.equal(request.method, 'HEAD');
         passedSignals.push(request.signal);
-        const redirected = requests.length === 1;
-        return new Response(null, {
-          status: redirected ? 302 : 200,
-          ...(redirected
-            ? { headers: { location: '/chihiroxx/posts/redirected' } }
-            : {}),
-        });
+        return new Response(null, { status: 200 });
       },
     },
   );
   assert.equal(status, 'public');
-  assert.deepEqual(requests, [
-    'https://sizu.me/chihiroxx/posts/fixture',
-    'https://sizu.me/chihiroxx/posts/redirected',
-  ]);
-  assert.equal(passedSignals.length, 2);
+  assert.deepEqual(requests, ['https://sizu.me/chihiroxx/posts/fixture']);
+  assert.equal(passedSignals.length, 1);
   assert.ok(passedSignals.every((signal) => !signal.aborted));
 });
 
@@ -540,13 +531,20 @@ test('verifyLink reports an expired global deadline and malformed targets as unv
     ),
     'unverified',
   );
-  assert.equal(
-    await verifyLink('https://example.com/login', getService('sizu'), {
-      context: createTestContext(() => 60_000),
-      fetch: async () => new Response(null, { status: 200 }),
-    }),
-    'unverified',
-  );
+  for (const value of [
+    'https://example.com/login',
+    'http://sizu.me/chihiroxx/posts/post',
+    'https://user:password@sizu.me/chihiroxx/posts/post',
+  ]) {
+    assert.equal(
+      await verifyLink(value, getService('sizu'), {
+        context: createTestContext(() => 60_000),
+        fetch: async () =>
+          assert.fail('Invalid input URLs must not be fetched'),
+      }),
+      'unverified',
+    );
+  }
 });
 
 test('verifyLink classifies HEAD statuses and retries network failures with Ky defaults', async (t) => {
@@ -558,7 +556,7 @@ test('verifyLink classifies HEAD statuses and retries network failures with Ky d
   const methods: string[] = [];
   const statuses = [302, 404, 410, 401, 403, 429, 500, 503, 400] as const;
   const expected = [
-    'unverified',
+    'public',
     'deleted',
     'deleted',
     'unverified',
@@ -626,94 +624,36 @@ test('verifyLink classifies HEAD statuses and retries network failures with Ky d
   assert.equal(calls, 1);
 });
 
-test('verifyLink leaves unsafe redirect destinations unverified without fetching them', async () => {
-  const cases = [
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: '/login',
-      requests: 1,
-    },
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: '/',
-      requests: 1,
-    },
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: '/other-account/posts/post',
-      requests: 1,
-    },
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: 'http://sizu.me/chihiroxx/posts/post',
-      requests: 1,
-    },
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: 'https://user:password@sizu.me/chihiroxx/posts/post',
-      requests: 1,
-    },
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: 'https://example.com/chihiroxx/posts/post',
-      requests: 1,
-    },
-    {
-      url: 'http://sizu.me/chihiroxx/posts/post',
-      location: undefined,
-      requests: 0,
-    },
-    {
-      url: 'https://user:password@sizu.me/chihiroxx/posts/post',
-      location: undefined,
-      requests: 0,
-    },
-  ] as const;
-  for (const { url, location, requests: expectedRequests } of cases) {
-    let requests = 0;
-    const status = await verifyLink(url, getService('sizu'), {
-      fetch: async () => {
-        requests += 1;
-        return new Response(null, {
-          status: location ? 302 : 200,
-          ...(location ? { headers: { location } } : {}),
-        });
-      },
-    });
-    assert.equal(status, 'unverified', url);
-    assert.equal(requests, expectedRequests, url);
-  }
-});
-
-test('verifyLink leaves redirect loops unverified and allows five redirects but rejects a sixth', async () => {
-  let requests = 0;
-  const request = (redirects: number) =>
-    verifyLink('https://sizu.me/chihiroxx/posts/start', getService('sizu'), {
-      fetch: async () => {
-        requests += 1;
-        if (redirects > 0 && requests > redirects) {
-          return new Response(null, { status: 200 });
-        }
-        return new Response(null, {
-          status: 302,
-          headers: {
-            location:
-              redirects === 0
-                ? '/chihiroxx/posts/start'
-                : `/chihiroxx/posts/step-${requests}`,
-          },
-        });
-      },
-    });
-  assert.equal(await request(0), 'unverified');
-  assert.equal(requests, 1);
-  for (const [redirects, expected] of [
-    [5, 'public'],
-    [6, 'unverified'],
-  ] as const) {
-    requests = 0;
-    assert.equal(await request(redirects), expected, `${redirects} redirects`);
-    assert.equal(requests, 6);
+test('verifyLink treats redirects as public without requesting any destination', async () => {
+  const source = 'https://sizu.me/chihiroxx/posts/post';
+  for (const status of [301, 302, 303, 307, 308]) {
+    for (const location of [
+      undefined,
+      '/login',
+      '/',
+      '/other-account/posts/post',
+      source,
+      'http://sizu.me/chihiroxx/posts/post',
+      'https://user:password@sizu.me/chihiroxx/posts/post',
+      'https://example.com/deleted',
+      'https://[invalid',
+    ]) {
+      const requests: string[] = [];
+      const result = await verifyLink(source, getService('sizu'), {
+        fetch: async (input, init) => {
+          const request = new Request(input, init);
+          requests.push(request.url);
+          assert.equal(request.method, 'HEAD');
+          assert.equal(request.redirect, 'manual');
+          return new Response(null, {
+            status,
+            ...(location === undefined ? {} : { headers: { location } }),
+          });
+        },
+      });
+      assert.equal(result, 'public');
+      assert.deepEqual(requests, [source]);
+    }
   }
 });
 

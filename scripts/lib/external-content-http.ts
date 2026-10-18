@@ -15,6 +15,7 @@ const DEFAULT_EXECUTION_BUDGET_MS = 8 * 60 * 1000;
 const RSS_RESPONSE_LIMIT_BYTES = 5 * 1024 * 1024;
 const LINK_CHECK_BATCH_SIZE = 5;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const DELETED_STATUSES = new Set([404, 410]);
 
 export type ExecutionContext = {
   signal: AbortSignal;
@@ -120,7 +121,7 @@ export async function verifyLink(
       // Classify HTTP statuses without reading error bodies.
       throwHttpErrors: false,
     });
-    if (response.status === 404 || response.status === 410) return 'deleted';
+    if (DELETED_STATUSES.has(response.status)) return 'deleted';
     return response.ok || REDIRECT_STATUSES.has(response.status)
       ? 'public'
       : 'unverified';

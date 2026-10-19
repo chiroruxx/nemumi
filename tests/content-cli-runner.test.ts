@@ -110,10 +110,7 @@ test('prune CLI accepts empty arguments and an optional pnpm separator before dr
       },
     );
     assert.equal(stderr, '');
-    assert.equal(
-      stdout.trim(),
-      '公開状態を確認できなかった URL はありません。',
-    );
+    assert.equal(stdout, '');
   }
 });
 
@@ -158,17 +155,21 @@ async function createCliFixture(t: import('node:test').TestContext) {
     ),
   );
   const outputFile = path.join(fixtureRoot, 'github-output');
+  const requestFile = path.join(fixtureRoot, 'requests');
+  await writeFile(requestFile, '');
   const preloadFile = path.join(fixtureRoot, 'fetch-fixture.mjs');
   await writeFile(
     preloadFile,
     `
+    import { appendFile } from 'node:fs/promises';
     const feeds = {
       'https://sizu.me/chihiroxx/rss': 'https://sizu.me/chihiroxx/posts/fixture',
       'https://toyo.hatenablog.jp/rss': 'https://toyo.hatenablog.jp/entry/fixture',
       'https://speakerdeck.com/chiroruxx.rss': 'https://speakerdeck.com/chiroruxx/fixture',
     };
     globalThis.fetch = async (input) => {
-      const url = String(input);
+      const url = input instanceof Request ? input.url : String(input);
+      await appendFile(process.env.FIXTURE_REQUEST_FILE, url + '\\n');
       if (feeds[url]) {
         return new Response('<rss version="2.0"><channel><item><title>Fixture</title><link>' + feeds[url] + '</link><pubDate>Mon, 12 Oct 2026 18:20:00 GMT</pubDate></item></channel></rss>');
       }
@@ -178,7 +179,7 @@ async function createCliFixture(t: import('node:test').TestContext) {
         throw new Error('Unexpected fixture URL: ' + url);
       }
       const status = process.env.FIXTURE_LINK_STATUS ||
-        (url.endsWith('/deferred') ? 503 : url.endsWith('/review') ? 400 : url.endsWith('/deleted') ? 404 : 200);
+        (url.endsWith('/unavailable') ? 503 : url.endsWith('/unexpected') ? 400 : url.endsWith('/deleted') ? 404 : 200);
       return new Response('', { status: Number(status) });
     };
   `,
@@ -198,14 +199,16 @@ async function createCliFixture(t: import('node:test').TestContext) {
           ...process.env,
           GITHUB_OUTPUT: outputFile,
           FIXTURE_LINK_STATUS: linkStatus,
+          FIXTURE_REQUEST_FILE: requestFile,
         },
       },
     );
-  return { contentDirectory, outputFile, run };
+  return { contentDirectory, outputFile, requestFile, run };
 }
 
-test('sync CLI accepts each service, honors dry-run, and writes its report to GitHub output', async (t) => {
+test('sync CLI accepts each service, honors dry-run, and leaves GitHub output unchanged', async (t) => {
   const { contentDirectory, outputFile, run } = await createCliFixture(t);
+  await writeFile(outputFile, 'existing=keep\n');
   for (const [source, collection] of [
     ['sizu', 'articles'],
     ['hatena', 'articles'],
@@ -219,15 +222,9 @@ test('sync CLI accepts each service, honors dry-run, and writes its report to Gi
       '--dry-run',
     ]);
     assert.equal(stderr, '');
-    assert.equal(
-      stdout.trim(),
-      '公開状態を確認できなかった URL はありません。',
-    );
+    assert.equal(stdout, '');
     assert.deepEqual(await readdir(directory), before);
-    assert.match(
-      await readFile(outputFile, 'utf8'),
-      /summary<<CONTENT_SUMMARY_.*\n公開状態を確認できなかった URL はありません。\nCONTENT_SUMMARY_/,
-    );
+    assert.equal(await readFile(outputFile, 'utf8'), 'existing=keep\n');
     await run('sync-content', [source]);
     assert.equal((await readdir(directory)).length, before.length + 1);
   }
@@ -263,7 +260,7 @@ test('sync CLI saves candidates without checking links; shared checker reports a
 test('link check CLI reports unverified URLs and honors dry-run before deleting confirmed links', async (t) => {
   const { contentDirectory, outputFile, run } = await createCliFixture(t);
   const directory = path.join(contentDirectory, 'articles');
-  for (const slug of ['public', 'deferred', 'review', 'deleted']) {
+  for (const slug of ['public', 'unavailable', 'unexpected', 'deleted']) {
     await writeFile(
       path.join(directory, `${slug}.yaml`),
       YAML.stringify({
@@ -274,7 +271,7 @@ test('link check CLI reports unverified URLs and honors dry-run before deleting 
     );
   }
   const expected =
-    '公開状態を確認できなかった URL:\n- https://sizu.me/chihiroxx/posts/deferred\n- https://sizu.me/chihiroxx/posts/review';
+    '公開状態を確認できなかった URL:\n- https://sizu.me/chihiroxx/posts/unavailable\n- https://sizu.me/chihiroxx/posts/unexpected';
   const { stdout, stderr } = await run(
     'check-content-links',
     ['--dry-run'],
@@ -287,9 +284,9 @@ test('link check CLI reports unverified URLs and honors dry-run before deleting 
   const applied = await run('check-content-links', [], '');
   assert.equal(applied.stdout.trim(), expected);
   assert.deepEqual((await readdir(directory)).sort(), [
-    'deferred.yaml',
     'public.yaml',
-    'review.yaml',
+    'unavailable.yaml',
+    'unexpected.yaml',
   ]);
 });
 
@@ -324,4 +321,27 @@ test('sync CLI rejects unknown services before loading content', async (t) => {
     },
   );
   assert.deepEqual(await readdir(path.join(contentDirectory, 'articles')), []);
+});
+
+test('sync and prune CLI only fetch the RSS feed and preserve a saved candidate', async (t) => {
+  const { contentDirectory, outputFile, requestFile, run } =
+    await createCliFixture(t);
+  await writeFile(outputFile, 'existing=keep\n');
+  for (const [script, args] of [
+    ['sync-content', ['sizu']],
+    ['prune-content', []],
+  ] as const) {
+    const { stdout, stderr } = await run(script, [...args]);
+    assert.equal(stdout, '');
+    assert.equal(stderr, '');
+    assert.equal(await readFile(outputFile, 'utf8'), 'existing=keep\n');
+  }
+  assert.equal(
+    await readFile(requestFile, 'utf8'),
+    'https://sizu.me/chihiroxx/rss\n',
+  );
+  assert.equal(
+    (await readdir(path.join(contentDirectory, 'articles'))).length,
+    1,
+  );
 });

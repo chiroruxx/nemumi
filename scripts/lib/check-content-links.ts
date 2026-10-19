@@ -1,28 +1,32 @@
 import {
+  buildCollectionIndex,
+  type Collection,
   type CommonContentOptions,
   type ContentResult,
   defaultContentDirectory,
-  getService,
+  limits,
 } from './external-content.ts';
 import {
-  applyFileChanges,
-  type ContentFileOperation,
+  type ContentFileRemoval,
   readCollection,
-  validateFileTargets,
+  removeFiles,
+  validateFileRemovals,
 } from './external-content-files.ts';
 import {
   createExecutionContext,
+  type LinkVerifier,
   runLinkChecks,
+  type Sleep,
   verifyLink,
 } from './external-content-http.ts';
-import {
-  buildCollectionIndex,
-  type Collection,
-  createContentLinkCheckPlan,
-  limits,
-} from './external-content-planning.ts';
 
-type CheckContentLinksOptions = CommonContentOptions;
+type CheckContentLinksOptions = CommonContentOptions & {
+  linkVerifier?: LinkVerifier;
+  executionBudgetMs?: number;
+  linkCheckBatchIntervalMs?: number;
+  now?: () => number;
+  sleep?: Sleep;
+};
 
 export async function checkContentLinks({
   dryRun = false,
@@ -44,14 +48,15 @@ export async function checkContentLinks({
         return buildCollectionIndex(collection, entries);
       }),
     );
-    const indexes = new Map(
-      collections.map((index) => [index.collection, index]),
-    );
     const linkChecks = collections
-      .flatMap(createContentLinkCheckPlan)
+      .flatMap(({ entries }) => entries)
+      .flatMap(({ entry, source, url }) =>
+        source && url ? [{ entry, source, url }] : [],
+      )
       .sort(
         (a, b) =>
-          a.source.localeCompare(b.source) || a.url.localeCompare(b.url),
+          a.source.localeCompare(b.source) ||
+          a.url.href.localeCompare(b.url.href),
       );
     const checked = await runLinkChecks(
       linkChecks,
@@ -64,26 +69,22 @@ export async function checkContentLinks({
         ...(sleep ? { sleep } : {}),
       },
     );
-    const operations: ContentFileOperation[] = [];
-    for (const { source, url } of linkChecks) {
-      if (checked.statuses.get(url) !== 'deleted') continue;
-      const collection = getService(source).collection as Collection;
-      const entry = indexes.get(collection)?.byUrl.get(url)?.entry;
-      if (!entry) throw new Error(`Missing planned link entry: ${url}`);
-      operations.push({ kind: 'delete', target: entry.file });
+    const removals: ContentFileRemoval[] = [];
+    for (const { entry, url } of linkChecks) {
+      if (checked.statuses.get(url.href) !== 'deleted') continue;
+      removals.push({ target: entry.file });
     }
-    operations.sort((a, b) => a.target.localeCompare(b.target));
-    await validateFileTargets(operations, contentDirectory);
-    if (!dryRun) await applyFileChanges(operations, contentDirectory);
+    removals.sort((a, b) => a.target.localeCompare(b.target));
+    await validateFileRemovals(removals, contentDirectory);
+    if (!dryRun) await removeFiles(removals);
 
     return {
-      deferred: linkChecks.filter(
-        ({ url }) => checked.statuses.get(url) === 'defer',
+      unverified: linkChecks.flatMap(({ source, url }) =>
+        checked.statuses.get(url.href) === 'unverified'
+          ? [{ source, url }]
+          : [],
       ),
-      review: linkChecks.filter(
-        ({ url }) => checked.statuses.get(url) === 'review',
-      ),
-      unchecked: checked.unchecked,
+      unchecked: checked.unchecked.map(({ source, url }) => ({ source, url })),
     };
   } finally {
     context.dispose();

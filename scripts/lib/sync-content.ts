@@ -1,55 +1,141 @@
+import { createHash } from 'node:crypto';
+import path from 'node:path';
 import YAML from 'yaml';
 import { formatDateInSiteTimeZone } from '../../src/config/site-time.ts';
 import {
+  buildCollectionIndex,
+  type CollectionIndex,
   type CommonContentOptions,
-  type ContentResult,
+  type ContentData,
   defaultContentDirectory,
+  type FeedItem,
   getService,
   type Service,
   type Source,
+  validateContentUrl,
 } from './external-content.ts';
 import {
-  applyFileChanges,
-  type ContentFileOperation,
+  type ContentFileWrite,
   readCollection,
-  validateFileTargets,
+  validateFileWrites,
+  writeFiles,
 } from './external-content-files.ts';
 import {
   createExecutionContext,
   type ExecutionContext,
   fetchFeed,
 } from './external-content-http.ts';
-import {
-  buildCollectionIndex,
-  createSyncPlan,
-  type FeedItem,
-  type SyncChange,
-} from './external-content-planning.ts';
 
 type FeedLoader = (
   service: Service,
   context: ExecutionContext,
 ) => Promise<FeedItem[]>;
-type SyncOptions = Omit<
-  CommonContentOptions,
-  'linkVerifier' | 'linkCheckBatchIntervalMs' | 'sleep'
-> & { feedLoader?: FeedLoader };
-export type SyncResult = ContentResult;
+type SyncOptions = CommonContentOptions & {
+  feedLoader?: FeedLoader;
+  executionBudgetMs?: number;
+  now?: () => number;
+};
 
-function syncOperations(changes: SyncChange[]): ContentFileOperation[] {
-  return changes.map((change) => ({
-    kind: change.action === 'add' ? 'create' : 'replace',
-    target: change.file,
-    content: YAML.stringify(
-      {
-        date: formatDateInSiteTimeZone(change.date),
-        types: change.types,
-        title: change.title,
-        url: change.url,
-      },
-      { defaultStringType: 'QUOTE_DOUBLE' },
-    ),
-  }));
+function normalizedFeed(
+  feed: FeedItem[],
+  source: Source,
+): Map<string, FeedItem> {
+  const service = getService(source);
+  const normalized = new Map<string, FeedItem>();
+  for (const item of feed) {
+    const url = new URL(item.url);
+    validateContentUrl(url, service);
+    url.hash = '';
+    const value = { ...item, url };
+    const previous = normalized.get(url.href);
+    if (
+      previous &&
+      (previous.date.getTime() !== value.date.getTime() ||
+        previous.title !== value.title)
+    ) {
+      throw new Error(`Conflicting RSS items for URL: ${url}`);
+    }
+    normalized.set(url.href, value);
+  }
+  return normalized;
+}
+
+function filenameFor(source: Source, url: string): string {
+  return `${source}-${createHash('sha256').update(url).digest('hex')}.yaml`;
+}
+
+function sameContent(
+  data: ContentData,
+  item: FeedItem,
+  types: string[],
+): boolean {
+  return (
+    data.date.getTime() === item.date.getTime() &&
+    data.title === item.title &&
+    data.url?.href === item.url.href &&
+    data.types?.length === types.length &&
+    data.types.every((value, index) => value === types[index])
+  );
+}
+
+function serializeContent(item: FeedItem, types: string[]): string {
+  return YAML.stringify(
+    {
+      date: formatDateInSiteTimeZone(item.date),
+      types,
+      title: item.title,
+      url: item.url.href,
+    },
+    { defaultStringType: 'QUOTE_DOUBLE' },
+  );
+}
+
+function createSyncWrites({
+  source,
+  index,
+  feed,
+  contentDirectory,
+}: {
+  source: Source;
+  index: CollectionIndex;
+  feed: FeedItem[];
+  contentDirectory: string;
+}): ContentFileWrite[] {
+  const service = getService(source);
+  const feedByUrl = normalizedFeed(feed, source);
+  const writes: ContentFileWrite[] = [];
+
+  for (const [url, item] of [...feedByUrl].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    const previous = index.byUrl.get(url)?.entry;
+    if (previous) {
+      const types = previous.data.types ?? [service.type];
+      if (sameContent(previous.data, item, types)) continue;
+      writes.push({
+        kind: 'replace',
+        target: previous.file,
+        content: serializeContent(item, types),
+      });
+      continue;
+    }
+
+    const file = path.resolve(
+      contentDirectory,
+      index.collection,
+      filenameFor(source, url),
+    );
+    if (index.entries.some(({ entry }) => entry.id === path.basename(file))) {
+      throw new Error(`Filename collision while adding ${url}`);
+    }
+    writes.push({
+      kind: 'create',
+      target: file,
+      content: serializeContent(item, [service.type]),
+    });
+  }
+
+  return writes;
 }
 
 export async function syncService(
@@ -61,7 +147,7 @@ export async function syncService(
     executionBudgetMs,
     now = Date.now,
   }: SyncOptions = {},
-): Promise<SyncResult> {
+): Promise<void> {
   const service = getService(source);
 
   const context = createExecutionContext({
@@ -72,24 +158,19 @@ export async function syncService(
     const collection = service.collection;
     const existing = await readCollection(collection, contentDirectory);
     const index = buildCollectionIndex(collection, existing);
-    // Sync each source independently. Saved entries from other sources still
-    // reserve their current slots until the later prune run ranks the collection.
     const loadFeed =
       feedLoader ??
       ((configured, execution) =>
         fetchFeed(configured, { context: execution }));
     const currentFeed = await loadFeed(service, context);
-    const planInput = {
+    const writes = createSyncWrites({
       source,
       index,
       feed: currentFeed,
       contentDirectory,
-    };
-    const plan = createSyncPlan(planInput);
-    const operations = syncOperations(plan.changes);
-    await validateFileTargets(operations, contentDirectory);
-    if (!dryRun) await applyFileChanges(operations, contentDirectory);
-    return { deferred: [], review: [], unchecked: [] };
+    });
+    await validateFileWrites(writes, contentDirectory);
+    if (!dryRun) await writeFiles(writes);
   } finally {
     context.dispose();
   }

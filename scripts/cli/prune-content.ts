@@ -1,10 +1,3 @@
-import path from 'node:path';
-import { pathToFileURL } from 'node:url';
-import {
-  formatUnverifiedLinks,
-  writeGitHubSummary,
-} from '../lib/content-cli.ts';
-import type { PruneResult } from '../lib/prune-content.ts';
 import { pruneContent } from '../lib/prune-content.ts';
 
 function parsePruneArguments(args: string[]): { dryRun: boolean } {
@@ -16,35 +9,12 @@ function parsePruneArguments(args: string[]): { dryRun: boolean } {
   throw new Error('Usage: prune-content [--dry-run]');
 }
 
-type RunPruneContentOptions = {
-  dryRun?: boolean;
-  prune?: typeof pruneContent;
-  writeOutput?: (value: string) => void;
-  writeSummary?: (value: string) => Promise<void>;
-};
-
-async function runPruneContent({
-  dryRun = false,
-  prune = pruneContent,
-  writeOutput = (value) => console.log(value),
-  writeSummary = writeGitHubSummary,
-}: RunPruneContentOptions = {}): Promise<PruneResult> {
-  const result = await prune({ dryRun });
-  const summary = formatUnverifiedLinks(result);
-  writeOutput(summary);
-  await writeSummary(summary);
-  return result;
-}
-
 async function main(): Promise<void> {
   const { dryRun } = parsePruneArguments(process.argv.slice(2));
-  await runPruneContent({ dryRun });
+  await pruneContent({ dryRun });
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
-) {
+if (import.meta.main) {
   try {
     await main();
   } catch (error) {

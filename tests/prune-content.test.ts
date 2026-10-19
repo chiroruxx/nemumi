@@ -7,7 +7,7 @@ import { checkContentLinks } from '../scripts/lib/check-content-links.ts';
 import { pruneContent } from '../scripts/lib/prune-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
-test('pruning applies only the directory cap, preserves manual content, and dry-run leaves files intact', async (t) => {
+test('pruning applies the directory cap to all entries and dry-run leaves files intact', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
 
@@ -27,18 +27,16 @@ test('pruning applies only the directory cap, preserves manual content, and dry-
   await writeFile(
     path.join(articlesDirectory, manualFilename),
     YAML.stringify({
-      date: '2020-01-21',
+      date: '2019-01-01',
       title: 'Manual entry',
-      url: 'https://example.com/manual',
       memo: 'storage-only field',
     }),
   );
 
   const options: NonNullable<Parameters<typeof pruneContent>[0]> = {
-    contentDirectory,
+    contentDirectory: path.relative(process.cwd(), contentDirectory),
   };
-  const dryRun = await pruneContent({ ...options, dryRun: true });
-  assert.deepEqual(dryRun, { deferred: [], review: [], unchecked: [] });
+  await pruneContent({ ...options, dryRun: true });
   assert.deepEqual(
     (await readdir(articlesDirectory)).sort(),
     [
@@ -51,16 +49,15 @@ test('pruning applies only the directory cap, preserves manual content, and dry-
   );
   assert.equal((await readdir(articlesDirectory)).length, 21);
 
-  const result = await pruneContent(options);
-  assert.deepEqual(result, { deferred: [], review: [], unchecked: [] });
+  await pruneContent(options);
   const remainingFiles = await readdir(articlesDirectory);
   assert.equal(remainingFiles.length, 20);
-  assert.ok(remainingFiles.includes(manualFilename));
-  assert.equal(remainingFiles.includes('entry-01.yaml'), false);
+  assert.equal(remainingFiles.includes(manualFilename), false);
+  assert.ok(remainingFiles.includes('entry-01.yaml'));
   assert.ok(remainingFiles.includes('entry-20.yaml'));
 });
 
-test('pruning stops without changing files when manual entries exceed the collection cap', async (t) => {
+test('pruning keeps the newest entries even when all entries are manual', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
   for (let index = 1; index <= 21; index += 1) {
@@ -70,18 +67,22 @@ test('pruning stops without changing files when manual entries exceed the collec
       YAML.stringify({
         date: `2026-10-${suffix}`,
         title: `Manual ${suffix}`,
-        url: `https://example.com/manual-${suffix}`,
+        ...(index % 2 === 0
+          ? { url: `https://example.com/manual-${suffix}` }
+          : {}),
       }),
     );
   }
-  await assert.rejects(
-    pruneContent({
-      contentDirectory,
-    }),
-    /articles manual entries exceed its 20 item limit/,
-  );
-
+  await pruneContent({ contentDirectory, dryRun: true });
   assert.equal((await readdir(articlesDirectory)).length, 21);
+  await pruneContent({ contentDirectory });
+  assert.deepEqual(
+    (await readdir(articlesDirectory)).sort(),
+    Array.from(
+      { length: 20 },
+      (_, index) => `manual-${String(index + 2).padStart(2, '0')}.yaml`,
+    ),
+  );
 });
 
 test('pruning ranks saved entries without requesting RSS feeds', async (t) => {
@@ -151,7 +152,7 @@ test('pruning preserves manual entries and applies each collection limit under a
   assert.equal((await readdir(talksDirectory)).length, 10);
 });
 
-test('pruning applies the item limit without performing link checks', async (t) => {
+test('pruning breaks date ties by URL without performing link checks', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
   for (let index = 1; index <= 21; index += 1) {
@@ -159,14 +160,16 @@ test('pruning applies the item limit without performing link checks', async (t) 
     await writeFile(
       path.join(articlesDirectory, `entry-${suffix}.yaml`),
       YAML.stringify({
-        date: `2020-01-${suffix}`,
+        date: index <= 3 ? '2020-01-01' : `2020-01-${suffix}`,
         title: `Post ${suffix}`,
-        url: `https://sizu.me/chihiroxx/posts/post-${suffix}`,
+        url:
+          index <= 3
+            ? `https://sizu.me/chihiroxx/posts/tie-${4 - index}`
+            : `https://sizu.me/chihiroxx/posts/post-${suffix}`,
       }),
     );
   }
-  const result = await pruneContent({ contentDirectory });
-  assert.deepEqual(result, { deferred: [], review: [], unchecked: [] });
+  await pruneContent({ contentDirectory });
   assert.deepEqual(
     (await readdir(articlesDirectory)).sort(),
     Array.from(
@@ -176,10 +179,10 @@ test('pruning applies the item limit without performing link checks', async (t) 
   );
 });
 
-test('prune workflow checks links before applying the cap so an invalid newest item does not displace an older valid item', async (t) => {
+test('update workflow checks links before applying the cap so an invalid newest item does not displace an older valid item', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
-  for (let index = 1; index <= 21; index += 1) {
+  for (let index = 1; index <= 22; index += 1) {
     const suffix = String(index).padStart(2, '0');
     await writeFile(
       path.join(articlesDirectory, `entry-${suffix}.yaml`),
@@ -192,21 +195,21 @@ test('prune workflow checks links before applying the cap so an invalid newest i
   }
 
   const workflow = YAML.parse(
-    await readFile('.github/workflows/prune-content.yml', 'utf8'),
+    await readFile('.github/workflows/update-content.yml', 'utf8'),
   ) as {
     jobs: {
-      prune: {
+      sync: {
         steps: Array<{ uses?: string; run?: string }>;
       };
     };
   };
-  for (const step of workflow.jobs.prune.steps) {
+  for (const step of workflow.jobs.sync.steps) {
     if (step.uses === './.github/actions/check-content-links') {
       await checkContentLinks({
         contentDirectory,
         linkCheckBatchIntervalMs: 0,
         linkVerifier: async (url) =>
-          url.endsWith('/post-21') ? 'deleted' : 'public',
+          url.href.endsWith('/post-22') ? 'deleted' : 'public',
       });
     } else if (step.run?.includes('mise run prune-content')) {
       await pruneContent({ contentDirectory });
@@ -215,6 +218,8 @@ test('prune workflow checks links before applying the cap so an invalid newest i
 
   const remaining = await readdir(articlesDirectory);
   assert.equal(remaining.length, 20);
-  assert.ok(remaining.includes('entry-01.yaml'));
-  assert.equal(remaining.includes('entry-21.yaml'), false);
+  assert.equal(remaining.includes('entry-01.yaml'), false);
+  assert.ok(remaining.includes('entry-02.yaml'));
+  assert.ok(remaining.includes('entry-21.yaml'));
+  assert.equal(remaining.includes('entry-22.yaml'), false);
 });

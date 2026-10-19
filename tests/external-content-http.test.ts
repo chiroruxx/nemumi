@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { isHTTPError, isResponseSizeError, isTimeoutError } from 'ky';
 import {
   findSource,
   getService,
+  type LinkCheck,
+  type LinkStatus,
   type Service,
 } from '../scripts/lib/external-content.ts';
 import {
@@ -12,10 +15,6 @@ import {
   runLinkChecks,
   verifyLink,
 } from '../scripts/lib/external-content-http.ts';
-import type {
-  LinkCheck,
-  LinkStatus,
-} from '../scripts/lib/external-content-planning.ts';
 
 const feedFixtures: [Service, string, string, string][] = [
   [
@@ -45,18 +44,21 @@ function createTestContext(
   return { signal, remainingMs: remaining, dispose: () => {} };
 }
 
-test('fetchFeed maps all service fixtures to site dates and normalized feed items without network access', async () => {
+test('fetchFeed allows automatic redirects and maps all service fixtures to normalized feed items without network access', async () => {
   for (const [service, , normalizedUrl, xml] of feedFixtures) {
     const source = findSource(new URL(normalizedUrl), service.collection);
     assert.ok(source);
     const parsed = await fetchFeed(service, {
-      fetch: async () => new Response(xml),
+      fetch: async (input, init) => {
+        assert.equal(new Request(input, init).redirect, 'follow');
+        return new Response(xml);
+      },
     });
     assert.deepEqual(parsed, [
       {
         date: new Date('2026-10-13'),
         title: `${service === getService('sizu') ? 'Sizu' : service === getService('hatena') ? 'Hatena' : 'Speaker Deck'} & fixture`,
-        url: normalizedUrl,
+        url: new URL(normalizedUrl),
       },
     ]);
   }
@@ -75,172 +77,116 @@ test('fetchFeed rejects RSS item URLs outside the configured service path', asyn
   );
 });
 
-test('fetchFeed applies bounded retries and honors Retry-After seconds and fractions', async () => {
-  for (const [retryAfter, delay] of [
-    ['2', 2000],
-    ['0.5', 500],
-  ] as const) {
-    const sleeps: number[] = [];
-    const attempts: RequestInit[] = [];
-    const responses = [
-      new Response('busy', {
-        status: 503,
-        headers: { 'retry-after': retryAfter },
-      }),
-      new Response(feedFixtures[0][3], { status: 200 }),
-    ];
-    let networkFailures = 1;
-    const result = await fetchFeed(getService('sizu'), {
-      fetch: async (_input, init) => {
-        attempts.push(init ?? {});
-        if (networkFailures-- > 0) throw new Error('connection reset');
-        const response = responses.shift();
-        assert.ok(response);
-        return response;
-      },
-      sleep: async (milliseconds) => {
-        sleeps.push(milliseconds);
-      },
-    });
-    assert.equal(attempts.length, 3);
-    assert.deepEqual(sleeps, [1000, delay]);
-    assert.equal(result[0]?.title, 'Sizu & fixture');
-  }
+test('fetchFeed retries network failures and server errors using Ky', async () => {
+  let calls = 0;
+  const result = await fetchFeed(getService('sizu'), {
+    fetch: async () => {
+      calls += 1;
+      if (calls === 1) throw new TypeError('fetch failed');
+      if (calls === 2)
+        return new Response('busy', {
+          status: 503,
+          headers: { 'retry-after': '0' },
+        });
+      return new Response(feedFixtures[0][3]);
+    },
+  });
+  assert.equal(calls, 3);
+  assert.equal(result[0]?.title, 'Sizu & fixture');
 });
 
-test('fetchFeed stops after two retries and cancels every exhausted error response', async () => {
+test('fetchFeed stops after two retries and exposes the Ky HTTP error', async () => {
   let calls = 0;
-  let canceled = 0;
-  const sleeps: number[] = [];
   await assert.rejects(
     fetchFeed(getService('sizu'), {
       fetch: async () => {
         calls += 1;
-        return new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(new TextEncoder().encode('busy'));
-            },
-            cancel() {
-              canceled += 1;
-            },
-          }),
-          { status: 503 },
-        );
-      },
-      sleep: async (milliseconds) => {
-        sleeps.push(milliseconds);
+        return new Response('busy', {
+          status: 503,
+          headers: { 'retry-after': '0' },
+        });
       },
     }),
-    /HTTP 503/,
+    (error: unknown) => isHTTPError(error) && error.response.status === 503,
   );
   assert.equal(calls, 3);
-  assert.equal(canceled, 3);
-  assert.deepEqual(sleeps, [1000, 2000]);
 });
 
-test('fetchFeed parses Retry-After HTTP dates and rejects malformed RSS without partial output', async () => {
-  let now = Date.parse('2026-10-13T00:00:00Z');
-  const sleeps: number[] = [];
-  let call = 0;
+test('fetchFeed retries rate limiting with an HTTP date and rejects malformed RSS without partial output', async () => {
+  let calls = 0;
   await assert.rejects(
     fetchFeed(getService('sizu'), {
-      now: () => now,
-      sleep: async (milliseconds) => {
-        sleeps.push(milliseconds);
-        now += milliseconds;
-      },
       fetch: async () => {
-        call += 1;
-        if (call === 1) {
+        calls += 1;
+        if (calls === 1)
           return new Response('busy', {
             status: 429,
-            headers: { 'retry-after': new Date(now + 3000).toUTCString() },
+            headers: { 'retry-after': new Date(0).toUTCString() },
           });
-        }
         return new Response('<rss><channel><item><title>broken');
       },
     }),
     /RSS|XML|feed|Unclosed/i,
   );
-  assert.deepEqual(sleeps, [3000]);
+  assert.equal(calls, 2);
 });
 
-test('fetchFeed cancels redirect and failed response bodies and enforces the byte limit', async () => {
-  let canceled = 0;
-  const response = (status: number, headers?: HeadersInit) =>
-    new Response(
-      new ReadableStream({
-        cancel() {
-          canceled += 1;
+test('fetchFeed rejects failed responses and enforces the byte limit', async () => {
+  for (const status of [404, 501]) {
+    const requests: string[] = [];
+    await assert.rejects(
+      fetchFeed(getService('sizu'), {
+        fetch: async (input, init) => {
+          const request = new Request(input, init);
+          requests.push(request.url);
+          return new Response('', { status });
         },
       }),
-      { status, ...(headers === undefined ? {} : { headers }) },
+      (error: unknown) =>
+        isHTTPError(error) && error.response.status === status,
     );
-  await assert.rejects(
-    fetchFeed(getService('sizu'), {
-      fetch: async () => response(302, { location: 'https://example.com/rss' }),
-      sleep: async () => {},
-    }),
-    /redirected outside/,
-  );
-  await assert.rejects(
-    fetchFeed(getService('sizu'), {
-      fetch: async () => response(404),
-      sleep: async () => {},
-    }),
-    /HTTP 404/,
-  );
-  assert.equal(canceled, 2);
-
-  await assert.rejects(
-    fetchFeed(getService('sizu'), {
-      fetch: async () => new Response('x'.repeat(5 * 1024 * 1024 + 1)),
-      sleep: async () => {},
-    }),
-    /5 MiB/,
-  );
+    assert.deepEqual(requests, [getService('sizu').feed]);
+  }
+  for (const headers of [{}, { 'content-length': '1' }]) {
+    await assert.rejects(
+      fetchFeed(getService('sizu'), {
+        fetch: async () =>
+          new Response('x'.repeat(5 * 1024 * 1024 + 1), { headers }),
+      }),
+      isResponseSizeError,
+    );
+  }
+  const parsed = await fetchFeed(getService('sizu'), {
+    fetch: async () =>
+      new Response(feedFixtures[0][3], {
+        headers: { 'content-length': String(5 * 1024 * 1024 + 1) },
+      }),
+  });
+  assert.equal(parsed[0]?.title, 'Sizu & fixture');
 });
 
-test('verifyLink passes the execution signal to fetch and releases response bodies', async () => {
+test('verifyLink uses HEAD and passes the execution signal to fetch', async () => {
   const controller = new AbortController();
   const requests: string[] = [];
   const passedSignals: AbortSignal[] = [];
-  let canceled = 0;
   const status = await verifyLink(
-    'https://sizu.me/chihiroxx/posts/fixture',
+    new URL('https://sizu.me/chihiroxx/posts/fixture'),
     getService('sizu'),
     {
       context: createTestContext(() => 60_000, controller.signal),
       fetch: async (input, init) => {
-        requests.push(String(input));
-        passedSignals.push(init?.signal as AbortSignal);
-        const redirected = requests.length === 1;
-        return new Response(
-          new ReadableStream({
-            cancel() {
-              canceled += 1;
-            },
-          }),
-          {
-            status: redirected ? 302 : 200,
-            ...(redirected
-              ? { headers: { location: '/chihiroxx/posts/redirected' } }
-              : {}),
-          },
-        );
+        requests.push(input instanceof Request ? input.url : String(input));
+        const request = new Request(input, init);
+        assert.equal(request.method, 'HEAD');
+        passedSignals.push(request.signal);
+        return new Response(null, { status: 200 });
       },
-      sleep: async () => {},
     },
   );
   assert.equal(status, 'public');
-  assert.deepEqual(requests, [
-    'https://sizu.me/chihiroxx/posts/fixture',
-    'https://sizu.me/chihiroxx/posts/redirected',
-  ]);
-  assert.equal(passedSignals.length, 2);
+  assert.deepEqual(requests, ['https://sizu.me/chihiroxx/posts/fixture']);
+  assert.equal(passedSignals.length, 1);
   assert.ok(passedSignals.every((signal) => !signal.aborted));
-  assert.equal(canceled, 2);
 });
 
 test('runLinkChecks completes batches of five before waiting one second, without a final wait', async (t) => {
@@ -248,7 +194,7 @@ test('runLinkChecks completes batches of five before waiting one second, without
   t.after(() => controller.abort());
   const checks: LinkCheck[] = Array.from({ length: 11 }, (_, index) => ({
     source: 'sizu',
-    url: `https://sizu.me/chihiroxx/posts/${index}`,
+    url: new URL(`https://sizu.me/chihiroxx/posts/${index}`),
   }));
   const started: string[] = [];
   const pending: (() => void)[] = [];
@@ -258,7 +204,7 @@ test('runLinkChecks completes batches of five before waiting one second, without
   const work = runLinkChecks(
     checks,
     async (url) => {
-      started.push(url);
+      started.push(url.href);
       await new Promise<void>((resolve) => pending.push(resolve));
       return 'public';
     },
@@ -275,7 +221,7 @@ test('runLinkChecks completes batches of five before waiting one second, without
   await tick();
   assert.deepEqual(
     started,
-    checks.slice(0, 5).map(({ url }) => url),
+    checks.slice(0, 5).map(({ url }) => url.href),
   );
   pending.splice(0, 4).forEach((resolve) => {
     resolve();
@@ -304,21 +250,31 @@ test('runLinkChecks completes batches of five before waiting one second, without
   assert.equal(result.statuses.size, 11);
   assert.deepEqual(result.unchecked, []);
   assert.deepEqual(waits, [1000, 1000]);
+  const withoutInjectedSleep = await runLinkChecks(
+    checks,
+    async () => 'public',
+    {
+      context: createTestContext(() => 60_000, controller.signal),
+      batchIntervalMs: 0,
+    },
+  );
+  assert.equal(withoutInjectedSleep.statuses.size, checks.length);
+  assert.deepEqual(withoutInjectedSleep.unchecked, []);
 });
 
 test('runLinkChecks leaves never-started and interrupted checks unchecked after the global deadline', async () => {
   const controller = new AbortController();
   let remaining = 1;
   const checks: LinkCheck[] = [
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/one' },
-    { source: 'sizu', url: 'https://sizu.me/chihiroxx/posts/two' },
+    { source: 'sizu', url: new URL('https://sizu.me/chihiroxx/posts/one') },
+    { source: 'sizu', url: new URL('https://sizu.me/chihiroxx/posts/two') },
   ];
   const result = await runLinkChecks(
     checks,
     async () => {
       controller.abort(new Error('global deadline'));
       remaining = 0;
-      return 'defer';
+      return 'unverified';
     },
     {
       context: createTestContext(() => remaining, controller.signal),
@@ -329,23 +285,24 @@ test('runLinkChecks leaves never-started and interrupted checks unchecked after 
   assert.deepEqual(result.unchecked, checks);
 });
 
-test('createExecutionContext exposes a cancellable deadline signal and remaining budget', () => {
-  let timer: (() => void) | undefined;
-  const context = createExecutionContext({
-    budgetMs: 8000,
-    now: () => 100,
-    setTimer: (callback) => {
-      timer = callback;
-      return 1 as unknown as ReturnType<typeof setTimeout>;
-    },
-    clearTimer: () => {},
-  });
+test('createExecutionContext exposes a cancellable deadline signal and remaining budget', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100 });
+  const context = createExecutionContext({ budgetMs: 8000 });
   assert.equal(context.remainingMs(), 8000);
   assert.equal(context.signal.aborted, false);
-  timer?.();
+  t.mock.timers.tick(7999);
+  assert.equal(context.remainingMs(), 1);
+  assert.equal(context.signal.aborted, false);
+  t.mock.timers.tick(1);
   assert.equal(context.signal.aborted, true);
+  assert.equal(context.signal.reason.name, 'TimeoutError');
   assert.equal(context.remainingMs(), 0);
   context.dispose();
+
+  const disposed = createExecutionContext({ budgetMs: 100 });
+  disposed.dispose();
+  t.mock.timers.tick(100);
+  assert.equal(disposed.signal.aborted, false);
 });
 
 test('fetchFeed rejects a failed body read instead of returning partial RSS items', async () => {
@@ -368,16 +325,63 @@ test('fetchFeed rejects a failed body read instead of returning partial RSS item
   assert.equal(calls, 1);
 });
 
+test('fetchFeed uses Ky default timeouts and cancels retry waits at the execution deadline', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  for (const phase of ['headers', 'body'] as const) {
+    let calls = 0;
+    const failure = assert.rejects(
+      fetchFeed(getService('sizu'), {
+        fetch: async () => {
+          calls += 1;
+          return phase === 'headers'
+            ? new Promise<Response>(() => {})
+            : new Response(new ReadableStream());
+        },
+      }),
+      isTimeoutError,
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    t.mock.timers.tick(10_000);
+    await failure;
+    assert.equal(calls, 1);
+  }
+  t.mock.timers.reset();
+
+  const context = createExecutionContext({ budgetMs: 20 });
+  let calls = 0;
+  try {
+    await assert.rejects(
+      fetchFeed(getService('sizu'), {
+        context,
+        fetch: async () => {
+          calls += 1;
+          return new Response('busy', {
+            status: 503,
+            headers: { 'retry-after': '10' },
+          });
+        },
+      }),
+      { name: 'TimeoutError' },
+    );
+    assert.equal(context.signal.aborted, true);
+    assert.equal(calls, 1);
+  } finally {
+    context.dispose();
+  }
+});
+
 test('deadline abort reaches the signal passed to the active fetch', async () => {
   const controller = new AbortController();
   let requestSignal: AbortSignal | undefined;
+  const started = Promise.withResolvers<void>();
   const verification = verifyLink(
-    'https://sizu.me/chihiroxx/posts/fixture',
+    new URL('https://sizu.me/chihiroxx/posts/fixture'),
     getService('sizu'),
     {
       context: createTestContext(() => 60_000, controller.signal),
-      fetch: async (_input, init) => {
-        requestSignal = init?.signal as AbortSignal;
+      fetch: async (input, init) => {
+        requestSignal = new Request(input, init).signal;
+        started.resolve();
         return new Promise<Response>((_resolve, reject) => {
           requestSignal?.addEventListener(
             'abort',
@@ -388,20 +392,19 @@ test('deadline abort reaches the signal passed to the active fetch', async () =>
       },
     },
   );
-  await Promise.resolve();
+  await started.promise;
   controller.abort(new Error('deadline'));
-  assert.equal(await verification, 'defer');
+  assert.equal(await verification, 'unverified');
   assert.equal(requestSignal?.aborted, true);
 });
 
-test('runLinkChecks returns at the deadline and ignores a verifier that settles later', async () => {
+test('runLinkChecks leaves canceled verification unchecked at the deadline', async () => {
   const controller = new AbortController();
   let remaining = 10_000;
   const check = {
     source: 'sizu' as const,
-    url: 'https://sizu.me/chihiroxx/posts/stuck',
+    url: new URL('https://sizu.me/chihiroxx/posts/canceled'),
   };
-  let finish!: (status: LinkStatus) => void;
   let started!: () => void;
   const startedPromise = new Promise<void>((resolve) => {
     started = resolve;
@@ -409,10 +412,15 @@ test('runLinkChecks returns at the deadline and ignores a verifier that settles 
   const context = createTestContext(() => remaining, controller.signal);
   const run = runLinkChecks(
     [check],
-    async () => {
-      started();
-      return new Promise<LinkStatus>((resolve) => {
-        finish = resolve;
+    async (_url, _service, execution) => {
+      execution.signal.throwIfAborted();
+      return new Promise<LinkStatus>((_resolve, reject) => {
+        execution.signal.addEventListener(
+          'abort',
+          () => reject(execution.signal.reason),
+          { once: true },
+        );
+        started();
       });
     },
     { context },
@@ -420,62 +428,64 @@ test('runLinkChecks returns at the deadline and ignores a verifier that settles 
   await startedPromise;
   remaining = 0;
   controller.abort(new Error('global deadline'));
-  const result = await Promise.race([
-    run,
-    new Promise<'stuck'>((resolve) => setTimeout(() => resolve('stuck'), 50)),
-  ]);
-  assert.notEqual(result, 'stuck');
-  if (result === 'stuck') throw new Error('scheduler did not observe deadline');
-  assert.deepEqual(result.unchecked, [check]);
-  finish('deleted');
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  const result = await run;
   assert.equal(result.statuses.size, 0);
   assert.deepEqual(result.unchecked, [check]);
 });
 
 test('runLinkChecks preserves completed results and leaves later batches unchecked when a wait aborts', async () => {
-  const controller = new AbortController();
-  const checks: LinkCheck[] = Array.from({ length: 6 }, (_, index) => ({
-    source: 'sizu',
-    url: `https://sizu.me/chihiroxx/posts/${index}`,
-  }));
-  let calls = 0;
-  const result = await runLinkChecks(
-    checks,
-    async () => {
-      calls += 1;
-      return 'public';
-    },
-    {
-      context: createTestContext(() => 60_000, controller.signal),
-      sleep: async (_milliseconds, signal) => {
-        controller.abort(new Error('deadline'));
-        throw signal?.reason;
+  for (const useDefaultSleep of [false, true]) {
+    const controller = new AbortController();
+    const checks: LinkCheck[] = Array.from({ length: 6 }, (_, index) => ({
+      source: 'sizu',
+      url: new URL(`https://sizu.me/chihiroxx/posts/${index}`),
+    }));
+    let calls = 0;
+    const result = await runLinkChecks(
+      checks,
+      async () => {
+        calls += 1;
+        if (useDefaultSleep && calls === 5) {
+          setImmediate(() => controller.abort(new Error('deadline')));
+        }
+        return 'public';
       },
-    },
-  );
-  assert.equal(calls, 5);
-  assert.equal(result.statuses.size, 5);
-  assert.deepEqual(result.unchecked, checks.slice(5));
+      {
+        context: createTestContext(() => 60_000, controller.signal),
+        ...(useDefaultSleep
+          ? {}
+          : {
+              sleep: async (_milliseconds: number, signal?: AbortSignal) => {
+                controller.abort(new Error('deadline'));
+                throw signal?.reason;
+              },
+            }),
+      },
+    );
+    assert.equal(calls, 5);
+    assert.equal(result.statuses.size, 5);
+    assert.deepEqual(result.unchecked, checks.slice(5));
+  }
 });
 
-test('runLinkChecks converts thrown and rejected checks to defer without stopping the batch', async () => {
+test('runLinkChecks converts thrown and rejected checks to unverified without stopping the batch', async () => {
   const checks: LinkCheck[] = Array.from({ length: 3 }, (_, index) => ({
     source: 'sizu',
-    url: `https://sizu.me/chihiroxx/posts/${index}`,
+    url: new URL(`https://sizu.me/chihiroxx/posts/${index}`),
   }));
   const result = await runLinkChecks(
     checks,
     (url) => {
-      if (url.endsWith('/0')) throw new Error('synchronous failure');
-      if (url.endsWith('/1')) return Promise.reject(new Error('async failure'));
+      if (url.href.endsWith('/0')) throw new Error('synchronous failure');
+      if (url.href.endsWith('/1'))
+        return Promise.reject(new Error('async failure'));
       return Promise.resolve('public');
     },
     { context: createTestContext(() => 60_000) },
   );
   assert.deepEqual(
-    checks.map(({ url }) => result.statuses.get(url)),
-    ['defer', 'defer', 'public'],
+    checks.map(({ url }) => result.statuses.get(url.href)),
+    ['unverified', 'unverified', 'public'],
   );
   assert.deepEqual(result.unchecked, []);
 });
@@ -483,7 +493,7 @@ test('runLinkChecks converts thrown and rejected checks to defer without stoppin
 test('runLinkChecks skips expired work and does not wait when the next batch cannot fit', async () => {
   const checks: LinkCheck[] = Array.from({ length: 6 }, (_, index) => ({
     source: 'sizu',
-    url: `https://sizu.me/chihiroxx/posts/${index}`,
+    url: new URL(`https://sizu.me/chihiroxx/posts/${index}`),
   }));
   for (const remaining of [0, 500]) {
     let calls = 0;
@@ -507,169 +517,162 @@ test('runLinkChecks skips expired work and does not wait when the next batch can
   }
 });
 
-test('verifyLink reports an expired global deadline as defer and malformed targets as review', async () => {
+test('verifyLink reports an expired global deadline and malformed targets as unverified', async () => {
   const controller = new AbortController();
   controller.abort(new Error('deadline'));
   const context = createTestContext(() => 0, controller.signal);
   assert.equal(
     await verifyLink(
-      'https://sizu.me/chihiroxx/posts/one',
+      new URL('https://sizu.me/chihiroxx/posts/one'),
       getService('sizu'),
       {
         context,
         fetch: async () => new Response(null, { status: 200 }),
       },
     ),
-    'defer',
+    'unverified',
   );
-  assert.equal(
-    await verifyLink('https://example.com/login', getService('sizu'), {
-      context: createTestContext(() => 60_000),
-      fetch: async () => new Response(null, { status: 200 }),
-    }),
-    'review',
-  );
+  for (const value of [
+    'https://example.com/login',
+    'http://sizu.me/chihiroxx/posts/post',
+    'https://user:password@sizu.me/chihiroxx/posts/post',
+  ]) {
+    assert.equal(
+      await verifyLink(new URL(value), getService('sizu'), {
+        context: createTestContext(() => 60_000),
+        fetch: async () =>
+          assert.fail('Invalid input URLs must not be fetched'),
+      }),
+      'unverified',
+    );
+  }
 });
 
-test('verifyLink cancels bodies for redirects and each terminal HTTP status', async () => {
-  let canceled = 0;
+test('verifyLink classifies HEAD statuses and retries network failures with Ky defaults', async (t) => {
   const response = (status: number, headers?: HeadersInit) =>
-    new Response(
-      new ReadableStream({
-        cancel() {
-          canceled += 1;
-        },
-      }),
-      { status, ...(headers === undefined ? {} : { headers }) },
-    );
-  const statuses = [302, 404, 403, 400] as const;
-  const expected = ['review', 'deleted', 'defer', 'review'] as const;
+    new Response(null, {
+      status,
+      ...(headers === undefined ? {} : { headers }),
+    });
+  const methods: string[] = [];
+  const statuses = [302, 404, 410, 401, 403, 429, 500, 503, 400] as const;
+  const expected = [
+    'public',
+    'deleted',
+    'deleted',
+    'unverified',
+    'unverified',
+    'unverified',
+    'unverified',
+    'unverified',
+    'unverified',
+  ] as const;
   for (const [index, status] of statuses.entries()) {
     assert.equal(
       await verifyLink(
-        'https://sizu.me/chihiroxx/posts/one',
+        new URL('https://sizu.me/chihiroxx/posts/one'),
         getService('sizu'),
         {
-          fetch: async () =>
-            response(
+          fetch: async (input, init) => {
+            methods.push(new Request(input, init).method);
+            return response(
               status,
               status === 302
                 ? { location: 'https://example.com/elsewhere' }
                 : undefined,
-            ),
+            );
+          },
         },
       ),
       expected[index],
     );
   }
-  assert.equal(canceled, 4);
-});
-
-test('verifyLink reviews unsafe redirect destinations without fetching them', async () => {
-  const cases = [
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: '/login',
-      requests: 1,
-    },
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: '/',
-      requests: 1,
-    },
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: '/other-account/posts/post',
-      requests: 1,
-    },
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: 'http://sizu.me/chihiroxx/posts/post',
-      requests: 1,
-    },
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: 'https://user:password@sizu.me/chihiroxx/posts/post',
-      requests: 1,
-    },
-    {
-      url: 'https://sizu.me/chihiroxx/posts/post',
-      location: 'https://example.com/chihiroxx/posts/post',
-      requests: 1,
-    },
-    {
-      url: 'http://sizu.me/chihiroxx/posts/post',
-      location: undefined,
-      requests: 0,
-    },
-    {
-      url: 'https://user:password@sizu.me/chihiroxx/posts/post',
-      location: undefined,
-      requests: 0,
-    },
-  ] as const;
-  for (const { url, location, requests: expectedRequests } of cases) {
-    let requests = 0;
-    const status = await verifyLink(url, getService('sizu'), {
-      fetch: async () => {
-        requests += 1;
-        return new Response(null, {
-          status: location ? 302 : 200,
-          ...(location ? { headers: { location } } : {}),
-        });
-      },
-    });
-    assert.equal(status, 'review', url);
-    assert.equal(requests, expectedRequests, url);
-  }
-});
-
-test('verifyLink reviews redirect loops and allows five redirects but rejects a sixth', async () => {
-  let requests = 0;
-  const request = (redirects: number) =>
-    verifyLink('https://sizu.me/chihiroxx/posts/start', getService('sizu'), {
-      fetch: async () => {
-        requests += 1;
-        if (redirects > 0 && requests > redirects) {
-          return new Response(null, { status: 200 });
-        }
-        return new Response(null, {
-          status: 302,
-          headers: {
-            location:
-              redirects === 0
-                ? '/chihiroxx/posts/start'
-                : `/chihiroxx/posts/step-${requests}`,
-          },
-        });
-      },
-    });
-  assert.equal(await request(0), 'review');
-  assert.equal(requests, 1);
-  for (const [redirects, expected] of [
-    [5, 'public'],
-    [6, 'review'],
-  ] as const) {
-    requests = 0;
-    assert.equal(await request(redirects), expected, `${redirects} redirects`);
-    assert.equal(requests, 6);
-  }
-});
-
-test('verifyLink strips fragments while preserving query parameters in requests', async () => {
-  const requested: string[] = [];
+  assert.deepEqual(
+    methods,
+    statuses.map(() => 'HEAD'),
+  );
+  let calls = 0;
   assert.equal(
     await verifyLink(
-      'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
+      new URL('https://sizu.me/chihiroxx/posts/one'),
       getService('sizu'),
       {
-        fetch: async (input) => {
-          requested.push(String(input));
-          return new Response(null, { status: 200 });
+        fetch: async () => {
+          calls += 1;
+          throw new TypeError('fetch failed');
         },
       },
     ),
+    'unverified',
+  );
+  assert.equal(calls, 3);
+
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  calls = 0;
+  const verification = verifyLink(
+    new URL('https://sizu.me/chihiroxx/posts/one'),
+    getService('sizu'),
+    {
+      fetch: async () => {
+        calls += 1;
+        return new Promise<Response>(() => {});
+      },
+    },
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  t.mock.timers.tick(10_000);
+  assert.equal(await verification, 'unverified');
+  assert.equal(calls, 1);
+});
+
+test('verifyLink treats redirects as public without requesting any destination', async () => {
+  const source = 'https://sizu.me/chihiroxx/posts/post';
+  for (const status of [301, 302, 303, 307, 308]) {
+    for (const location of [
+      undefined,
+      '/login',
+      '/',
+      '/other-account/posts/post',
+      source,
+      'http://sizu.me/chihiroxx/posts/post',
+      'https://user:password@sizu.me/chihiroxx/posts/post',
+      'https://example.com/deleted',
+      'https://[invalid',
+    ]) {
+      const requests: string[] = [];
+      const result = await verifyLink(new URL(source), getService('sizu'), {
+        fetch: async (input, init) => {
+          const request = new Request(input, init);
+          requests.push(request.url);
+          assert.equal(request.method, 'HEAD');
+          assert.equal(request.redirect, 'manual');
+          return new Response(null, {
+            status,
+            ...(location === undefined ? {} : { headers: { location } }),
+          });
+        },
+      });
+      assert.equal(result, 'public');
+      assert.deepEqual(requests, [source]);
+    }
+  }
+});
+
+test('verifyLink accepts a URL with query parameters and a fragment without modifying it', async () => {
+  const requested: string[] = [];
+  const value = new URL('https://sizu.me/chihiroxx/posts/one?ref=feed#section');
+  assert.equal(
+    await verifyLink(value, getService('sizu'), {
+      fetch: async (input) => {
+        requested.push(input instanceof Request ? input.url : String(input));
+        return new Response(null, { status: 200 });
+      },
+    }),
     'public',
   );
-  assert.deepEqual(requested, ['https://sizu.me/chihiroxx/posts/one?ref=feed']);
+  assert.deepEqual(requested, [value.href]);
+  assert.equal(
+    value.href,
+    'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
+  );
 });

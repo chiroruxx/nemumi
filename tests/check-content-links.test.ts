@@ -9,7 +9,7 @@ import { createContentDirectory } from './helpers/content-fixture.ts';
 test('checkContentLinks removes confirmed invalid managed links and preserves manual and unverified entries', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const directory = path.join(contentDirectory, 'articles');
-  for (const slug of ['deleted', 'deferred', 'review', 'public']) {
+  for (const slug of ['deleted', 'unavailable', 'unexpected', 'public']) {
     await writeFile(
       path.join(directory, `${slug}.yaml`),
       YAML.stringify({
@@ -31,27 +31,27 @@ test('checkContentLinks removes confirmed invalid managed links and preserves ma
   const result = await checkContentLinks({
     contentDirectory,
     linkVerifier: async (url) => {
-      if (url.endsWith('/deleted')) return 'deleted';
-      if (url.endsWith('/deferred')) return 'defer';
-      if (url.endsWith('/review')) return 'review';
+      if (url.href.endsWith('/deleted')) return 'deleted';
+      if (url.href.endsWith('/unavailable')) return 'unverified';
+      if (url.href.endsWith('/unexpected')) return 'unverified';
       return 'public';
     },
     linkCheckBatchIntervalMs: 0,
   });
 
   assert.deepEqual(
-    result.deferred.map(({ url }) => url),
-    ['https://sizu.me/chihiroxx/posts/deferred'],
+    result.unverified.map(({ url }) => url.href),
+    [
+      'https://sizu.me/chihiroxx/posts/unavailable',
+      'https://sizu.me/chihiroxx/posts/unexpected',
+    ],
   );
-  assert.deepEqual(
-    result.review.map(({ url }) => url),
-    ['https://sizu.me/chihiroxx/posts/review'],
-  );
+  assert.deepEqual(result.unchecked, []);
   assert.deepEqual((await readdir(directory)).sort(), [
-    'deferred.yaml',
     'manual.yaml',
     'public.yaml',
-    'review.yaml',
+    'unavailable.yaml',
+    'unexpected.yaml',
   ]);
 });
 
@@ -68,7 +68,7 @@ test('checkContentLinks supports dry-run without deleting confirmed invalid link
   );
 
   await checkContentLinks({
-    contentDirectory,
+    contentDirectory: path.relative(process.cwd(), contentDirectory),
     dryRun: true,
     linkVerifier: async () => 'deleted',
     linkCheckBatchIntervalMs: 0,
@@ -104,8 +104,8 @@ test('checkContentLinks checks every managed article and talk without applying c
     contentDirectory,
     linkCheckBatchIntervalMs: 0,
     linkVerifier: async (url) => {
-      checked.push(url);
-      return url.endsWith('/talk') ? 'deleted' : 'public';
+      checked.push(url.href);
+      return url.href.endsWith('/talk') ? 'deleted' : 'public';
     },
   });
 
@@ -166,8 +166,8 @@ test('checkContentLinks removes confirmed invalid links and reports later checks
     now: () => elapsed,
     linkCheckBatchIntervalMs: 0,
     linkVerifier: async (url) => {
-      if (url.endsWith('/entry-1')) return 'deleted';
-      if (url.endsWith('/entry-6')) {
+      if (url.href.endsWith('/entry-1')) return 'deleted';
+      if (url.href.endsWith('/entry-6')) {
         elapsed = 1000;
         return 'deleted';
       }
@@ -176,7 +176,7 @@ test('checkContentLinks removes confirmed invalid links and reports later checks
   });
 
   assert.deepEqual(
-    result.unchecked.map(({ url }) => url),
+    result.unchecked.map(({ url }) => url.href),
     ['https://sizu.me/chihiroxx/posts/entry-6'],
   );
   assert.deepEqual((await readdir(directory)).sort(), [

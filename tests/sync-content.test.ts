@@ -1,9 +1,19 @@
 import assert from 'node:assert/strict';
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  utimes,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
 import { checkContentLinks } from '../scripts/lib/check-content-links.ts';
+import { pruneContent } from '../scripts/lib/prune-content.ts';
 import { syncService } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
@@ -12,10 +22,10 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
   const item = {
     date: new Date('2026-10-03'),
     title: 'New post',
-    url: 'https://sizu.me/chihiroxx/posts/new-post',
+    url: new URL('https://sizu.me/chihiroxx/posts/new-post'),
   };
   const options: NonNullable<Parameters<typeof syncService>[1]> = {
-    contentDirectory,
+    contentDirectory: path.relative(process.cwd(), contentDirectory),
     feedLoader: async () => [item],
   };
 
@@ -29,13 +39,17 @@ test('sync dry-run does not write files, and a repeated sync is idempotent', asy
     await readFile(path.join(contentDirectory, 'articles', files[0]), 'utf8'),
   );
   assert.deepEqual(saved.types, ['日常記事']);
-  assert.equal(saved.url, item.url);
+  assert.equal(saved.url, item.url.href);
 
+  const savedFile = path.join(contentDirectory, 'articles', files[0]);
+  const timestamp = new Date('2000-01-01');
+  await utimes(savedFile, timestamp, timestamp);
   await syncService('sizu', options);
   assert.equal(
     (await readdir(path.join(contentDirectory, 'articles'))).length,
     1,
   );
+  assert.equal((await stat(savedFile)).mtime.getTime(), timestamp.getTime());
 });
 
 test('sync updates the existing filename, keeps types, and round-trips quoted multiline titles', async (t) => {
@@ -43,34 +57,38 @@ test('sync updates the existing filename, keeps types, and round-trips quoted mu
   const articlesDirectory = path.join(contentDirectory, 'articles');
   const file = path.join(articlesDirectory, 'legacy-name.yaml');
   const url = 'https://sizu.me/chihiroxx/posts/existing';
-  await writeFile(
-    file,
-    YAML.stringify({
-      date: '2026-10-01',
-      types: ['手動分類', '追加カテゴリ'],
-      title: 'Previous title',
-      url,
-    }),
-  );
-  const title = 'Updated "quoted" title\nsecond line';
-  await syncService('sizu', {
-    contentDirectory,
-    feedLoader: async () => [{ date: new Date('2026-10-02'), title, url }],
-  });
+  for (const types of [['手動分類', '追加カテゴリ'], undefined]) {
+    await writeFile(
+      file,
+      YAML.stringify({
+        date: '2026-10-01',
+        ...(types === undefined ? {} : { types }),
+        title: 'Previous title',
+        url,
+      }),
+    );
+    const title = 'Updated "quoted" title\nsecond line';
+    await syncService('sizu', {
+      contentDirectory,
+      feedLoader: async () => [
+        { date: new Date('2026-10-02'), title, url: new URL(url) },
+      ],
+    });
 
-  assert.deepEqual(await readdir(articlesDirectory), ['legacy-name.yaml']);
-  assert.deepEqual(YAML.parse(await readFile(file, 'utf8')), {
-    date: '2026-10-02',
-    types: ['手動分類', '追加カテゴリ'],
-    title,
-    url,
-  });
+    assert.deepEqual(await readdir(articlesDirectory), ['legacy-name.yaml']);
+    assert.deepEqual(YAML.parse(await readFile(file, 'utf8')), {
+      date: '2026-10-02',
+      types: types ?? ['日常記事'],
+      title,
+      url,
+    });
+  }
 });
 
-test('sync adds selected candidates and the shared link check removes invalid additions', async (t) => {
+test('sync imports all feed candidates before link checks and pruning', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
-  for (let index = 1; index <= 19; index += 1) {
+  for (let index = 1; index <= 20; index += 1) {
     const id = String(index).padStart(2, '0');
     await writeFile(
       path.join(articlesDirectory, `manual-${id}.yaml`),
@@ -85,12 +103,12 @@ test('sync adds selected candidates and the shared link check removes invalid ad
     {
       date: new Date('2026-10-03'),
       title: 'Deleted',
-      url: 'https://sizu.me/chihiroxx/posts/deleted',
+      url: new URL('https://sizu.me/chihiroxx/posts/deleted'),
     },
     {
-      date: new Date('2026-10-02'),
+      date: new Date('2026-09-30'),
       title: 'Public',
-      url: 'https://sizu.me/chihiroxx/posts/public',
+      url: new URL('https://sizu.me/chihiroxx/posts/public'),
     },
   ];
   await syncService('sizu', {
@@ -98,17 +116,17 @@ test('sync adds selected candidates and the shared link check removes invalid ad
     feedLoader: async () => feed,
   });
 
-  assert.ok((await readdir(articlesDirectory)).length > 19);
+  assert.equal((await readdir(articlesDirectory)).length, 22);
   const checked: string[] = [];
   await checkContentLinks({
     contentDirectory,
     linkCheckBatchIntervalMs: 0,
     linkVerifier: async (url) => {
-      checked.push(url);
-      return url.endsWith('/deleted') ? 'deleted' : 'public';
+      checked.push(url.href);
+      return url.href.endsWith('/deleted') ? 'deleted' : 'public';
     },
   });
-  assert.deepEqual(checked, [feed[0].url]);
+  assert.deepEqual(checked, [feed[0].url.href, feed[1].url.href]);
   const savedUrls = await Promise.all(
     (await readdir(articlesDirectory)).map(async (file) => {
       const saved = YAML.parse(
@@ -119,16 +137,23 @@ test('sync adds selected candidates and the shared link check removes invalid ad
   );
   assert.deepEqual(
     savedUrls.sort(),
-    Array.from(
-      { length: 19 },
-      (_, index) =>
-        `https://example.com/manual-${String(index + 1).padStart(2, '0')}`,
-    ),
+    [
+      ...Array.from(
+        { length: 20 },
+        (_, index) =>
+          `https://example.com/manual-${String(index + 1).padStart(2, '0')}`,
+      ),
+      feed[1].url.href,
+    ].sort(),
   );
-  assert.equal(savedUrls.includes(feed[1].url), false);
+  assert.equal(savedUrls.includes(feed[1].url.href), true);
+  await pruneContent({ contentDirectory });
+  const remaining = await readdir(articlesDirectory);
+  assert.equal(remaining.length, 20);
+  assert.ok(remaining.every((file) => file.startsWith('manual-')));
 });
 
-test('sync rejects duplicate saved URLs before feed loading and leaves both files unchanged', async (t) => {
+test('sync rejects duplicate saved URLs and filename collisions without changing content', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
   const entries = [
@@ -172,6 +197,31 @@ test('sync rejects duplicate saved URLs before feed loading and leaves both file
     ),
     originalFiles,
   );
+  await Promise.all(
+    entries.map(([name]) => rm(path.join(articlesDirectory, name))),
+  );
+  const url = 'https://sizu.me/chihiroxx/posts/collision';
+  const filename = `sizu-${createHash('sha256').update(url).digest('hex')}.yaml`;
+  const manual = YAML.stringify({
+    date: '2026-10-01',
+    title: 'Manual',
+    url: 'https://example.com/manual',
+  });
+  await writeFile(path.join(articlesDirectory, filename), manual);
+  await assert.rejects(
+    syncService('sizu', {
+      contentDirectory,
+      feedLoader: async () => [
+        { date: new Date('2026-10-03'), title: 'Collision', url: new URL(url) },
+      ],
+    }),
+    /Filename collision while adding/,
+  );
+  assert.deepEqual(await readdir(articlesDirectory), [filename]);
+  assert.equal(
+    await readFile(path.join(articlesDirectory, filename), 'utf8'),
+    manual,
+  );
 });
 
 test('sync deduplicates identical feed content after fragment normalization regardless of input order', async (t) => {
@@ -187,11 +237,12 @@ test('sync deduplicates identical feed content after fragment normalization rega
   const item = {
     date: new Date('2026-10-03'),
     title: 'Repeated post',
-    url: 'https://sizu.me/chihiroxx/posts/repeated?ref=rss#first',
+    url: new URL('https://sizu.me/chihiroxx/posts/repeated?ref=rss#first'),
   };
   const duplicate = {
     ...item,
-    url: `${item.url.slice(0, item.url.indexOf('#'))}#second`,
+    date: new Date(item.date),
+    url: new URL('#second', item.url),
   };
   const run = (contentDirectory: string, items: (typeof item)[]) =>
     syncService('sizu', {
@@ -201,6 +252,8 @@ test('sync deduplicates identical feed content after fragment normalization rega
 
   await run(forwardDirectory, [item, duplicate]);
   await run(reverseDirectory, [duplicate, item]);
+  assert.equal(item.url.hash, '#first');
+  assert.equal(duplicate.url.hash, '#second');
   const savedEntries = await Promise.all(
     [forwardDirectory, reverseDirectory].map(async (directory) => {
       const articleDirectory = path.join(directory, 'articles');
@@ -226,24 +279,24 @@ test('sync rejects conflicting duplicate feed URLs before file changes', async (
     {
       date: new Date('2026-10-03'),
       title: 'First title',
-      url: 'https://sizu.me/chihiroxx/posts/conflict#first',
+      url: new URL('https://sizu.me/chihiroxx/posts/conflict#first'),
     },
     {
       date: new Date('2026-10-03'),
       title: 'Second title',
-      url: 'https://sizu.me/chihiroxx/posts/conflict#second',
+      url: new URL('https://sizu.me/chihiroxx/posts/conflict#second'),
     },
   ];
   const dateConflict = [
     {
       date: new Date('2026-10-03'),
       title: 'Same title',
-      url: 'https://sizu.me/chihiroxx/posts/date-conflict#first',
+      url: new URL('https://sizu.me/chihiroxx/posts/date-conflict#first'),
     },
     {
       date: new Date('2026-10-02'),
       title: 'Same title',
-      url: 'https://sizu.me/chihiroxx/posts/date-conflict#second',
+      url: new URL('https://sizu.me/chihiroxx/posts/date-conflict#second'),
     },
   ];
   for (const feedItems of [
@@ -272,6 +325,10 @@ test('sync validates saved YAML values with file and field context before loadin
   const file = path.join(contentDirectory, 'articles', filename);
   const cases = [
     { field: 'title', yaml: 'date: 2026-10-03\ntitle: null\n' },
+    {
+      field: 'types',
+      yaml: 'date: 2026-10-03\ntitle: Invalid types\ntypes: []\n',
+    },
     { field: 'YAML', yaml: 'date: [unterminated' },
   ];
 
@@ -296,6 +353,16 @@ test('sync validates saved YAML values with file and field context before loadin
 test('sync applies feed changes without checking item links', async (t) => {
   const contentDirectory = await createContentDirectory(t);
   const articlesDirectory = path.join(contentDirectory, 'articles');
+  for (let index = 1; index <= 20; index += 1) {
+    await writeFile(
+      path.join(articlesDirectory, `hatena-${index}.yaml`),
+      YAML.stringify({
+        date: '2026-10-20',
+        title: `Hatena ${index}`,
+        url: `https://toyo.hatenablog.jp/entry/${index}`,
+      }),
+    );
+  }
   await writeFile(
     path.join(articlesDirectory, 'existing.yaml'),
     YAML.stringify({
@@ -304,28 +371,27 @@ test('sync applies feed changes without checking item links', async (t) => {
       url: 'https://sizu.me/chihiroxx/posts/existing',
     }),
   );
-  const result = await syncService('sizu', {
+  await syncService('sizu', {
     contentDirectory,
     feedLoader: async () => [
       {
         date: new Date('2026-10-02'),
         title: 'Updated title',
-        url: 'https://sizu.me/chihiroxx/posts/existing',
+        url: new URL('https://sizu.me/chihiroxx/posts/existing'),
       },
       {
         date: new Date('2026-10-03'),
         title: 'New item',
-        url: 'https://sizu.me/chihiroxx/posts/new',
+        url: new URL('https://sizu.me/chihiroxx/posts/new'),
       },
       {
         date: new Date('2026-10-04'),
         title: 'Another new item',
-        url: 'https://sizu.me/chihiroxx/posts/another-new',
+        url: new URL('https://sizu.me/chihiroxx/posts/another-new'),
       },
     ],
   });
-  assert.deepEqual(result, { deferred: [], review: [], unchecked: [] });
-  assert.equal((await readdir(articlesDirectory)).length, 3);
+  assert.equal((await readdir(articlesDirectory)).length, 23);
   const saved = YAML.parse(
     await readFile(path.join(articlesDirectory, 'existing.yaml'), 'utf8'),
   );

@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  formatUnverifiedLinks,
-  writeGitHubSummary,
-} from '../scripts/lib/content-cli.ts';
+import { writeGitHubSummary } from '../scripts/lib/content-cli.ts';
 
 test('GitHub summary output is a no-op without a path and writes a random-delimited multiline value', async () => {
   const writes: { path: string; content: string }[] = [];
@@ -42,38 +39,5 @@ test('GitHub summary append errors propagate to the caller', async () => {
       createDelimiter: () => 'DELIMITER',
     }),
     /disk full/,
-  );
-});
-
-test('reports only distinct URLs whose public status could not be verified', () => {
-  const result = {
-    deferred: [
-      { source: 'sizu' as const, url: 'https://sizu.me/deferred' },
-      { source: 'hatena' as const, url: 'https://sizu.me/shared' },
-    ],
-    review: [{ source: 'sizu' as const, url: 'https://sizu.me/review' }],
-    unchecked: [
-      { source: 'sizu' as const, url: 'https://sizu.me/shared' },
-      { source: 'sizu' as const, url: 'https://sizu.me/unchecked' },
-    ],
-  };
-  assert.equal(
-    formatUnverifiedLinks(result),
-    [
-      '公開状態を確認できなかった URL:',
-      '- https://sizu.me/deferred',
-      '- https://sizu.me/shared',
-      '- https://sizu.me/review',
-      '- https://sizu.me/unchecked',
-    ].join('\n'),
-  );
-  assert.equal(
-    formatUnverifiedLinks({
-      ...result,
-      deferred: [],
-      review: [],
-      unchecked: [],
-    }),
-    '公開状態を確認できなかった URL はありません。',
   );
 });

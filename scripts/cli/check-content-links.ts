@@ -1,10 +1,6 @@
-import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { checkContentLinks } from '../lib/check-content-links.ts';
-import {
-  formatUnverifiedLinks,
-  writeGitHubSummary,
-} from '../lib/content-cli.ts';
+import { writeGitHubSummary } from '../lib/content-cli.ts';
+import type { ContentResult } from '../lib/external-content.ts';
 
 function parseArguments(args: string[]): { dryRun: boolean } {
   const options = args[0] === '--' ? args.slice(1) : args;
@@ -12,6 +8,14 @@ function parseArguments(args: string[]): { dryRun: boolean } {
   if (options.length === 1 && options[0] === '--dry-run')
     return { dryRun: true };
   throw new Error('Usage: check-content-links [--dry-run]');
+}
+
+function formatUnverifiedLinks(result: ContentResult): string {
+  const urls = new Set(
+    [...result.unverified, ...result.unchecked].map(({ url }) => url.href),
+  );
+  if (urls.size === 0) return '公開状態を確認できなかった URL はありません。';
+  return `公開状態を確認できなかった URL:\n${[...urls].map((url) => `- ${url}`).join('\n')}`;
 }
 
 async function main(): Promise<void> {
@@ -22,10 +26,7 @@ async function main(): Promise<void> {
   await writeGitHubSummary(summary);
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
-) {
+if (import.meta.main) {
   try {
     await main();
   } catch (error) {

@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildCollectionIndex,
   findSource,
   getService,
   isSource,
   type Service,
+  type StoredEntry,
   validateContentUrl,
 } from '../scripts/lib/external-content.ts';
 
@@ -105,4 +107,119 @@ test('validateContentUrl rejects mismatched service settings and accepts equival
       /Unexpected .* content URL/,
     );
   }
+});
+
+function storedEntry(
+  id: string,
+  date: string,
+  title: string,
+  url: string,
+  types?: string[],
+): StoredEntry {
+  return {
+    file: `/repo/src/content/articles/${id}`,
+    id,
+    data: {
+      date: new Date(date),
+      title,
+      url: new URL(url),
+      ...(types ? { types } : {}),
+    },
+  };
+}
+
+test('collection ownership remains host and path based even when URL transport needs verification', () => {
+  const index = buildCollectionIndex('articles', [
+    storedEntry(
+      'legacy-http.yaml',
+      '2026-10-01',
+      'Legacy HTTP',
+      'http://sizu.me/chihiroxx/posts/legacy',
+    ),
+  ]);
+  assert.equal(index.entries[0]?.source, 'sizu');
+});
+
+test('buildCollectionIndex normalizes URLs and rejects stored duplicates', () => {
+  const index = buildCollectionIndex('articles', [
+    storedEntry(
+      'sizu.yaml',
+      '2026-10-01',
+      'Sizu',
+      'https://sizu.me/chihiroxx/posts/one?ref=feed#section',
+    ),
+    storedEntry('manual.yaml', '2026-10-02', 'Manual', 'https://example.com/a'),
+  ]);
+
+  assert.ok(index.entries[0]?.url instanceof URL);
+  assert.equal(
+    index.byUrl.has('https://sizu.me/chihiroxx/posts/one?ref=feed'),
+    true,
+  );
+  assert.throws(
+    () =>
+      buildCollectionIndex('articles', [
+        storedEntry(
+          'one.yaml',
+          '2026-10-01',
+          'One',
+          'https://sizu.me/chihiroxx/posts/one#first',
+        ),
+        storedEntry(
+          'two.yaml',
+          '2026-10-02',
+          'Two',
+          'https://sizu.me/chihiroxx/posts/one#second',
+        ),
+      ]),
+    /articles URL is duplicated in one.yaml and two.yaml/,
+  );
+});
+
+test('source ownership matches host, account path, and collection while preserving stored URL transport', () => {
+  const cases = [
+    ['articles', 'https://sizu.me/chihiroxx/posts/one?ref=rss#section', 'sizu'],
+    ['articles', 'https://toyo.hatenablog.jp/entry/one', 'hatena'],
+    ['talks', 'https://speakerdeck.com/chiroruxx/one', 'speakerdeck'],
+    ['articles', 'http://sizu.me/chihiroxx/posts/one', 'sizu'],
+    ['articles', 'https://sizu.me/other/posts/one', undefined],
+    ['articles', 'https://sizu.me/chihiroxx/', undefined],
+    ['articles', 'https://example.com/chihiroxx/posts/one', undefined],
+    ['talks', 'https://sizu.me/chihiroxx/posts/one', undefined],
+    ['articles', 'https://speakerdeck.com/chiroruxx/one', undefined],
+  ] as const;
+  for (const [collection, url, source] of cases) {
+    const index = buildCollectionIndex(collection, [
+      storedEntry('one.yaml', '2026-10-01', 'One', url),
+    ]);
+    assert.equal(index.entries[0]?.source, source);
+  }
+});
+
+test('buildCollectionIndex removes fragments from comparison URLs, preserves queries, and leaves stored entries unchanged', () => {
+  const urls = [
+    'https://sizu.me/chihiroxx/posts/one?ref=first#section',
+    'https://sizu.me/chihiroxx/posts/one?ref=second#section',
+  ];
+  const entries = urls.map((url, index) =>
+    storedEntry(`${index}.yaml`, '2026-10-01', 'One', url),
+  );
+  const index = buildCollectionIndex('articles', entries);
+  const expected = [
+    'https://sizu.me/chihiroxx/posts/one?ref=first',
+    'https://sizu.me/chihiroxx/posts/one?ref=second',
+  ];
+  assert.deepEqual(
+    index.entries.map(({ url }) => url?.href),
+    expected,
+  );
+  assert.deepEqual([...index.byUrl.keys()], expected);
+  assert.deepEqual(
+    index.entries.map(({ source }) => source),
+    ['sizu', 'sizu'],
+  );
+  assert.deepEqual(
+    entries.map(({ data }) => data.url?.href),
+    urls,
+  );
 });

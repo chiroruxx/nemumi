@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
@@ -43,7 +43,6 @@ const checkContentLinksAction = './.github/actions/check-content-links';
 test('content workflows checkout trusted main and use read-only workflow permissions', async () => {
   for (const [file, jobName] of [
     ['.github/workflows/update-content.yml', 'sync'],
-    ['.github/workflows/prune-content.yml', 'prune'],
   ] as const) {
     const workflow = await yamlFile(file);
     const permissions = mapping(workflow.permissions, `${file} permissions`);
@@ -81,7 +80,7 @@ test('content workflows checkout trusted main and use read-only workflow permiss
   }
 });
 
-test('update workflow validates the selected service and runs syncs serially before shared link check and one PR', async () => {
+test('update workflow validates the selected service and runs syncs serially before shared link check, pruning, and one PR', async () => {
   const workflow = await yamlFile('.github/workflows/update-content.yml');
   const on = mapping(workflow.on, 'on');
   const schedule = sequence(on.schedule, 'update schedule');
@@ -126,7 +125,21 @@ test('update workflow validates the selected service and runs syncs serially bef
     (step) => step.uses === contentPullRequestAction,
   );
   assert.ok(checkIndex > Math.max(...syncIndexes));
-  assert.ok(prIndex > checkIndex);
+  const pruneIndex = commands.indexOf('mise run prune-content');
+  assert.ok(pruneIndex > checkIndex);
+  assert.ok(prIndex > pruneIndex);
+  assert.equal(steps[checkIndex]?.if, undefined);
+  assert.equal(steps[pruneIndex]?.if, undefined);
+  assert.equal(
+    commands.filter((command) => command === 'mise run prune-content').length,
+    1,
+  );
+  assert.deepEqual(
+    (await readdir('.github/workflows')).filter((file) =>
+      file.endsWith('-content.yml'),
+    ),
+    ['update-content.yml'],
+  );
   assert.equal(
     steps.filter((step) => step.uses === contentPullRequestAction).length,
     1,
@@ -154,55 +167,6 @@ test('update workflow validates the selected service and runs syncs serially bef
   assert.deepEqual(Object.keys(jobs), ['sync']);
   const sync = mapping(jobs.sync, 'sync job');
   assert.equal(sync['timeout-minutes'], 40);
-  const concurrency = mapping(workflow.concurrency, 'workflow concurrency');
-  assert.equal(concurrency.group, 'content-automation-main');
-  assert.equal(concurrency['cancel-in-progress'], false);
-});
-
-test('prune workflow checks links before applying the item cap and creating one PR', async () => {
-  const workflow = await yamlFile('.github/workflows/prune-content.yml');
-  const on = mapping(workflow.on, 'on');
-  const schedule = sequence(on.schedule, 'prune schedule');
-  assert.equal(mapping(schedule[0], 'prune cron').cron, '17 22 * * *');
-  assert.ok(Object.hasOwn(on, 'workflow_dispatch'));
-
-  const steps = workflowSteps(workflow, 'prune');
-  const pruneIndex = steps.findIndex((step) =>
-    String(step.run).includes('mise run prune-content'),
-  );
-  const checkIndex = steps.findIndex(
-    (step) => step.uses === checkContentLinksAction,
-  );
-  const prIndex = steps.findIndex(
-    (step) => step.uses === contentPullRequestAction,
-  );
-  assert.ok(checkIndex >= 0 && pruneIndex > checkIndex && prIndex > pruneIndex);
-  assert.equal(
-    steps.filter((step) => step.uses === contentPullRequestAction).length,
-    1,
-  );
-  assert.equal(
-    steps.some((step) => step['continue-on-error'] === true),
-    false,
-  );
-  assert.equal(steps[checkIndex]?.if, undefined);
-  assert.equal(steps[pruneIndex]?.if, undefined);
-  assert.equal(steps[prIndex]?.if, undefined);
-  assert.equal(
-    steps[prIndex]?.with && mapping(steps[prIndex]?.with, 'PR inputs').summary,
-    expression('steps.check-links.outputs.summary'),
-  );
-  assert.equal(
-    mapping(steps[prIndex]?.with, 'PR inputs').description,
-    '無効リンクを除去してからディレクトリごとの保持件数を適用します。',
-  );
-  assert.equal(
-    mapping(workflow.jobs, 'jobs').prune &&
-      mapping(mapping(workflow.jobs, 'jobs').prune, 'prune job')[
-        'timeout-minutes'
-      ],
-    10,
-  );
   const concurrency = mapping(workflow.concurrency, 'workflow concurrency');
   assert.equal(concurrency.group, 'content-automation-main');
   assert.equal(concurrency['cancel-in-progress'], false);

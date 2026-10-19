@@ -3,14 +3,10 @@ import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { checkContentLinks } from '../scripts/lib/check-content-links.ts';
-import type { ContentResult } from '../scripts/lib/external-content.ts';
 import { syncService } from '../scripts/lib/sync-content.ts';
 import { createContentDirectory } from './helpers/content-fixture.ts';
 
-const executions: [
-  string,
-  (contentDirectory: string) => Promise<ContentResult>,
-][] = [
+const executions: [string, (contentDirectory: string) => Promise<unknown>][] = [
   [
     'sync',
     (contentDirectory) =>
@@ -37,11 +33,7 @@ for (const [name, run] of executions) {
     const setTimer = t.mock.method(globalThis, 'setTimeout');
     const clearTimer = t.mock.method(globalThis, 'clearTimeout');
 
-    assert.deepEqual(await run(contentDirectory), {
-      deferred: [],
-      review: [],
-      unchecked: [],
-    });
+    await run(contentDirectory);
     assert.equal(setTimer.mock.calls.length, 1);
     assert.equal(clearTimer.mock.calls.length, 1);
     assert.equal(

@@ -66,13 +66,16 @@ jobs:
         id: check-links
         uses: ./.github/actions/check-content-links
 
+      - name: Prune saved content
+        run: mise run prune-content
+
       - name: Create or update content pull request
         uses: ./.github/actions/content-pull-request
         with:
           branch: automation/update-content
-          commit-message: 'chore(content): sync external content'
-          title: コンテンツを同期
-          description: RSS の内容を同期します。
+          commit-message: 'chore(content): update external content'
+          title: コンテンツを更新
+          description: RSS を同期し、無効リンクの除去とディレクトリごとの保持件数の整理を行います。
           summary: ${{ steps.check-links.outputs.summary }}
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}

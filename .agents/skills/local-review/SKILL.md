@@ -7,9 +7,10 @@ description: Use for an independent, read-only review of a completed project req
 
 Use an independent reviewer in a fresh context. When the client can select the named
 `local-reviewer` agent, use it. If named-agent selection is unavailable, start a fresh
-Luna subagent and explicitly give it the `local-reviewer` role: follow this skill's
-criteria, do not edit files, and review only the supplied scope. Do not replace the
-independent review with a self-review in the implementation thread.
+subagent using the client's model configuration and explicitly give it the
+`local-reviewer` role: follow this skill's criteria, do not edit files, and review
+only the supplied scope. Do not replace the independent review with a self-review
+in the implementation thread.
 
 1. For a requirements document, provide the completed document, its relevant decisions, and any context needed to assess scope. Run before implementation begins.
 2. For code, provide the feature-sized diff from the immediately preceding stacked PR base, its requirement source, and the relevant callers and tests. Include uncommitted or untracked changes only when they are part of the review. Run after the feature is complete and before preparing the PR. Skip formatting-only changes; do not re-review earlier stack diffs.

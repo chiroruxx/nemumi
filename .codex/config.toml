@@ -1,2 +1,12 @@
-  [mcp_servers.phpstorm]
-    url = "http://127.0.0.1:64442/stream"
+#:schema https://developers.openai.com/codex/config-schema.json
+
+# Keep Codex-specific collaboration guidance out of AGENTS.md, which applies to all coding agents.
+developer_instructions = """
+For repository work, coordinate and review the task; delegate implementation and execution to Luna subagents, then verify their changes before reporting.
+"""
+
+[agents]
+default_subagent_model = "gpt-6-luna"
+
+[mcp_servers.phpstorm]
+url = "http://127.0.0.1:64442/stream"

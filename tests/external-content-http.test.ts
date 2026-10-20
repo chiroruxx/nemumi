@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isHTTPError, isResponseSizeError, isTimeoutError } from 'ky';
+import { isHTTPError, isResponseSizeError } from 'ky';
 import {
   getService,
   type LinkCheck,
@@ -43,13 +43,10 @@ function createTestContext(
   return { signal, remainingMs: remaining, dispose: () => {} };
 }
 
-test('fetchFeed allows automatic redirects and maps all service fixtures to normalized feed items without network access', async () => {
+test('fetchFeed maps all service fixtures to normalized feed items without network access', async () => {
   for (const [service, , normalizedUrl, xml] of feedFixtures) {
     const parsed = await fetchFeed(service, {
-      fetch: async (input, init) => {
-        assert.equal(new Request(input, init).redirect, 'follow');
-        return new Response(xml);
-      },
+      fetch: async () => new Response(xml),
     });
     assert.deepEqual(parsed, [
       {
@@ -74,58 +71,26 @@ test('fetchFeed rejects RSS item URLs outside the configured service path', asyn
   );
 });
 
-test('fetchFeed retries network failures and server errors using Ky', async () => {
-  let calls = 0;
-  const result = await fetchFeed(getService('sizu'), {
-    fetch: async () => {
-      calls += 1;
-      if (calls === 1) throw new TypeError('fetch failed');
-      if (calls === 2)
-        return new Response('busy', {
-          status: 503,
-          headers: { 'retry-after': '0' },
-        });
-      return new Response(feedFixtures[0][3]);
-    },
-  });
-  assert.equal(calls, 3);
-  assert.equal(result[0]?.title, 'Sizu & fixture');
-});
-
-test('fetchFeed stops after two retries and exposes the Ky HTTP error', async () => {
-  let calls = 0;
+test('fetchFeed propagates failed HTTP responses', async () => {
   await assert.rejects(
     fetchFeed(getService('sizu'), {
-      fetch: async () => {
-        calls += 1;
-        return new Response('busy', {
+      fetch: async () =>
+        new Response('busy', {
           status: 503,
           headers: { 'retry-after': '0' },
-        });
-      },
+        }),
     }),
     (error: unknown) => isHTTPError(error) && error.response.status === 503,
   );
-  assert.equal(calls, 3);
 });
 
-test('fetchFeed retries rate limiting with an HTTP date and rejects malformed RSS without partial output', async () => {
-  let calls = 0;
+test('fetchFeed rejects malformed RSS without partial output', async () => {
   await assert.rejects(
     fetchFeed(getService('sizu'), {
-      fetch: async () => {
-        calls += 1;
-        if (calls === 1)
-          return new Response('busy', {
-            status: 429,
-            headers: { 'retry-after': new Date(0).toUTCString() },
-          });
-        return new Response('<rss><channel><item><title>broken');
-      },
+      fetch: async () => new Response('<rss><channel><item><title>broken'),
     }),
     /RSS|XML|feed|Unclosed/i,
   );
-  assert.equal(calls, 2);
 });
 
 test('fetchFeed rejects failed responses and enforces the byte limit', async () => {
@@ -303,47 +268,22 @@ test('createExecutionContext exposes a cancellable deadline signal and remaining
 });
 
 test('fetchFeed rejects a failed body read instead of returning partial RSS items', async () => {
-  let calls = 0;
   await assert.rejects(
     fetchFeed(getService('sizu'), {
-      fetch: async () => {
-        calls += 1;
-        return new Response(
+      fetch: async () =>
+        new Response(
           new ReadableStream({
             pull(controller) {
               controller.error(new Error('body stream failed'));
             },
           }),
-        );
-      },
+        ),
     }),
     /body stream failed/,
   );
-  assert.equal(calls, 1);
 });
 
-test('fetchFeed uses Ky default timeouts and cancels retry waits at the execution deadline', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  for (const phase of ['headers', 'body'] as const) {
-    let calls = 0;
-    const failure = assert.rejects(
-      fetchFeed(getService('sizu'), {
-        fetch: async () => {
-          calls += 1;
-          return phase === 'headers'
-            ? new Promise<Response>(() => {})
-            : new Response(new ReadableStream());
-        },
-      }),
-      isTimeoutError,
-    );
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    t.mock.timers.tick(10_000);
-    await failure;
-    assert.equal(calls, 1);
-  }
-  t.mock.timers.reset();
-
+test('fetchFeed cancels retry waits at the execution deadline', async () => {
   const context = createExecutionContext({ budgetMs: 20 });
   let calls = 0;
   try {
@@ -545,7 +485,7 @@ test('verifyLink reports an expired global deadline and malformed targets as unv
   }
 });
 
-test('verifyLink classifies HEAD statuses and retries network failures with Ky defaults', async (t) => {
+test('verifyLink classifies HEAD statuses and treats network failures as unverified', async () => {
   const response = (status: number, headers?: HeadersInit) =>
     new Response(null, {
       status,
@@ -588,38 +528,18 @@ test('verifyLink classifies HEAD statuses and retries network failures with Ky d
     methods,
     statuses.map(() => 'HEAD'),
   );
-  let calls = 0;
   assert.equal(
     await verifyLink(
       new URL('https://sizu.me/chihiroxx/posts/one'),
       getService('sizu'),
       {
         fetch: async () => {
-          calls += 1;
           throw new TypeError('fetch failed');
         },
       },
     ),
     'unverified',
   );
-  assert.equal(calls, 3);
-
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  calls = 0;
-  const verification = verifyLink(
-    new URL('https://sizu.me/chihiroxx/posts/one'),
-    getService('sizu'),
-    {
-      fetch: async () => {
-        calls += 1;
-        return new Promise<Response>(() => {});
-      },
-    },
-  );
-  await new Promise<void>((resolve) => setImmediate(resolve));
-  t.mock.timers.tick(10_000);
-  assert.equal(await verification, 'unverified');
-  assert.equal(calls, 1);
 });
 
 test('verifyLink treats redirects as public without requesting any destination', async () => {

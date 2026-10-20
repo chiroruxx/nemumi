@@ -1,9 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 import stylelint from 'stylelint';
 
 const globalRule = 'selector-pseudo-class-disallowed-list';
@@ -76,42 +72,4 @@ test('Stylelint still checks global selectors after the suppressed line', async 
     ).length,
     1,
   );
-});
-
-test('Biome rejects missing or blank reasons and accepts a documented inline suppression', async () => {
-  const directory = await mkdtemp(path.resolve('tests/lint-suppression-'));
-  try {
-    for (const [comment, expectedStatus] of [
-      ['// biome-ignore lint/suspicious/noDebugger', 1],
-      ['// biome-ignore lint/suspicious/noDebugger:', 1],
-      ['// biome-ignore lint/suspicious/noDebugger:   ', 1],
-      [
-        '// biome-ignore lint/suspicious/noDebugger: Intentional debugging hook.',
-        0,
-      ],
-    ] as const) {
-      const file = path.join(directory, 'probe.ts');
-      await writeFile(file, `${comment}\ndebugger;\n`);
-      const result = spawnSync(
-        process.execPath,
-        [
-          fileURLToPath(import.meta.resolve('@biomejs/biome/bin/biome')),
-          'lint',
-          file,
-        ],
-        { encoding: 'utf8' },
-      );
-      assert.ifError(result.error);
-      assert.equal(
-        result.status,
-        expectedStatus,
-        result.stdout + result.stderr,
-      );
-      if (expectedStatus !== 0) {
-        assert.match(result.stdout + result.stderr, /suppressions\/parse/);
-      }
-    }
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
 });

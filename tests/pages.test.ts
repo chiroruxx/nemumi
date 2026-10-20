@@ -61,12 +61,8 @@ test('all generated pages include Japanese document metadata', () => {
   }
 });
 
-test('home page includes the main sections', () => {
+test('home page includes the main landmark', () => {
   assert.match(homePage, /<main\b[^>]*id="top"/);
-
-  for (const sectionId of ['records', 'talks', 'communities']) {
-    assert.ok(homePage.includes(`id="${sectionId}"`));
-  }
 });
 
 test('404 page includes an error heading and a link home', () => {

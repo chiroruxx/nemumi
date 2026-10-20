@@ -1,6 +1,6 @@
-import type { KnipConfig } from 'knip';
+import type { KnipConfiguration } from 'knip';
 
-export default (args: { production?: boolean }): KnipConfig => ({
+export default (args: { production?: boolean }): KnipConfiguration => ({
   entry: ['scripts/cli/*.ts!', 'src/pages/**/*.{astro,mdx,js,ts}!'],
   project: ['**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts,astro}!', '!tests/**!'],
   ignoreDependencies: [

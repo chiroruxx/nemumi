@@ -230,6 +230,21 @@ test('Codex hook checks unknown edit paths read-only, caches successful content,
     assert.equal((await logLines()).length, 6);
     assert.ok((await logLines()).at(-1)?.includes('--write'));
     assert.ok((await logLines()).at(-1)?.includes('src/new.ts'));
+
+    await writeFile(
+      path.join(repository, 'src', 'move-target.ts'),
+      'export const moved = true;\n',
+    );
+    await rm(path.join(repository, 'src', 'moved.ts'));
+    runHook(
+      event(
+        'apply_patch',
+        '*** Begin Patch\n*** Update File: src/moved.ts\n*** Move to: src/move-target.ts\n@@\n-export const renamed = true;\n+export const moved = true;\n*** End Patch',
+      ),
+    );
+    assert.equal((await logLines()).length, 7);
+    assert.ok((await logLines()).at(-1)?.includes('--write'));
+    assert.ok((await logLines()).at(-1)?.includes('src/move-target.ts'));
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }

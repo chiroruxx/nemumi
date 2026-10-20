@@ -37,9 +37,10 @@ function directEditPaths(event) {
   const command = event.tool_input?.command ?? '';
   return [
     ...new Set(
-      [...command.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)].map(
-        (match) => match[1].trim(),
-      ),
+      [
+        ...command.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm),
+        ...command.matchAll(/^\*\*\* Move to: (.+)$/gm),
+      ].map((match) => match[1].trim()),
     ),
   ];
 }

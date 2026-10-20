@@ -27,17 +27,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: mise run lint
-
-      - name: Type check
-        run: pnpm check
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
+      - name: Quality checks
+        run: mise run ci
 
   lighthouse:
     name: Lighthouse CI

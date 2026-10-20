@@ -59,3 +59,7 @@ run = "pnpm test"
 [tasks.lighthouse-ci]
 description = "Lighthouse CI でビルド成果物を検査する"
 run = "pnpm lighthouse:ci"
+
+[tasks.ci]
+description = "CI と push 前に lint、型チェック、テスト、build を実行する"
+run = "mise run lint && mise run check && mise run test && mise run build"

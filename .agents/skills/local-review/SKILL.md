@@ -1,34 +1,29 @@
 ---
 name: local-review
-description: Use for an independent, read-only review of a completed project requirements document or a feature-sized code change before implementation or PR creation.
+description: 実装前の要件文書や PR 作成前の機能単位の変更を、読み取り専用で独立レビューする際に使う。
 ---
 
-# Local review
+# ローカルレビュー
 
-Use an independent reviewer in a fresh context. When the client can select the named
-`local-reviewer` agent, use it. If named-agent selection is unavailable, start a fresh
-subagent using the client's model configuration and explicitly give it the
-`local-reviewer` role: follow this skill's criteria, do not edit files, and review
-only the supplied scope. Do not replace the independent review with a self-review
-in the implementation thread.
+新しい文脈で独立したレビュー担当を使う。名前付きの `local-reviewer` エージェントを選べる場合はそれを使う。選べない場合は、利用中のクライアントのモデル設定に従って新しいサブエージェントを起動し、この手順書の基準に従う `local-reviewer` の役割と、ファイルを編集せず指定範囲だけをレビューすることを明示する。実装担当自身のレビューで独立レビューを代用しない。
 
-1. For a requirements document, provide the completed document, its relevant decisions, and any context needed to assess scope. Run before implementation begins.
-2. For code, provide the feature-sized diff from the immediately preceding stacked PR base, its requirement source, and the relevant callers and tests. Include uncommitted or untracked changes only when they are part of the review. Run after the feature is complete and before preparing the PR. Skip formatting-only changes; do not re-review earlier stack diffs.
-3. Ask the reviewer to read this skill, inspect only relevant code paths, and report evidence-based findings without editing files.
-4. Review each finding against the actual requirement and behavior. Fix only confirmed required issues; treat optional simplification suggestions as choices for the implementer.
+1. 要件文書をレビューするときは、完成した文書、関連する決定、範囲の評価に必要な背景を渡す。実装開始前に実施する。
+2. コードをレビューするときは、PR stack で直前のPRをベースとする機能単位の差分、要件の根拠、関連する呼び出し元とテストを渡す。レビュー対象に含める場合に限り、未コミット・未追跡の変更も含める。機能が完成し、PR を準備する前に実施する。整形のみの変更は対象外とし、PR stack 内の以前の変更を再レビューしない。
+3. この手順書を読み、関連するコード経路だけを調べ、ファイルを編集せず根拠に基づいて指摘するようレビュー担当に依頼する。
+4. 各指摘を実際の要件と振る舞いに照らして確認する。必要な問題だと確認できたものだけを修正し、任意の簡素化案は実装者の判断に委ねる。
 
-## Review criteria
+## レビュー基準
 
-Check only what the supplied scope can establish:
+渡された範囲から確認できる次の点だけを評価する。
 
-- Whether documented behavior is clearly classified as required, deferred, or implementation discretion, and whether the change preserves required behavior.
-- Whether shared logic is backed by actual values and call paths, rather than similar signatures or names alone.
-- Whether standard APIs or existing dependencies already satisfy the requirement.
-- Whether a contract change leaves obsolete conversions, lookups, validation, configuration, return data, exports, or helpers behind.
-- Whether tests protect observable contracts without following private implementation details or adding exports only for tests.
+- 文書の振る舞いが必須要件・未採用候補・実装裁量に明確に分類され、変更が必須要件を保っているか。
+- 共通処理が、似た関数シグネチャや名前だけでなく、実際の値と呼び出し経路で裏付けられているか。
+- 標準 API や既存の依存関係で要件を満たせるか。
+- 契約変更後に不要な変換、検索、検証、設定、返却値、エクスポート、補助関数が残っていないか。
+- テストが内部実装をなぞらず、観測可能な契約を保護しているか。また、テストのためだけにエクスポートを追加していないか。
 
-Report a finding only when the evidence shows a concrete problem. Include file and line, triggering condition, requirement or behavior at risk, and impact. Label it either **Required correction** or **Optional simplification**. It is valid to return no findings. Do not object to an abstraction only because it has one caller; a useful name such as `sameContent` can clarify intent, and a one-line adapter such as a sleep wrapper can preserve a meaningful boundary. Do not treat style or speculative future use as a defect.
+具体的な問題を根拠で示せる場合だけ指摘する。ファイルと行、発生条件、影響を受ける要件または振る舞い、影響を記載し、**必須修正（Required correction）**または**任意の簡素化（Optional simplification）**に分類する。根拠に該当する問題がなければ、指摘なしと報告してよい。呼び出し元が一つという理由だけで抽象化に反対しない。`sameContent` のような有用な名前や、意味のある境界を保つ1行のアダプターは維持できる。スタイル上の好みや将来に関する推測を欠陥として扱わない。
 
-## Maintaining this skill
+## この手順書の評価
 
-To evaluate the review behavior, read [the evaluation prompts](references/evaluation-prompts.md) and [the separate expectations](references/evaluation-expectations.md). Give the reviewer only one prompt fixture and its relevant code or document at a time. Never provide the expectations file to the reviewer.
+レビューの振る舞いを評価するときは、[評価用の指示文](references/evaluation-prompts.md)と[個別の期待結果](references/evaluation-expectations.md)を読む。各回でレビュー担当に渡すのは、1つの指示文と、その対象となるコードまたは文書だけにする。期待結果ファイルはレビュー担当に渡さない。

@@ -17,12 +17,13 @@
 - サイト全体またに適用される技術・設計方針を決定したら、`docs/adr` に ADR（Architecture Decision Record）を追加する。
     - ファイル名は `YYYY-MM-DD-<内容を表す英語のスラッグ>.md` とする。日付は決定日とし、更新時も変更しない。同日の ADR
       はスラッグで区別する。
-    - フォーマットは既存の ADR に合わせる。
+    - [テンプレート](docs/adr/template.md)を使う。
     - ADR には設計の決定とその背景・理由を記載し、機能の仕様や具体的な設定値・処理手順は記載しない。
       仕様は対応するドキュメントやコード・テストで管理する。
     - 個別ページの実装詳細や一時的な作業手順は ADR にせず、必要なドキュメントやコードに記載する。
     - 新規ライブラリの導入やアーキテクチャ（ディレクトリ）構成の変更の際は追加する。
     - ただのリファクタリングや機能実装で追加してはいけない。
+- ADR の作成・変更後、PR 作成前に[ローカルレビュー](.agents/skills/local-review/SKILL.md)を使い、テンプレートへの準拠を確認する。
 - ADR 以外のドキュメントには仕様や決定内容を記載し、設計上の背景・理由は該当する ADR へリンクする。
 
 ## README
@@ -32,7 +33,8 @@
 
 ## コード
 
-- 実装手順は [implementation-workflow skill](.agents/skills/implementation-workflow/SKILL.md) を参照する。プロジェクト文書では必須要件・未採用候補・実装裁量を区別し、未採用候補は採用が決まるまで実装しない。
+- 実装手順は [implementation-workflow skill](.agents/skills/implementation-workflow/SKILL.md)
+  を参照する。プロジェクト文書では必須要件・未採用候補・実装裁量を区別し、未採用候補は採用が決まるまで実装しない。
 - 重要なプロジェクト要件文書の完成後・実装前と、機能単位の実装完了後・PR 作成前（整形のみを除く）に、
   [local-review skill](.agents/skills/local-review/SKILL.md) を使って別 context のレビューを依頼する。
 - 必須要件を満たすため、標準 API と既存依存を先に確認する。契約変更で不要になった処理も同じ変更で整理する。

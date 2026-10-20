@@ -1,6 +1,8 @@
 allowBuilds:
   esbuild: true
   workerd: true
+  # Hook installation runs explicitly from scripts/setup.sh, never during dependency installation.
+  lefthook: false
 # tmp is pinned to a patched release because Lighthouse CI's transitive versions are vulnerable to path traversal.
 overrides:
   tmp: 0.2.7

@@ -1,28 +1,28 @@
 ---
 name: implementation-workflow
-description: Use when planning or implementing repository changes, especially when turning a project document into code or refactoring existing behavior.
+description: プロジェクト文書から実装へ移る際に、要件の分類や既存の振る舞いを保った変更を進めるために使う。
 ---
 
-# Implementation workflow
+# 実装ワークフロー
 
-Use this workflow for feature work and refactoring. Follow repository `AGENTS.md` for its testing, formatting, lint, type-check, naming, and ADR requirements.
+機能実装やリファクタリングでは、この手順を使う。テスト、整形、Lint、型チェック、命名、ADRに関するリポジトリの要件は `AGENTS.md` に従う。
 
-## Before implementation
+## 実装前
 
-1. Read the relevant project document and nearby code, tests, and existing decisions.
-2. In the project document, make the scope clear by separating:
-   - **Required behavior**: conditions the implementation and its acceptance checks must satisfy.
-   - **Deferred candidates**: useful possibilities that are explicitly outside this change. Do not implement them unless they are promoted to required behavior.
-   - **Implementation discretion**: choices that may vary as long as required behavior is preserved.
-3. Treat existing settled behavior as required unless the user explicitly changes it. Do not turn implementation details into requirements without a reason.
-4. For each requirement that may drive complexity, identify its observable acceptance condition. If an important choice is unresolved and changes that condition, ask before implementing the dependent behavior; continue independent work.
-5. Check the runtime's standard APIs and existing dependencies before adding custom machinery or overriding their defaults. Preserve special behavior only when a required condition depends on it.
-6. For refactoring, identify existing tests that protect the behavior being changed and run them before editing. Add tests before implementation only for behavior not covered by those tests, then confirm the baseline passes.
+1. 対応するプロジェクト文書と、関連するコード、テスト、既存の決定を読む。
+2. プロジェクト文書で変更範囲を明確にし、次の分類ごとに具体的な項目を列挙する。
+   - **必須要件**: 実装と受け入れ確認で満たす振る舞い。
+   - **未採用候補**: 役立つ可能性があるものの、今回の範囲外とした項目。必須要件に変更されるまで実装しない。
+   - **実装裁量**: 必須要件を満たす限り、異なる選択が可能な事項。
+3. 既存の確定した振る舞いは、ユーザーが明示的に変更しない限り必須要件として扱う。理由なく内部実装の詳細を新たな要件にしない。
+4. 複雑さに影響する各要件について、外から確認できる受け入れ条件を特定する。重要な選択が未決で条件が変わる場合は、依存する実装に入る前に確認し、独立して進められる作業は続ける。
+5. 独自の仕組みを追加したり標準の既定動作を上書きしたりする前に、標準APIと既存依存で要件を満たせるか確認する。特別な動作は、必須要件が必要とする場合に限って残す。
+6. リファクタリングでは、変更する振る舞いを保護している既存テストを特定し、編集前に実行する。未確認の振る舞いに限って先にテストを追加し、変更前の状態で成功することを確認する。
 
-## During and after implementation
+## 実装中・完了時
 
-- Implement required behavior; leave deferred candidates out of scope.
-- When a contract, type, dependency, or call graph changes, inspect its callers and remove machinery made unnecessary by that change, including pass-through conversions, repeated searches, redundant validation, settings, return data, exports, and helpers.
-- Keep abstractions when their name or boundary expresses a useful concept; call count alone does not determine whether a helper is useful.
-- Test behavior through the entry point that owns the contract. Test exported functions' behavior directly according to the repository rule, but do not export internals solely to reach them from tests.
-- Before finishing, compare the diff with the required behavior and deferred candidates. Explain any added abstraction, custom default, defensive branch, or extra state in terms of a requirement. Run the repository's required checks.
+- 必須要件を実装し、未採用候補は範囲外に保つ。
+- 契約、型、依存関係、呼び出し関係を変えたら利用側を確認し、不要になった変換、重複検索、冗長な検証、設定、返却値、export、補助関数を同じ変更で整理する。
+- 有用な概念や境界を表す抽象化は維持する。呼び出し回数だけで不要と判断しない。
+- 契約を持つ公開入口から振る舞いをテストする。リポジトリの規則に従ってexport関数も直接テストするが、テストから呼ぶためだけに内部関数をexportしない。
+- 完了前にdiffを必須要件と未採用候補に照らして見直す。追加した抽象化、既定値、条件分岐、状態には根拠となる要件を示し、リポジトリで必要な検査を実行する。

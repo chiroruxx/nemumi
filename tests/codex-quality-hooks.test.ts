@@ -250,62 +250,173 @@ test('Codex hook checks unknown edit paths read-only, caches successful content,
   }
 });
 
-test('Git hook installer runs only in an independent repository and preserves existing hooks', async () => {
+test('setup.sh installs Lefthook hooks, stays idempotent, and preserves existing hooks', async () => {
   const temporaryRoot = await mkdtemp(
     path.join(os.tmpdir(), 'nemumi-git-hook-'),
   );
   const repository = path.join(temporaryRoot, 'repo');
+  const existingRepository = path.join(temporaryRoot, 'existing-repo');
+  const fakeMise = await installFakeMise(temporaryRoot);
+  const fakeHome = path.join(temporaryRoot, 'fake-home');
+  const userBin = path.join(fakeHome, '.local', 'bin');
+  const fakePnpm = path.join(fakeMise.bin, 'pnpm');
+  const lefthook = path.join(
+    repositoryRoot,
+    'node_modules',
+    '.bin',
+    'lefthook',
+  );
+  const setup = path.join(repositoryRoot, 'scripts', 'setup.sh');
+  const config = path.join(repositoryRoot, '.lefthook.yml');
 
   try {
     await mkdir(repository);
-    command('git', ['init', '--quiet'], repository);
-    command('git', ['config', 'core.hooksPath', '.custom-hooks'], repository);
-    await mkdir(path.join(repository, '.githooks'), { recursive: true });
-    await mkdir(path.join(repository, 'scripts'), { recursive: true });
-    await copyFile(
-      path.join(repositoryRoot, '.githooks', 'pre-push'),
-      path.join(repository, '.githooks', 'pre-push'),
-    );
-    await copyFile(
-      path.join(repositoryRoot, 'scripts', 'setup-git-hooks.sh'),
-      path.join(repository, 'scripts', 'setup-git-hooks.sh'),
-    );
-
-    const fakeMise = await installFakeMise(temporaryRoot);
-    const fakeHome = path.join(temporaryRoot, 'fake-home');
-    const userBin = path.join(fakeHome, '.local', 'bin');
     await mkdir(userBin, { recursive: true });
     await copyFile(path.join(fakeMise.bin, 'mise'), path.join(userBin, 'mise'));
     await chmod(path.join(userBin, 'mise'), 0o755);
-    command('bash', ['scripts/setup-git-hooks.sh'], repository);
-    const installedHook = path.join(repository, '.custom-hooks', 'pre-push');
-    assert.ok(
-      (await readFile(installedHook, 'utf8')).includes('Installed by nemumi'),
+    await writeFile(
+      fakePnpm,
+      `#!/bin/sh\nif [ "$1" = exec ] && [ "$2" = lefthook ]; then\n  shift 2\n  exec "${lefthook}" "$@"\nfi\nexit 1\n`,
     );
-    const push = spawnSync(
-      'sh',
-      [installedHook, 'refs/heads/feature', 'abc', 'refs/heads/main', 'def'],
-      {
-        cwd: repository,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          HOME: fakeHome,
-          BIOME_HOOK_LOG: fakeMise.log,
-        },
-      },
-    );
-    assert.equal(push.status, 0, push.stderr);
-    assert.match(await readFile(fakeMise.log, 'utf8'), /run ci/);
+    await chmod(fakePnpm, 0o755);
 
-    const existingHook = '#!/bin/sh\necho custom\n';
-    await writeFile(installedHook, existingHook);
-    const secondInstall = spawnSync('bash', ['scripts/setup-git-hooks.sh'], {
+    const prepareRepository = async (root: string) => {
+      await mkdir(root, { recursive: true });
+      command('git', ['init', '--quiet'], root);
+      await mkdir(path.join(root, 'scripts'), { recursive: true });
+      await copyFile(setup, path.join(root, 'scripts', 'setup.sh'));
+      await copyFile(config, path.join(root, '.lefthook.yml'));
+      await copyFile(
+        path.join(repositoryRoot, '.env.example'),
+        path.join(root, '.env.example'),
+      );
+      command('git', ['config', 'user.name', 'Hook test'], root);
+      command(
+        'git',
+        ['config', 'user.email', 'hook-test@example.invalid'],
+        root,
+      );
+      command('git', ['add', '.'], root);
+      command('git', ['commit', '--quiet', '-m', 'fixture'], root);
+    };
+    const environment = {
+      ...process.env,
+      HOME: fakeHome,
+      PATH: `${fakeMise.bin}:${process.env.PATH}`,
+      BIOME_HOOK_LOG: fakeMise.log,
+    };
+
+    await prepareRepository(repository);
+    const firstSetup = spawnSync('bash', ['scripts/setup.sh'], {
       cwd: repository,
       encoding: 'utf8',
+      env: environment,
     });
-    assert.notEqual(secondInstall.status, 0);
-    assert.equal(await readFile(installedHook, 'utf8'), existingHook);
+    assert.equal(firstSetup.status, 0, firstSetup.stderr);
+    const installedHook = command(
+      'git',
+      ['rev-parse', '--path-format=absolute', '--git-path', 'hooks/pre-push'],
+      repository,
+    );
+    const installedHookSource = await readFile(installedHook, 'utf8');
+    assert.match(installedHookSource, /call_lefthook/);
+
+    const push = spawnSync('sh', [installedHook, 'origin', 'url'], {
+      cwd: repository,
+      encoding: 'utf8',
+      env: environment,
+    });
+    assert.equal(push.status, 0, `${push.stdout}${push.stderr}`);
+    assert.match(await readFile(fakeMise.log, 'utf8'), /run ci/);
+
+    const secondSetup = spawnSync('bash', ['scripts/setup.sh'], {
+      cwd: repository,
+      encoding: 'utf8',
+      env: environment,
+    });
+    assert.equal(secondSetup.status, 0, secondSetup.stderr);
+    assert.equal(await readFile(installedHook, 'utf8'), installedHookSource);
+    assert.equal(
+      await readFile(`${installedHook}.old`, 'utf8').catch(() => ''),
+      '',
+    );
+
+    const changedConfig = (
+      await readFile(path.join(repository, '.lefthook.yml'), 'utf8')
+    ).replace("mise run ci'", "mise run ci --changed'");
+    await writeFile(path.join(repository, '.lefthook.yml'), changedConfig);
+    const changedPush = spawnSync('sh', [installedHook, 'origin', 'url'], {
+      cwd: repository,
+      encoding: 'utf8',
+      env: environment,
+    });
+    assert.equal(
+      changedPush.status,
+      0,
+      `${changedPush.stdout}${changedPush.stderr}`,
+    );
+    assert.match(await readFile(fakeMise.log, 'utf8'), /run ci --changed/);
+
+    await prepareRepository(existingRepository);
+    const existingHook = path.join(
+      existingRepository,
+      '.git',
+      'hooks',
+      'pre-push',
+    );
+    const existingHookSource = '#!/bin/sh\necho custom\n';
+    await writeFile(existingHook, existingHookSource);
+    const blockedSetup = spawnSync('bash', ['scripts/setup.sh'], {
+      cwd: existingRepository,
+      encoding: 'utf8',
+      env: environment,
+    });
+    assert.notEqual(blockedSetup.status, 0);
+    assert.equal(await readFile(existingHook, 'utf8'), existingHookSource);
+    assert.equal(
+      await readFile(`${existingHook}.old`, 'utf8').catch(() => ''),
+      '',
+    );
+
+    const legacyRepository = path.join(temporaryRoot, 'legacy-repo');
+    await prepareRepository(legacyRepository);
+    const legacyHook = path.join(legacyRepository, '.git', 'hooks', 'pre-push');
+    await writeFile(
+      legacyHook,
+      '#!/bin/sh\n# Installed by nemumi: mise run setup-git-hooks\nset -eu\n\nrepo_root=$(git rev-parse --show-toplevel)\nexec "$repo_root/.githooks/pre-push" "$@"\n',
+    );
+    const legacySetup = spawnSync('bash', ['scripts/setup.sh'], {
+      cwd: legacyRepository,
+      encoding: 'utf8',
+      env: environment,
+    });
+    assert.equal(legacySetup.status, 0, legacySetup.stderr);
+    assert.match(await readFile(legacyHook, 'utf8'), /call_lefthook/);
+
+    const customRepository = path.join(temporaryRoot, 'custom-repo');
+    await prepareRepository(customRepository);
+    command(
+      'git',
+      ['config', 'core.hooksPath', '.custom-hooks'],
+      customRepository,
+    );
+    const customSetup = spawnSync('bash', ['scripts/setup.sh'], {
+      cwd: customRepository,
+      encoding: 'utf8',
+      env: environment,
+    });
+    assert.notEqual(customSetup.status, 0);
+    assert.equal(
+      command('git', ['config', '--get', 'core.hooksPath'], customRepository),
+      '.custom-hooks',
+    );
+    assert.equal(
+      await readFile(
+        path.join(customRepository, '.custom-hooks', 'pre-push'),
+        'utf8',
+      ).catch(() => ''),
+      '',
+    );
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }

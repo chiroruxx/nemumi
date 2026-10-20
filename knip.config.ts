@@ -11,6 +11,8 @@ export default (args: { production?: boolean }): KnipConfiguration => ({
   ignoreDependencies: [
     // Cloudflare Workers Builds invokes Wrangler from its deployment environment.
     'wrangler',
+    // The setup script invokes Lefthook through pnpm exec after dependencies are installed.
+    'lefthook',
     ...(args.production
       ? [
           // Knip 6.41.0 production omits imports from Astro config modules.

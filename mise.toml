@@ -63,7 +63,3 @@ run = "pnpm lighthouse:ci"
 [tasks.ci]
 description = "CI と push 前に lint、型チェック、テスト、build を実行する"
 run = "mise run lint && mise run check && mise run test && mise run build"
-
-[tasks.setup-git-hooks]
-description = "このリポジトリの pre-push hook をインストールする"
-run = "bash scripts/setup-git-hooks.sh"

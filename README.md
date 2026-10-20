@@ -34,7 +34,7 @@ Homebrew 版は fish
 ```
 
 スクリプトは `mise.toml` を信頼し、Node.js と pnpm をインストールしてから、`.env.example` を `.env`
-にコピーし、依存パッケージをインストールする。既存の `.env` は上書きしない。Node.js（`.node-version`）と pnpm（`mise.toml`
+にコピーし、依存パッケージと Git hook をセットアップする。既存の `.env` は上書きしない。Node.js（`.node-version`）と pnpm（`mise.toml`
 ）は記載したバージョンが mise によってインストールされるため、個別のインストールは不要。
 
 ## 開発
@@ -51,12 +51,7 @@ mise run dev
 mise tasks
 ```
 
-Git push 前に lint・型チェック・テスト・build を実行する hook は、次のコマンドでインストールする。
-CI と同じ検査は `mise run ci` で実行できる。
-
-```shell
-mise run setup-git-hooks
-```
+CI と Git push 前で共有する検査は `mise run ci` で実行できる。
 
 ## ライセンス
 

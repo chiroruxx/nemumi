@@ -104,6 +104,18 @@ function cacheFile(root) {
   return path.join(os.tmpdir(), 'nemumi-codex-biome', `${digest(root)}.json`);
 }
 
+function checkTargets(event, root) {
+  const editedPaths = directEditPaths(event);
+  if (editedPaths.length > 0) return { paths: editedPaths, autoFormat: true };
+  if (
+    !['Bash', 'Edit', 'Write'].includes(event.tool_name) &&
+    !event.tool_name?.startsWith('mcp__')
+  ) {
+    return null;
+  }
+  return { paths: dirtyPaths(root), autoFormat: false };
+}
+
 function loadCache(file, configuration) {
   try {
     const cache = JSON.parse(readFileSync(file, 'utf8'));
@@ -137,30 +149,16 @@ function main() {
   const root = repositoryRoot();
   if (!root) return 0;
 
-  const editedPaths = directEditPaths(event);
-  let paths;
-  let autoFormat;
-  if (editedPaths.length > 0) {
-    paths = editedPaths;
-    autoFormat = true;
-  } else if (
-    event.tool_name === 'Bash' ||
-    event.tool_name === 'Edit' ||
-    event.tool_name === 'Write' ||
-    event.tool_name?.startsWith('mcp__')
-  ) {
-    try {
-      paths = dirtyPaths(root);
-    } catch (error) {
-      console.error(error.message);
-      return 2;
-    }
-    autoFormat = false;
-  } else {
-    return 0;
+  let targets;
+  try {
+    targets = checkTargets(event, root);
+  } catch (error) {
+    console.error(error.message);
+    return 2;
   }
+  if (!targets) return 0;
 
-  const files = repositoryFiles(root, paths);
+  const files = repositoryFiles(root, targets.paths);
   if (files.length === 0) return 0;
 
   const configuration = configurationDigest(root);
@@ -172,7 +170,7 @@ function main() {
   if (pending.length === 0) return 0;
 
   const command = ['exec', '--', 'pnpm', 'exec', 'biome', 'check'];
-  if (autoFormat) command.push('--write');
+  if (targets.autoFormat) command.push('--write');
   command.push('--files-ignore-unknown=true', '--no-errors-on-unmatched');
   command.push(...pending.map((item) => path.relative(root, item)));
   const result = spawnSync('mise', command, { cwd: root, encoding: 'utf8' });

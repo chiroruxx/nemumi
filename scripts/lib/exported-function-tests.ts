@@ -30,33 +30,54 @@ function collectExportedFunctions(program: ts.Program, files: string[]) {
   const exported = new Map<ts.Symbol, UntestedExport>();
 
   for (const file of files) {
-    const source = program.getSourceFile(file);
-    const module = source && checker.getSymbolAtLocation(source);
-    if (!source || !module) continue;
-
-    for (const symbol of checker.getExportsOfModule(module)) {
-      if (isTypeOnlyExport(symbol)) continue;
-
-      const target = resolveSymbol(checker, symbol);
-      const declaration = target.valueDeclaration;
-      if (!declaration) continue;
-      const type = checker.getTypeOfSymbolAtLocation(target, declaration);
-      if (!type.getCallSignatures().length || exported.has(target)) continue;
-
-      const position = source.getLineAndCharacterOfPosition(
-        symbol.declarations?.[0]?.getSourceFile() === source
-          ? symbol.declarations[0].getStart(source)
-          : 0,
-      );
-      exported.set(target, {
-        file,
-        name: symbol.name,
-        line: position.line + 1,
-      });
-    }
+    collectFileExports(program, checker, file, exported);
   }
 
   return exported;
+}
+
+function collectFileExports(
+  program: ts.Program,
+  checker: ts.TypeChecker,
+  file: string,
+  exported: Map<ts.Symbol, UntestedExport>,
+) {
+  const source = program.getSourceFile(file);
+  if (!source) return;
+
+  const module = checker.getSymbolAtLocation(source);
+  if (!module) return;
+
+  for (const symbol of checker.getExportsOfModule(module)) {
+    const entry = getExportedFunctionEntry(checker, source, file, symbol);
+    if (!entry) continue;
+
+    const target = resolveSymbol(checker, symbol);
+    if (!exported.has(target)) exported.set(target, entry);
+  }
+}
+
+function getExportedFunctionEntry(
+  checker: ts.TypeChecker,
+  source: ts.SourceFile,
+  file: string,
+  symbol: ts.Symbol,
+): UntestedExport | undefined {
+  if (isTypeOnlyExport(symbol)) return;
+
+  const target = resolveSymbol(checker, symbol);
+  const declaration = target.valueDeclaration;
+  if (!declaration) return;
+
+  const type = checker.getTypeOfSymbolAtLocation(target, declaration);
+  if (!type.getCallSignatures().length) return;
+
+  const position = source.getLineAndCharacterOfPosition(
+    symbol.declarations?.[0]?.getSourceFile() === source
+      ? symbol.declarations[0].getStart(source)
+      : 0,
+  );
+  return { file, name: symbol.name, line: position.line + 1 };
 }
 
 function isTypeOnlyExport(symbol: ts.Symbol) {
@@ -76,40 +97,62 @@ function collectTestedFunctions(program: ts.Program, files: string[]) {
   for (const file of files) {
     const source = program.getSourceFile(file);
     if (!source) continue;
-    const sourceFile = source;
 
-    const bindings = collectTestBindings(checker, sourceFile);
+    const bindings = collectTestBindings(checker, source);
     if (!bindings.functions.size && !bindings.namespaces.size) continue;
 
-    function visit(node: ts.Node, insideTestCallback = false): void {
-      if (ts.isCallExpression(node)) {
-        if (isTestCall(node.expression, checker, bindings)) {
-          if (isDisabledTest(node, sourceFile)) return;
-
-          for (const argument of node.arguments) {
-            if (
-              ts.isArrowFunction(argument) ||
-              ts.isFunctionExpression(argument)
-            ) {
-              visit(argument.body, true);
-            }
-          }
-          return;
-        }
-
-        if (insideTestCallback) {
-          const symbol = expressionSymbol(node.expression, checker);
-          if (symbol) tested.add(resolveSymbol(checker, symbol));
-        }
-      }
-
-      ts.forEachChild(node, (child) => visit(child, insideTestCallback));
-    }
-
-    visit(sourceFile);
+    visitTestCalls(source, false, checker, bindings, source, tested);
   }
 
   return tested;
+}
+
+function visitTestCalls(
+  node: ts.Node,
+  insideTestCallback: boolean,
+  checker: ts.TypeChecker,
+  bindings: TestBindings,
+  source: ts.SourceFile,
+  tested: Set<ts.Symbol>,
+): void {
+  if (ts.isCallExpression(node)) {
+    if (isTestCall(node.expression, checker, bindings)) {
+      if (!isDisabledTest(node, source)) {
+        visitTestCallbacks(node, checker, bindings, source, tested);
+      }
+      return;
+    }
+
+    if (insideTestCallback) {
+      const symbol = expressionSymbol(node.expression, checker);
+      if (symbol) tested.add(resolveSymbol(checker, symbol));
+    }
+  }
+
+  ts.forEachChild(node, (child) =>
+    visitTestCalls(
+      child,
+      insideTestCallback,
+      checker,
+      bindings,
+      source,
+      tested,
+    ),
+  );
+}
+
+function visitTestCallbacks(
+  node: ts.CallExpression,
+  checker: ts.TypeChecker,
+  bindings: TestBindings,
+  source: ts.SourceFile,
+  tested: Set<ts.Symbol>,
+) {
+  for (const argument of node.arguments) {
+    if (ts.isArrowFunction(argument) || ts.isFunctionExpression(argument)) {
+      visitTestCalls(argument.body, true, checker, bindings, source, tested);
+    }
+  }
 }
 
 function collectTestBindings(
@@ -119,40 +162,53 @@ function collectTestBindings(
   const functions = new Set<ts.Symbol>();
   const namespaces = new Set<ts.Symbol>();
 
+  for (const statement of source.statements) {
+    const clause = nodeTestImportClause(statement);
+    if (clause)
+      collectTestImportBindings(checker, clause, functions, namespaces);
+  }
+
+  return { functions, namespaces };
+}
+
+function nodeTestImportClause(statement: ts.Statement) {
+  if (!ts.isImportDeclaration(statement)) return;
+  if (!ts.isStringLiteral(statement.moduleSpecifier)) return;
+  if (statement.moduleSpecifier.text !== 'node:test') return;
+  if (statement.importClause?.phaseModifier === ts.SyntaxKind.TypeKeyword)
+    return;
+  return statement.importClause;
+}
+
+function collectTestImportBindings(
+  checker: ts.TypeChecker,
+  clause: ts.ImportClause,
+  functions: Set<ts.Symbol>,
+  namespaces: Set<ts.Symbol>,
+) {
   function remember(name: ts.Identifier, symbols: Set<ts.Symbol>) {
     const symbol = checker.getSymbolAtLocation(name);
     if (symbol) symbols.add(symbol);
   }
 
-  for (const statement of source.statements) {
-    if (
-      !ts.isImportDeclaration(statement) ||
-      !ts.isStringLiteral(statement.moduleSpecifier) ||
-      statement.moduleSpecifier.text !== 'node:test' ||
-      statement.importClause?.phaseModifier === ts.SyntaxKind.TypeKeyword
-    )
-      continue;
+  if (clause.name) remember(clause.name, functions);
+  const bindings = clause.namedBindings;
+  if (bindings && ts.isNamespaceImport(bindings)) {
+    remember(bindings.name, namespaces);
+    return;
+  }
+  if (!bindings) return;
 
-    const clause = statement.importClause;
-    if (clause?.name) remember(clause.name, functions);
-    const bindings = clause?.namedBindings;
-    if (bindings && ts.isNamespaceImport(bindings)) {
-      remember(bindings.name, namespaces);
-    } else if (bindings) {
-      for (const binding of bindings.elements) {
-        if (
-          !binding.isTypeOnly &&
-          ['test', 'it', 'default'].includes(
-            (binding.propertyName ?? binding.name).text,
-          )
-        ) {
-          remember(binding.name, functions);
-        }
-      }
+  for (const binding of bindings.elements) {
+    if (
+      !binding.isTypeOnly &&
+      ['test', 'it', 'default'].includes(
+        (binding.propertyName ?? binding.name).text,
+      )
+    ) {
+      remember(binding.name, functions);
     }
   }
-
-  return { functions, namespaces };
 }
 
 function isTestCall(

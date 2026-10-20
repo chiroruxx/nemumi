@@ -17,7 +17,13 @@
     // 無効化コメントの理由は Biome の構文で必須。追加の設定は不要。
     "enabled": true,
     "rules": {
-      "preset": "recommended"
+      "preset": "recommended",
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "error"
+      },
+      "style": {
+        "noUselessElse": "error"
+      }
     }
   },
   "javascript": {

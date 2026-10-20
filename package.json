@@ -18,11 +18,9 @@
     "test": "astro build --mode test --outDir dist-test && node --test \"tests/**/*.test.ts\"",
     "lighthouse:ci": "lhci autorun",
     "check:exported-function-tests": "node scripts/cli/check-exported-function-tests.ts",
-    "lint": "biome check . && stylelint 'src/**/*.astro' && pnpm check:exported-function-tests && pnpm knip && pnpm knip:production",
+    "lint": "biome check . && stylelint 'src/**/*.astro' && pnpm check:exported-function-tests && knip && knip --production",
     "format": "biome check --write .",
-    "check": "astro check",
-    "knip": "knip",
-    "knip:production": "knip --production"
+    "check": "astro check"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",

@@ -40,14 +40,6 @@ run = "pnpm check-content-links"
 description = "export 関数の直接テストを確認する"
 run = "pnpm check:exported-function-tests"
 
-[tasks.knip]
-description = "Knip で未使用コードをチェックする"
-run = "pnpm knip"
-
-[tasks.knip-production]
-description = "Knip で本番コードの未使用コードをチェックする"
-run = "pnpm knip:production"
-
 [tasks.lint]
 description = "Biome、Stylelint、export 関数、未使用コードをチェックする"
 run = "pnpm lint"

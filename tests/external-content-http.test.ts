@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { isHTTPError, isResponseSizeError, isTimeoutError } from 'ky';
 import {
-  findSource,
   getService,
   type LinkCheck,
   type LinkStatus,
@@ -46,8 +45,6 @@ function createTestContext(
 
 test('fetchFeed allows automatic redirects and maps all service fixtures to normalized feed items without network access', async () => {
   for (const [service, , normalizedUrl, xml] of feedFixtures) {
-    const source = findSource(new URL(normalizedUrl), service.collection);
-    assert.ok(source);
     const parsed = await fetchFeed(service, {
       fetch: async (input, init) => {
         assert.equal(new Request(input, init).redirect, 'follow');

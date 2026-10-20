@@ -41,7 +41,7 @@ description = "export 関数の直接テストを確認する"
 run = "pnpm check:exported-function-tests"
 
 [tasks.lint]
-description = "Biome、Stylelint、export 関数のテスト対応をチェックする"
+description = "Biome、Stylelint、export 関数、未使用コードをチェックする"
 run = "pnpm lint"
 
 [tasks.format]

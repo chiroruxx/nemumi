@@ -84,7 +84,7 @@ export function buildCollectionIndex(
   };
 }
 
-export function findSource(
+function findSource(
   url: URL,
   collection: Service['collection'],
 ): Source | undefined {

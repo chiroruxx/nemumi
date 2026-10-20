@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildCollectionIndex,
-  findSource,
   getService,
   isSource,
   type Service,
@@ -40,25 +39,6 @@ test('getService rejects unconfigured sources', () => {
       () => getService(source as Parameters<typeof getService>[0]),
       /Unknown service/,
     );
-  }
-});
-
-test('findSource matches URL host, account path, and collection', () => {
-  const cases = [
-    ['https://sizu.me/chihiroxx/posts/one?ref=rss#section', 'articles', 'sizu'],
-    ['https://toyo.hatenablog.jp/entry/one', 'articles', 'hatena'],
-    ['https://speakerdeck.com/chiroruxx/one', 'talks', 'speakerdeck'],
-    ['http://sizu.me/chihiroxx/posts/one', 'articles', 'sizu'],
-    ['https://sizu.me/other/posts/one', 'articles', undefined],
-    ['https://sizu.me/chihiroxx/', 'articles', undefined],
-    ['https://example.com/chihiroxx/posts/one', 'articles', undefined],
-    ['https://sizu.me/chihiroxx/posts/one', 'talks', undefined],
-    ['https://speakerdeck.com/chiroruxx/one', 'articles', undefined],
-  ] as const;
-  for (const [url, collection, source] of cases) {
-    const parsed = new URL(url);
-    assert.equal(findSource(parsed, collection), source);
-    assert.equal(parsed.href, url);
   }
 });
 

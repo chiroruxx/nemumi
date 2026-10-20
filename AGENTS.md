@@ -4,7 +4,7 @@
 
 ## Pull Request
 
-- PR は単一の責務に分け、すべて Stacked Pull Request として直前のブランチを base にする。Squash merge 後は stack を更新する。
+- PR は単一の責務に分け、すべて Stacked Pull Request として直前のブランチを base にする。
 - PR 本文には[テンプレート](.github/PULL_REQUEST_TEMPLATE.md)を使い、「概要」「背景」を記載する。「詳細」は必要な場合のみ追加する。
 
 ## Markdown

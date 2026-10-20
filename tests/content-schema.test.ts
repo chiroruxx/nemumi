@@ -3,7 +3,6 @@ import test from 'node:test';
 import {
   contentDateSchema,
   contentRecordSchema,
-  contentUrlSchema,
 } from '../src/config/content-schema.ts';
 
 test('content schemas coerce dates and reject invalid records', () => {
@@ -25,6 +24,8 @@ test('content schemas coerce dates and reject invalid records', () => {
     ['title', '  '],
     ['url', null],
     ['url', 'not a URL'],
+    ['url', ''],
+    ['url', 123],
     ['types', null],
     ['types', []],
     ['types', ['']],
@@ -55,16 +56,6 @@ test('content record URL parsing preserves query and fragment and keeps a missin
   });
   assert.equal(missing.url, undefined);
   assert.equal(Object.hasOwn(missing, 'url'), false);
-});
-
-test('contentUrlSchema turns valid strings into URL objects and rejects invalid input', () => {
-  const value = 'https://example.com/post?ref=rss#section';
-  const url = contentUrlSchema.parse(value);
-  assert.ok(url instanceof URL);
-  assert.equal(url.href, value);
-  for (const invalid of ['not a URL', '', null, 123]) {
-    assert.equal(contentUrlSchema.safeParse(invalid).success, false);
-  }
 });
 
 test('content record URL can be omitted but cannot explicitly be undefined', () => {

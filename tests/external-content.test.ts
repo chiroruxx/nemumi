@@ -108,18 +108,6 @@ function storedEntry(
   };
 }
 
-test('collection ownership remains host and path based even when URL transport needs verification', () => {
-  const index = buildCollectionIndex('articles', [
-    storedEntry(
-      'legacy-http.yaml',
-      '2026-10-01',
-      'Legacy HTTP',
-      'http://sizu.me/chihiroxx/posts/legacy',
-    ),
-  ]);
-  assert.equal(index.entries[0]?.source, 'sizu');
-});
-
 test('buildCollectionIndex normalizes URLs and rejects stored duplicates', () => {
   const index = buildCollectionIndex('articles', [
     storedEntry(

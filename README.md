@@ -51,6 +51,13 @@ mise run dev
 mise tasks
 ```
 
+Git push 前に lint・型チェック・テスト・build を実行する hook は、次のコマンドでインストールする。
+CI と同じ検査は `mise run ci` で実行できる。
+
+```shell
+mise run setup-git-hooks
+```
+
 ## ライセンス
 
 ライセンスは設定していない。コード・コンテンツともに、すべての権利を保持する（All rights reserved）。

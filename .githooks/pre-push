@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+if ! command -v mise >/dev/null 2>&1; then
+  echo "mise が見つかりません。push 前チェックを実行できません。" >&2
+  exit 1
+fi
+exec mise run ci

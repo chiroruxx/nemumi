@@ -2,13 +2,13 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|apply_patch",
+        "matcher": "^(apply_patch|Edit|Write|Bash|mcp__.*)$",
         "hooks": [
           {
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/biome-check.sh\"",
             "timeout": 60,
-            "statusMessage": "Biome で整形・Lint 中..."
+            "statusMessage": "変更ファイルのBiomeチェック中..."
           }
         ]
       }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { formatDateInSiteTimeZone } from '../src/config/site-time.ts';
 
-test('TZ environment variable is shared with site date formatting', () => {
+test('the TZ environment variable is shared with site date formatting', () => {
   const original = process.env.TZ;
   try {
     process.env.TZ = 'America/Los_Angeles';

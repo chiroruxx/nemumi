@@ -50,6 +50,10 @@ function dirtyPaths(root) {
     ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
     root,
   );
+  return pathsFromStatus(output);
+}
+
+function pathsFromStatus(output) {
   const records = output.split('\0');
   const paths = [];
   for (let index = 0; index < records.length; index += 1) {
@@ -139,17 +143,55 @@ function saveCache(file, configuration, files) {
   renameSync(temporaryFile, file);
 }
 
-function main() {
-  let event;
+function readEvent() {
   try {
-    event = JSON.parse(readFileSync(0, 'utf8'));
+    return { event: JSON.parse(readFileSync(0, 'utf8')) };
   } catch {
-    return 0;
+    return undefined;
   }
+}
 
-  const root = repositoryRoot();
-  if (!root) return 0;
+function runBiomeCheck(root, pending, autoFormat) {
+  const command = ['exec', '--', 'pnpm', 'exec', 'biome', 'check'];
+  if (autoFormat) command.push('--write');
+  command.push('--files-ignore-unknown=true', '--no-errors-on-unmatched');
+  command.push(...pending.map((item) => path.relative(root, item)));
+  const result = spawnSync('mise', command, { cwd: root, encoding: 'utf8' });
+  if (result.error || result.status !== 0) {
+    reportBiomeFailure(result, pending.length);
+    return false;
+  }
+  return true;
+}
 
+function reportBiomeFailure(result, count) {
+  console.error(`Biome check failed for ${count} changed file(s).`);
+  if (result.stdout) process.stderr.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+}
+
+function repositoryCache(root) {
+  const configuration = configurationDigest(root);
+  const file = cacheFile(root);
+  return { configuration, file, files: loadCache(file, configuration) };
+}
+
+function checkTargetFiles(root, targets) {
+  const files = repositoryFiles(root, targets.paths);
+  if (files.length === 0) return 0;
+  const cache = repositoryCache(root);
+  const pending = files.filter(
+    (item) => cache.files[path.relative(root, item)] !== fileDigest(item),
+  );
+  if (pending.length === 0) return 0;
+  if (!runBiomeCheck(root, pending, targets.autoFormat)) return 2;
+  for (const item of pending)
+    cache.files[path.relative(root, item)] = fileDigest(item);
+  saveCache(cache.file, cache.configuration, cache.files);
+  return 0;
+}
+
+function checkEvent(event, root) {
   let targets;
   try {
     targets = checkTargets(event, root);
@@ -158,34 +200,15 @@ function main() {
     return 2;
   }
   if (!targets) return 0;
+  return checkTargetFiles(root, targets);
+}
 
-  const files = repositoryFiles(root, targets.paths);
-  if (files.length === 0) return 0;
-
-  const configuration = configurationDigest(root);
-  const file = cacheFile(root);
-  const cache = loadCache(file, configuration);
-  const pending = files.filter(
-    (item) => cache[path.relative(root, item)] !== fileDigest(item),
-  );
-  if (pending.length === 0) return 0;
-
-  const command = ['exec', '--', 'pnpm', 'exec', 'biome', 'check'];
-  if (targets.autoFormat) command.push('--write');
-  command.push('--files-ignore-unknown=true', '--no-errors-on-unmatched');
-  command.push(...pending.map((item) => path.relative(root, item)));
-  const result = spawnSync('mise', command, { cwd: root, encoding: 'utf8' });
-  if (result.error || result.status !== 0) {
-    console.error(`Biome check failed for ${pending.length} changed file(s).`);
-    if (result.stdout) process.stderr.write(result.stdout);
-    if (result.stderr) process.stderr.write(result.stderr);
-    return 2;
-  }
-
-  for (const item of pending)
-    cache[path.relative(root, item)] = fileDigest(item);
-  saveCache(file, configuration, cache);
-  return 0;
+function main() {
+  const input = readEvent();
+  if (!input) return 0;
+  const root = repositoryRoot();
+  if (!root) return 0;
+  return checkEvent(input.event, root);
 }
 
 process.exitCode = main();

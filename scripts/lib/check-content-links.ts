@@ -7,7 +7,6 @@ import {
   limits,
 } from './external-content.ts';
 import {
-  type ContentFileRemoval,
   readCollection,
   removeFiles,
   validateFileRemovals,
@@ -28,6 +27,25 @@ type CheckContentLinksOptions = CommonContentOptions & {
   sleep?: Sleep;
 };
 
+async function readContentLinkChecks(contentDirectory: string) {
+  const collections = await Promise.all(
+    (Object.keys(limits) as Collection[]).map(async (collection) => {
+      const entries = await readCollection(collection, contentDirectory);
+      return buildCollectionIndex(collection, entries);
+    }),
+  );
+  return collections
+    .flatMap(({ entries }) => entries)
+    .flatMap(({ entry, source, url }) =>
+      source && url ? [{ entry, source, url }] : [],
+    )
+    .sort(
+      (a, b) =>
+        a.source.localeCompare(b.source) ||
+        a.url.href.localeCompare(b.url.href),
+    );
+}
+
 export async function checkContentLinks({
   dryRun = false,
   contentDirectory = defaultContentDirectory,
@@ -42,22 +60,7 @@ export async function checkContentLinks({
     now,
   });
   try {
-    const collections = await Promise.all(
-      (Object.keys(limits) as Collection[]).map(async (collection) => {
-        const entries = await readCollection(collection, contentDirectory);
-        return buildCollectionIndex(collection, entries);
-      }),
-    );
-    const linkChecks = collections
-      .flatMap(({ entries }) => entries)
-      .flatMap(({ entry, source, url }) =>
-        source && url ? [{ entry, source, url }] : [],
-      )
-      .sort(
-        (a, b) =>
-          a.source.localeCompare(b.source) ||
-          a.url.href.localeCompare(b.url.href),
-      );
+    const linkChecks = await readContentLinkChecks(contentDirectory);
     const checked = await runLinkChecks(
       linkChecks,
       linkVerifier ??
@@ -69,12 +72,13 @@ export async function checkContentLinks({
         ...(sleep ? { sleep } : {}),
       },
     );
-    const removals: ContentFileRemoval[] = [];
-    for (const { entry, url } of linkChecks) {
-      if (checked.statuses.get(url.href) !== 'deleted') continue;
-      removals.push({ target: entry.file });
-    }
-    removals.sort((a, b) => a.target.localeCompare(b.target));
+    const removals = linkChecks
+      .flatMap(({ entry, url }) =>
+        checked.statuses.get(url.href) === 'deleted'
+          ? [{ target: entry.file }]
+          : [],
+      )
+      .sort((a, b) => a.target.localeCompare(b.target));
     await validateFileRemovals(removals, contentDirectory);
     if (!dryRun) await removeFiles(removals);
 

@@ -12,7 +12,7 @@ async function lintStyle(css: string) {
   });
 }
 
-test('Stylelint rejects file and same-line suppressions, including attempts to disable the restriction', async () => {
+test('the Stylelint checker rejects file and same-line suppressions, including attempts to disable the restriction', async () => {
   for (const css of [
     `/* stylelint-disable ${globalRule} -- External markup. */\n:global(body) { color: red; }`,
     `:global(body) { color: red; } /* stylelint-disable-line ${globalRule} -- External markup. */`,
@@ -36,7 +36,7 @@ test('Stylelint rejects file and same-line suppressions, including attempts to d
   }
 });
 
-test('Stylelint requires a specific rule and a reason for next-line suppressions', async () => {
+test('the Stylelint checker requires a specific rule and a reason for next-line suppressions', async () => {
   for (const comment of [
     `/* stylelint-disable-next-line ${globalRule} */`,
     `/* stylelint-disable-next-line ${globalRule} -- */`,
@@ -50,7 +50,7 @@ test('Stylelint requires a specific rule and a reason for next-line suppressions
   }
 });
 
-test('Stylelint permits documented next-line suppressions and ordinary comments', async () => {
+test('the Stylelint checker permits documented next-line suppressions and ordinary comments', async () => {
   const result = await lintStyle(
     `/* Ordinary component styles. */\n/* stylelint-disable-next-line ${globalRule} -- External markup is outside this component. */\n:global(body) { color: red; }`,
   );
@@ -61,7 +61,7 @@ test('Stylelint permits documented next-line suppressions and ordinary comments'
   );
 });
 
-test('Stylelint still checks global selectors after the suppressed line', async () => {
+test('the Stylelint checker still checks global selectors after the suppressed line', async () => {
   const result = await lintStyle(
     `/* stylelint-disable-next-line ${globalRule} -- External markup. */\n:global(body) { color: red; }\n:global(main) { color: blue; }`,
   );

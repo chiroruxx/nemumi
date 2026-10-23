@@ -93,7 +93,7 @@ function event(toolName: string, commandText = 'python wrote a file'): string {
   });
 }
 
-test('Codex hook checks unknown edit paths read-only, caches successful content, and invalidates on config changes', async () => {
+test('the Codex hook checks unknown edit paths read-only, caches successful content, and invalidates on config changes', async () => {
   const temporaryRoot = await mkdtemp(
     path.join(os.tmpdir(), 'nemumi-codex-hook-'),
   );

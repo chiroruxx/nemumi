@@ -227,7 +227,7 @@ test('the checker does not accept TSX test files that Node cannot execute', asyn
   );
 });
 
-test('CLI fails for an untested export and succeeds after adding a direct test call', async (t) => {
+test('the CLI fails for an untested export and succeeds after adding a direct test call', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'nemumi-export-tests-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, 'src'));

@@ -1,5 +1,4 @@
 ---
-
 name: local-review
 description: 実装前の要件文書、PR 作成前の ADR や機能単位の変更を、読み取り専用で独立レビューする際に使う。
 ---

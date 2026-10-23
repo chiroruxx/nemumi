@@ -19,7 +19,12 @@
     "rules": {
       "preset": "recommended",
       "complexity": {
-        "noExcessiveCognitiveComplexity": "error"
+        "noExcessiveCognitiveComplexity": "error",
+        "useArraySome": "error",
+        "useRegexpTest": "error"
+      },
+      "suspicious": {
+        "noLoopFunc": "error"
       },
       "style": {
         "noUselessElse": "error"
@@ -29,6 +34,11 @@
   "javascript": {
     "formatter": {
       "quoteStyle": "single"
+    }
+  },
+  "markdown": {
+    "parser": {
+      "frontmatter": true
     }
   },
   "assist": {

@@ -10,7 +10,6 @@ Biome（[Formatter / Linter に Biome を採用する](2026-09-24-formatter-lint
 コードの大半は `.astro` ファイルになるため、`.astro` を含めて型チェックできる仕組みが必要となる。
 
 2026 年 9 月時点の状況は以下のとおり。
-
 - Astro 公式の `astro check`（`@astrojs/check`）は TypeScript 6 までの JavaScript API を利用しており、TypeScript 7.0
   には対応していない。また、将来の Astro で非推奨となる予定。
 - TypeScript 7 はコンパイラを Go で書き直したネイティブ版で、6 までの JavaScript API を持たない。
@@ -26,7 +25,7 @@ Biome（[Formatter / Linter に Biome を採用する](2026-09-24-formatter-lint
 ## 検討した選択肢
 
 | 選択肢                                    | 評価                                                                 |
-|-------------------------------------------|----------------------------------------------------------------------|
+| ----------------------------------------- | -------------------------------------------------------------------- |
 | **TypeScript 6 + astro check**            | 現時点で確実に動作する。将来は非推奨となるため、いずれ移行が必要     |
 | 導入しない                                | TypeScript 7.1 の正式版を待つ。それまでは IDE の型チェックのみとなる |
 | TypeScript 7.1 開発版 + ts-content-mapper | 後継の仕組みを先取りできるが、開発版・実験的で動作が不安定な可能性   |
@@ -34,10 +33,10 @@ Biome（[Formatter / Linter に Biome を採用する](2026-09-24-formatter-lint
 ## 結果
 
 - **良い点**
-    - `.astro` を含めた型エラーをコマンドで検出できる。
+  - `.astro` を含めた型エラーをコマンドで検出できる。
 - **注意点**
-    - TypeScript を 7 系へ上げると `astro check` が動作しなくなるため、`package.json` では 6 系（`^6`）に固定している。
-    - TypeScript 7.1 が正式にリリースされたら、`@astrojs/ts-content-mapper` への移行を検討し、本 ADR を更新または置き換える。
+  - TypeScript を 7 系へ上げると `astro check` が動作しなくなるため、`package.json` では 6 系（`^6`）に固定している。
+  - TypeScript 7.1 が正式にリリースされたら、`@astrojs/ts-content-mapper` への移行を検討し、本 ADR を更新または置き換える。
 
 ## 参考
 

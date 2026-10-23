@@ -15,7 +15,8 @@ function formatUnverifiedLinks(result: ContentResult): string {
     [...result.unverified, ...result.unchecked].map(({ url }) => url.href),
   );
   if (urls.size === 0) return '公開状態を確認できなかった URL はありません。';
-  return `公開状態を確認できなかった URL:\n${[...urls].map((url) => `- ${url}`).join('\n')}`;
+  const lines = [...urls].map((url) => `- ${url}`).join('\n');
+  return `公開状態を確認できなかった URL:\n${lines}`;
 }
 
 async function main(): Promise<void> {

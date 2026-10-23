@@ -36,6 +36,13 @@ type SyncOptions = CommonContentOptions & {
   now?: () => number;
 };
 
+function normalizeFeedItem(item: FeedItem, service: Service): FeedItem {
+  const url = new URL(item.url);
+  validateContentUrl(url, service);
+  url.hash = '';
+  return { ...item, url };
+}
+
 function normalizedFeed(
   feed: FeedItem[],
   source: Source,
@@ -43,10 +50,8 @@ function normalizedFeed(
   const service = getService(source);
   const normalized = new Map<string, FeedItem>();
   for (const item of feed) {
-    const url = new URL(item.url);
-    validateContentUrl(url, service);
-    url.hash = '';
-    const value = { ...item, url };
+    const value = normalizeFeedItem(item, service);
+    const { url } = value;
     const previous = normalized.get(url.href);
     if (
       previous &&
@@ -101,41 +106,49 @@ function createSyncWrites({
   feed: FeedItem[];
   contentDirectory: string;
 }): ContentFileWrite[] {
-  const service = getService(source);
   const feedByUrl = normalizedFeed(feed, source);
   const writes: ContentFileWrite[] = [];
 
-  for (const [url, item] of [...feedByUrl].sort(([a], [b]) =>
+  for (const [, item] of [...feedByUrl].sort(([a], [b]) =>
     a.localeCompare(b),
   )) {
-    const previous = index.byUrl.get(url)?.entry;
-    if (previous) {
-      const types = previous.data.types ?? [service.type];
-      if (sameContent(previous.data, item, types)) continue;
-      writes.push({
-        kind: 'replace',
-        target: previous.file,
-        content: serializeContent(item, types),
-      });
-      continue;
-    }
-
-    const file = path.resolve(
-      contentDirectory,
-      index.collection,
-      filenameFor(source, url),
-    );
-    if (index.entries.some(({ entry }) => entry.id === path.basename(file))) {
-      throw new Error(`Filename collision while adding ${url}`);
-    }
-    writes.push({
-      kind: 'create',
-      target: file,
-      content: serializeContent(item, [service.type]),
-    });
+    const write = createSyncWrite(item, source, index, contentDirectory);
+    if (write) writes.push(write);
   }
 
   return writes;
+}
+
+function createSyncWrite(
+  item: FeedItem,
+  source: Source,
+  index: CollectionIndex,
+  contentDirectory: string,
+): ContentFileWrite | undefined {
+  const service = getService(source);
+  const previous = index.byUrl.get(item.url.href)?.entry;
+  if (previous) {
+    const types = previous.data.types ?? [service.type];
+    if (sameContent(previous.data, item, types)) return undefined;
+    return {
+      kind: 'replace',
+      target: previous.file,
+      content: serializeContent(item, types),
+    };
+  }
+  const file = path.resolve(
+    contentDirectory,
+    index.collection,
+    filenameFor(source, item.url.href),
+  );
+  if (index.entries.some(({ entry }) => entry.id === path.basename(file))) {
+    throw new Error(`Filename collision while adding ${item.url.href}`);
+  }
+  return {
+    kind: 'create',
+    target: file,
+    content: serializeContent(item, [service.type]),
+  };
 }
 
 export async function syncService(
@@ -155,9 +168,10 @@ export async function syncService(
     now,
   });
   try {
-    const collection = service.collection;
-    const existing = await readCollection(collection, contentDirectory);
-    const index = buildCollectionIndex(collection, existing);
+    const index = buildCollectionIndex(
+      service.collection,
+      await readCollection(service.collection, contentDirectory),
+    );
     const loadFeed =
       feedLoader ??
       ((configured, execution) =>

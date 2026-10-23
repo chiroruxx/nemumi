@@ -52,6 +52,25 @@ export type CollectionIndex = {
 };
 export type LinkCheck = { source: Source; url: URL };
 
+function normalizeStoredUrl(
+  entry: StoredEntry,
+  collection: Collection,
+  seenUrls: Map<string, string>,
+): URL | undefined {
+  const url = entry.data.url ? new URL(entry.data.url) : undefined;
+  if (url) {
+    url.hash = '';
+    const previous = seenUrls.get(url.href);
+    if (previous) {
+      throw new Error(
+        `${collection} URL is duplicated in ${previous} and ${entry.id}: ${url}`,
+      );
+    }
+    seenUrls.set(url.href, entry.id);
+  }
+  return url;
+}
+
 export function buildCollectionIndex(
   collection: Collection,
   entries: StoredEntry[],
@@ -59,18 +78,7 @@ export function buildCollectionIndex(
   const byUrl = new Map<string, IndexedEntry>();
   const seenUrls = new Map<string, string>();
   const indexedEntries = entries.map((entry) => {
-    const value = entry.data.url;
-    const url = value ? new URL(value) : undefined;
-    if (url) {
-      url.hash = '';
-      const previous = seenUrls.get(url.href);
-      if (previous) {
-        throw new Error(
-          `${collection} URL is duplicated in ${previous} and ${entry.id}: ${url}`,
-        );
-      }
-      seenUrls.set(url.href, entry.id);
-    }
+    const url = normalizeStoredUrl(entry, collection, seenUrls);
     const source = url ? findSource(url, collection) : undefined;
     const indexed = { entry, url, source };
     if (url && source) byUrl.set(url.href, indexed);

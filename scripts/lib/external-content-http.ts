@@ -137,39 +137,47 @@ type LinkCheckRunResult = {
   unchecked: LinkCheck[];
 };
 
+async function runLinkCheckBatches(
+  entries: LinkCheck[],
+  verify: LinkVerifier,
+  statuses: Map<string, LinkStatus>,
+  { context, batchIntervalMs = 1000, sleep: wait = sleep }: LinkCheckRunOptions,
+): Promise<void> {
+  const expired = () => context.signal.aborted || context.remainingMs() <= 0;
+  for (
+    let offset = 0;
+    offset < entries.length && !expired();
+    offset += LINK_CHECK_BATCH_SIZE
+  ) {
+    const batch = entries
+      .slice(offset, offset + LINK_CHECK_BATCH_SIZE)
+      .map(async (entry) => {
+        if (expired()) return;
+        let status: LinkStatus;
+        try {
+          status = await verify(entry.url, getService(entry.source), context);
+        } catch {
+          status = 'unverified';
+        }
+        if (!expired()) statuses.set(entry.url.href, status);
+      });
+    await Promise.all(batch);
+    if (expired() || offset + LINK_CHECK_BATCH_SIZE >= entries.length) break;
+    if (context.remainingMs() <= batchIntervalMs) break;
+    await wait(batchIntervalMs, context.signal);
+  }
+}
+
 export async function runLinkChecks(
   entries: LinkCheck[],
   verify: LinkVerifier,
-  { context, batchIntervalMs = 1000, sleep: wait = sleep }: LinkCheckRunOptions,
+  options: LinkCheckRunOptions,
 ): Promise<LinkCheckRunResult> {
   const statuses = new Map<string, LinkStatus>();
-  const expired = () => context.signal.aborted || context.remainingMs() <= 0;
-
   try {
-    for (
-      let offset = 0;
-      offset < entries.length && !expired();
-      offset += LINK_CHECK_BATCH_SIZE
-    ) {
-      const batch = entries
-        .slice(offset, offset + LINK_CHECK_BATCH_SIZE)
-        .map(async (entry) => {
-          if (expired()) return;
-          let status: LinkStatus;
-          try {
-            status = await verify(entry.url, getService(entry.source), context);
-          } catch {
-            status = 'unverified';
-          }
-          if (!expired()) statuses.set(entry.url.href, status);
-        });
-      await Promise.all(batch);
-      if (expired() || offset + LINK_CHECK_BATCH_SIZE >= entries.length) break;
-      if (context.remainingMs() <= batchIntervalMs) break;
-      await wait(batchIntervalMs, context.signal);
-    }
+    await runLinkCheckBatches(entries, verify, statuses, options);
   } catch (error) {
-    if (!context.signal.aborted) throw error;
+    if (!options.context.signal.aborted) throw error;
   }
 
   return {

@@ -43,8 +43,8 @@ export async function checkLinks() {
 
 // report.ts
 export function formatUnverifiedLinks(result: { unverifiedLinks: string[] }) {
-  if (result.unverifiedLinks.length === 0) return "";
-  return `Unverified: ${result.unverifiedLinks.join(", ")}`;
+  if (result.unverifiedLinks.length === 0) return '';
+  return `Unverified: ${result.unverifiedLinks.join(', ')}`;
 }
 
 // cli.ts
@@ -117,7 +117,7 @@ if (sameContent(current, fetched)) return;
 差分:
 
 ```ts
-import { setTimeout as delay } from "node:timers/promises";
+import { setTimeout as delay } from 'node:timers/promises';
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return delay(ms, undefined, { signal });

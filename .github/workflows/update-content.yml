@@ -2,7 +2,7 @@ name: Update content
 
 on:
   schedule:
-    - cron: '17 21 * * *'
+    - cron: "17 21 * * *"
   workflow_dispatch:
     inputs:
       service:
@@ -73,7 +73,7 @@ jobs:
         uses: ./.github/actions/content-pull-request
         with:
           branch: automation/update-content
-          commit-message: 'chore(content): update external content'
+          commit-message: "chore(content): update external content"
           title: コンテンツを更新
           description: RSS を同期し、無効リンクの除去とディレクトリごとの保持件数の整理を行います。
           summary: ${{ steps.check-links.outputs.summary }}

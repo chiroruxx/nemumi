@@ -9,27 +9,26 @@
 
 ## Markdown
 
-- Markdown ファイルを作成・編集したら、利用可能な場合は JetBrains IDE の MCP サーバの `reformat_file`
-  で整形する。利用できない場合は、見出し・リスト・コードブロック・リンクの構造を確認する。
+- Markdown ファイルを作成・編集したら、`mise run format` で整形し、`mise run lint` で確認する。
 
 ## ADR
 
 - サイト全体またに適用される技術・設計方針を決定したら、`docs/adr` に ADR（Architecture Decision Record）を追加する。
-    - ファイル名は `YYYY-MM-DD-<内容を表す英語のスラッグ>.md` とする。日付は決定日とし、更新時も変更しない。同日の ADR
-      はスラッグで区別する。
-    - [テンプレート](docs/adr/template.md)を使う。
-    - ADR には設計の決定とその背景・理由を記載し、機能の仕様や具体的な設定値・処理手順は記載しない。
-      仕様は対応するドキュメントやコード・テストで管理する。
-    - 個別ページの実装詳細や一時的な作業手順は ADR にせず、必要なドキュメントやコードに記載する。
-    - 新規ライブラリの導入やアーキテクチャ（ディレクトリ）構成の変更の際は追加する。
-    - ただのリファクタリングや機能実装で追加してはいけない。
+  - ファイル名は `YYYY-MM-DD-<内容を表す英語のスラッグ>.md` とする。日付は決定日とし、更新時も変更しない。同日の ADR
+    はスラッグで区別する。
+  - [テンプレート](docs/adr/template.md)を使う。
+  - ADR には設計の決定とその背景・理由を記載し、機能の仕様や具体的な設定値・処理手順は記載しない。
+    仕様は対応するドキュメントやコード・テストで管理する。
+  - 個別ページの実装詳細や一時的な作業手順は ADR にせず、必要なドキュメントやコードに記載する。
+  - 新規ライブラリの導入やアーキテクチャ（ディレクトリ）構成の変更の際は追加する。
+  - ただのリファクタリングや機能実装で追加してはいけない。
 - ADR の作成・変更後、PR 作成前に[ローカルレビュー](.agents/skills/local-review/SKILL.md)を使い、テンプレートへの準拠を確認する。
 - ADR 以外のドキュメントには仕様や決定内容を記載し、設計上の背景・理由は該当する ADR へリンクする。
 
 ## README
 
 - このリポジトリ全体を管理する人に資する内容を記載する。
-    - 特定の機能やスクリプトの内容は記載しない。
+  - 特定の機能やスクリプトの内容は記載しない。
 
 ## コード
 
@@ -76,7 +75,6 @@
 Full documentation: https://docs.astro.build
 
 Consult these guides before working on related tasks:
-
 - [Adding pages, dynamic routes, or middleware](https://docs.astro.build/en/guides/routing/)
 - [Working with Astro components](https://docs.astro.build/en/basics/astro-components/)
 - [Using React, Vue, Svelte, or other framework components](https://docs.astro.build/en/guides/framework-components/)

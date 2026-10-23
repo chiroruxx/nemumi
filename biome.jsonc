@@ -20,12 +20,10 @@
       "preset": "recommended",
       "complexity": {
         "noExcessiveCognitiveComplexity": "error",
-        // 存在確認の意図を some() と test() で明示する。
         "useArraySome": "error",
         "useRegexpTest": "error"
       },
       "suspicious": {
-        // ループ内の関数が変化する外部変数を参照する不具合を防ぐ。
         "noLoopFunc": "error"
       },
       "style": {
@@ -40,7 +38,6 @@
   },
   "markdown": {
     "parser": {
-      // SKILL.md の YAML メタデータを本文ではなく frontmatter として解析する。
       "frontmatter": true
     }
   },

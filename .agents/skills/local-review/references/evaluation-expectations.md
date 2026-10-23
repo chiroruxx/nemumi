@@ -1,7 +1,6 @@
 # ローカルレビュー skill の評価基準
 
 このファイルは評価者が使う。各ケースをレビューする subagent には渡さない。
-
 1. **ケース 1**: 必須のリンク保持条件が未採用候補へ移され、振る舞いが逆転している点を **Required correction** として指摘する。
 2. **ケース 2**: `sync` と `prune` が空の `unverifiedLinks` を返してCLIから共通formatterへ渡す一方、リンク確認は `checkLinks` だけが行う。空結果・formatter呼び出し・戻り値を共有する必然性はなく、実際のリンク状態報告が失敗するとも示されていないため、冗長な戻り値と呼出し経路を **Optional simplification** として指摘する。
 3. **ケース 3**: 1呼び出しへの単純な詰め替えで追加の契約を持たない `Operation` 変換を **Optional simplification** として指摘する。別の必須要件は捏造しない。

@@ -71,6 +71,13 @@
     }
   },
   "overrides": [
+    // pnpm が生成する形式を維持し、依存更新のたびに整形差分が発生するのを防ぐ。
+    {
+      "includes": ["pnpm-lock.yaml"],
+      "formatter": {
+        "enabled": false
+      }
+    },
     // テストでは準備・操作・検証を一連のシナリオとして記述するため、文数の上限を適用しない。
     {
       "includes": ["tests/**"],

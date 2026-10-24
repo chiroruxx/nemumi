@@ -4,7 +4,8 @@
 
 ## Pull Request
 
-- PR は単一の責務に分け、すべて Stacked Pull Request として直前のブランチを base にする。
+- PR は単一の責務に分ける。
+- 分割した PR 間に依存関係がある場合は、依存先のブランチを base にした Stacked Pull Request として作成する。
 - PR 本文には[テンプレート](.github/PULL_REQUEST_TEMPLATE.md)を使い、「概要」「背景」を記載する。「詳細」は必要な場合のみ追加する。
 
 ## Markdown

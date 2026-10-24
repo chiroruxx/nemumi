@@ -27,18 +27,28 @@
         "noLoopFunc": "error"
       },
       "nursery": {
+        "noAccidentalBitwiseOperators": "error",
         "noArgumentsCallerOrCallee": "error",
+        "noDoubleComparison": "error",
         "noExcessiveStatementsPerFunction": "error",
         "noInvalidThis": "error",
         "noNestedSwitch": "error",
         "noNestedTemplateLiterals": "error",
+        "noObjectConstructor": "error",
         "noOctal": "error",
+        "noProcessExit": "error",
+        "noPromiseExecutorReturn": "error",
         "noUnsafeUnaryMinus": "error",
+        "noUselessAssignment": "error",
+        "noUselessCall": "error",
+        "noUselessDateGetTime": "error",
         "noZeroFractions": "error",
         "useBigintLiterals": "error",
         "useConsistentJsonFileRead": "error",
         "useLowercaseTestTitle": "error",
+        "useMatchingFunctionName": "error",
         "useNamedFunction": "error",
+        "useSimplifiedBooleanReturn": "error",
         "useUnaryMinus": "error"
       },
       "style": {

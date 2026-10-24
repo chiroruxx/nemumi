@@ -162,12 +162,17 @@ test('runLinkChecks completes batches of five before waiting one second, without
   const pending: (() => void)[] = [];
   const waits: number[] = [];
   let resumeWait!: () => void;
-  const tick = () => new Promise<void>((resolve) => setImmediate(resolve));
+  const tick = () =>
+    new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
   const work = runLinkChecks(
     checks,
     async (url) => {
       started.push(url.href);
-      await new Promise<void>((resolve) => pending.push(resolve));
+      await new Promise<void>((resolve) => {
+        pending.push(resolve);
+      });
       return 'public';
     },
     {

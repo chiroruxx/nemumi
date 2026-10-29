@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
-    "@biomejs/biome": "2.6.2",
+    "@biomejs/biome": "2.6.3",
     "@lhci/cli": "0.15.1",
     "knip": "6.43.0",
     "lefthook": "^2.2.2",

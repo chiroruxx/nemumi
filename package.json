@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
-    "astro": "^7.4.2",
+    "astro": "^7.4.4",
     "ky": "^2.2.0",
     "rss-parser": "^3.13.0",
     "sharp": "0.35.5",

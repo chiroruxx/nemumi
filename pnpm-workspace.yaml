@@ -6,3 +6,6 @@ allowBuilds:
 # tmp is pinned to a patched release because Lighthouse CI's transitive versions are vulnerable to path traversal.
 overrides:
   tmp: 0.2.7
+  # get-uri's published release still requires vulnerable basic-ftp 5.x (Dependabot #51).
+  # Remove this override once get-uri publishes a dependency range including the patched release.
+  "get-uri>basic-ftp": 6.2.6

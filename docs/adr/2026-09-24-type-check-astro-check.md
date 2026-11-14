@@ -10,6 +10,7 @@ Biome（[Formatter / Linter に Biome を採用する](2026-09-24-formatter-lint
 コードの大半は `.astro` ファイルになるため、`.astro` を含めて型チェックできる仕組みが必要となる。
 
 2026 年 9 月時点の状況は以下のとおり。
+
 - Astro 公式の `astro check`（`@astrojs/check`）は TypeScript 6 までの JavaScript API を利用しており、TypeScript 7.0
   には対応していない。また、将来の Astro で非推奨となる予定。
 - TypeScript 7 はコンパイラを Go で書き直したネイティブ版で、6 までの JavaScript API を持たない。

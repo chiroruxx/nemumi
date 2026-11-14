@@ -9,6 +9,7 @@
 ## 初回設定
 
 Step 6 の変更を本番へデプロイした後に実施する（[個人サイト作成 Step 6・7](./create-site.md)）。
+
 - [ ] Google Search Console にドメイン プロパティ `nemumi.dev` を追加する。
 - [ ] Search Console が提示する DNS TXT レコードを Cloudflare DNS に登録して、所有権を確認する。
 - [ ] Search Console のサイトマップ レポートから `https://nemumi.dev/sitemap-index.xml` を送信する。

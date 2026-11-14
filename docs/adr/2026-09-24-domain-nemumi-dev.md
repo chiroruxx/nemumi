@@ -14,6 +14,7 @@ OGP・canonical・サイトマップは絶対 URL を使うため、公開の早
 ## 決定
 
 独自ドメインには `nemumi.dev` を採用し、Cloudflare Registrar で取得する。
+
 - サイトの正式な URL は `https://nemumi.dev` とし、`astro.config.mjs` の `site` に設定する。
 - Worker への紐付けは `wrangler.jsonc` の `routes`（`custom_domain: true`）に記載し、デプロイ時に反映する。
 - `www.nemumi.dev` は使わない。

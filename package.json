@@ -23,7 +23,7 @@
     "check": "astro check"
   },
   "dependencies": {
-    "@astrojs/sitemap": "^3.7.4",
+    "@astrojs/sitemap": "^3.7.5",
     "astro": "^7.4.11",
     "ky": "^2.2.0",
     "rss-parser": "^3.13.0",

@@ -27,7 +27,6 @@
     "astro": "^7.4.11",
     "ky": "^2.2.0",
     "rss-parser": "^3.13.0",
-    "sharp": "0.35.5",
     "yaml": "^2.9.1",
     "zod": "^4.6.7"
   },
@@ -35,7 +34,7 @@
     "@astrojs/check": "^0.9.12",
     "@biomejs/biome": "2.6.7",
     "@lhci/cli": "0.16.1",
-    "knip": "6.44.1",
+    "knip": "6.45.1",
     "lefthook": "^2.2.2",
     "postcss-html": "^2.0.0",
     "stylelint": "^18.0.0",

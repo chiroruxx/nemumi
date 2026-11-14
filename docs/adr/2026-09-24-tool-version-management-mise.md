@@ -14,6 +14,7 @@
 
 ツールのバージョン管理には mise を採用する。
 プロジェクトで使うツールのバージョンは、以下のファイルで固定する。
+
 - Node.js: リポジトリ直下の `.node-version`。mise には `mise.toml` の `idiomatic_version_file_enable_tools` で読ませる。
 - Node.js 以外（pnpm など）: リポジトリ直下の `mise.toml`。
 

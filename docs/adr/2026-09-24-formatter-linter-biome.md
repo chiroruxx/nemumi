@@ -15,6 +15,7 @@ Biome の Astro 対応は実験的機能の扱いで、`.astro` のテンプレ�
 
 Biome を Formatter と CSS 以外の Linter に採用し、設定は `biome.jsonc` に記載する。Astro 内の CSS の Lint には Stylelint
 を使う（[Astro のスコープ付き CSS でネイティブ CSS Nesting を使う](2026-09-26-native-css-nesting.md)）。
+
 - `html.experimentalFullSupportEnabled` を有効にし、`.astro` のテンプレート部分も整形・Lint の対象とする。CSS の Lint は
   Biome で無効にする。
 - インデントはスペース 2 つとする。

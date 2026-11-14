@@ -14,6 +14,7 @@ Builds（[ホスティングに Cloudflare Workers（Static Assets）を採用�
 ## 決定
 
 CI には GitHub Actions を採用し、`.github/workflows/ci.yml` に定義する。
+
 - PR と `main` へのプッシュで、Lint（`biome ci`）・型チェック（`pnpm check`）・ビルド（`pnpm build`）を実行する。
 - ツールのインストールには `jdx/mise-action` を使い、ローカルと同じ `.node-version` と `mise.toml`
   のバージョンを使う（[ツールのバージョン管理に mise を採用し、mise.toml で固定する](2026-09-24-tool-version-management-mise.md)）。

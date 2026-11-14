@@ -38,6 +38,7 @@ PR の追跡」を参照する。
 
 対象: [external-content.ts:351](https://github.com/chiroruxx/nemumi/blob/957c922e39d330f99bb5d1abcc42525ffd55a5ac/scripts/lib/external-content.ts#L351)、
 `verifyLink`。
+
 - 現状: 遷移先の HTTPS とホストだけを確認し、対象アカウント・コンテンツのパスを確認しない。
   `/login` へ転送されて 200 を返すと `public`、404 を返すと `deleted` になる。後者は元コンテンツの削除根拠になってしまう。
 - 対応方針: リダイレクト応答は転送先を確認せず `public` とし、直接404・410を返す場合だけ削除する。

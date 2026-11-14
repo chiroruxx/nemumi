@@ -9,6 +9,7 @@
 ホスティング先の候補として Vercel と Cloudflare を検討した。
 
 Cloudflare には静的サイトの公開手段として Pages と Workers（Static Assets）の 2 つがある。
+
 - Pages は今後もサポートされるが保守中心となり、新機能への投資は Workers に集中する方針が示されている。
 - 2026 年 3 月時点で、Workers は静的配信・SSR・独自ドメインについて Pages と同等の機能を持つ。
 - Cron Triggers、Durable Objects、Workflows などは Workers でのみ利用できる。

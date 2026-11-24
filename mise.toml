@@ -1,5 +1,5 @@
 [tools]
-pnpm = "12.21.0"
+pnpm = "12.23.0"
 
 [settings]
 # Node.js は Cloudflare Workers Builds と共通の .node-version で指定する
